@@ -23,8 +23,12 @@ function SignUpModal() {
         <div css={s.title}>회원가입</div>
 
         <form css={s.form} onSubmit={handleSubmit}>
-          <input placeholder="이메일" />
-          <input placeholder="비밀번호" type="password" />
+          <label css={s.formLabel}>
+            <span css={s.required}>*</span>
+            아이디
+          </label>
+          <input placeholder="아이디를 입력하세요" />
+          <input placeholder="비밀번호를 8자 이상 입력해주세요" type="password" />
           <input placeholder="비밀번호 확인" type="password" />
           <input placeholder="이름" />
 

@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.StudyMapper">
+
+    <insert id="savePlan" parameterType="com.tutoroo.entity.StudyPlanEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO study_plans (user_id, goal, persona, roadmap_json, start_date, progress_rate, status, is_paid, created_at)
+        VALUES (#{userId}, #{goal}, #{persona}, #{roadmapJson}, NOW(), #{progressRate}, #{status}, #{isPaid}, NOW())
+    </insert>
+
+    <select id="findById" resultType="com.tutoroo.entity.StudyPlanEntity">
+        SELECT * FROM study_plans WHERE id = #{id}
+    </select>
+
+    <select id="findPlanById" resultType="com.tutoroo.entity.StudyPlanEntity">
+        SELECT * FROM study_plans WHERE id = #{id}
+    </select>
+
+    <select id="findActivePlansByUserId" resultType="com.tutoroo.entity.StudyPlanEntity">
+        SELECT * FROM study_plans
+        WHERE user_id = #{userId} AND status = 'PROCEEDING'
+        ORDER BY created_at DESC
+    </select>
+
+    <update id="updateProgress" parameterType="com.tutoroo.entity.StudyPlanEntity">
+        UPDATE study_plans
+        SET progress_rate = #{progressRate},
+            updated_at = NOW()
+        WHERE id = #{id}
+    </update>
+
+    <update id="updatePlan" parameterType="com.tutoroo.entity.StudyPlanEntity">
+        UPDATE study_plans
+        SET goal = #{goal},
+            roadmap_json = #{roadmapJson},
+            progress_rate = #{progressRate},
+            status = #{status},
+            is_paid = #{isPaid}
+        WHERE id = #{id}
+    </update>
+
+    <insert id="saveLog" parameterType="com.tutoroo.entity.StudyLogEntity">
+        INSERT INTO study_logs (
+            plan_id, study_date, day_count, content_summary, daily_summary,
+            test_score, ai_feedback, point_change, is_completed
+        ) VALUES (
+                     #{planId}, NOW(), #{dayCount}, #{contentSummary}, #{dailySummary},
+                     #{testScore}, #{aiFeedback}, #{pointChange}, #{isCompleted}
+                 )
+    </insert>
+
+    <select id="findLogsByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
+        SELECT * FROM study_logs
+        WHERE plan_id = #{planId}
+        ORDER BY study_date DESC
+    </select>
+
+</mapper>

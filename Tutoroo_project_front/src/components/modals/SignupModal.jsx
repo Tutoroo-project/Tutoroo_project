@@ -12,6 +12,10 @@ function SignUpModal() {
   const [isDuplicated, setIsDuplicated] = useState(null);
   // null: 확인 안 함 | true: 중복 | false: 사용 가능
 
+  const [isValidUsername, setIsValidUsername] = useState(null);
+  // null | true | false (아이디 유효성 검사)
+
+
   const closeSignUp = useModalStore((state) => state.closeSignUp);
   const openLogin = useModalStore((state) => state.openLogin);
   const login = useAuthStore((state) => state.login);
@@ -62,26 +66,56 @@ function SignUpModal() {
               css={s.input}
               value={username}
               onChange={(e) => {
-                setUsername(e.target.value);
-                setIsDuplicated(null);
+                const value = e.target.value;
+                setUsername(value);
+
+                const usernameRegex = /^(?=.*[a-z])[a-z0-9_]{4,12}$/;
+
+                if (!value) {
+                  setIsValidUsername(null);
+                  setIsDuplicated(null);
+                } else if (!usernameRegex.test(value)) {
+                  setIsValidUsername(false);
+                  setIsDuplicated(null); // 형식 틀리면 중복 의미 없음
+                } else {
+                  setIsValidUsername(true);
+                  setIsDuplicated(null); // 형식 바뀌면 다시 중복확인 필요
+                }
               }}
               placeholder="아이디를 입력하세요"
             />
+
             <button
               type="button"
               css={s.dupCheckBtn}
               onClick={handleCheckDuplicate}
-              disabled={!username || isChecking}
+              disabled={
+                isChecking ||
+                isDuplicated === false ||
+                isValidUsername !== true
+              }
             >
-              중복확인
+              {isChecking
+                ? "확인중..."
+                : isDuplicated === false
+                  ? "확인완료"
+                  : "중복확인"}
             </button>
+
           </div>
 
-          {/* 중복확인 결과 메시지 */}
-          {isDuplicated === true && (
+          {/* 아이디 상태 메시지 */}
+          {isValidUsername === false && (
+            <p css={s.helperText}>
+              아이디는 4~12자 영문 소문자, 숫자, _ 만 사용 가능합니다.
+            </p>
+          )}
+
+          {isValidUsername === true && isDuplicated === true && (
             <p css={s.errorText}>이미 사용 중인 아이디입니다.</p>
           )}
-          {isDuplicated === false && (
+
+          {isValidUsername === true && isDuplicated === false && (
             <p css={s.successText}>사용 가능한 아이디입니다.</p>
           )}
 
@@ -91,6 +125,7 @@ function SignUpModal() {
             비밀번호
           </label>
           <input
+            css={s.input}
             placeholder="비밀번호를 8자 이상 입력해주세요."
             type="password"
           />
@@ -98,21 +133,21 @@ function SignUpModal() {
             <span css={s.required}>*</span>
             비밀번호 확인
           </label>
-          <input placeholder="비밀번호를 다시 입력해주세요." type="password" />
+          <input css={s.input}placeholder="비밀번호를 다시 입력해주세요." type="password" />
 
           {/* 이메일 */}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             이메일
           </label>
-          <input placeholder="email@email.com" />
+          <input css={s.input} placeholder="email@email.com" />
 
           {/* 이름 */}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             이름
           </label>
-          <input placeholder="이름" />
+          <input css={s.input} placeholder="이름" />
 
           {/* 나이 + 성별 */}
           <div css={s.row}>
@@ -121,7 +156,7 @@ function SignUpModal() {
                 <span css={s.required}>*</span>
                 나이
               </label>
-              <input placeholder="나이" />
+              <input css={s.input} placeholder="나이" />
             </div>
 
             <div css={s.field}>
@@ -143,7 +178,7 @@ function SignUpModal() {
             <span css={s.required}>*</span>
             전화번호
           </label>
-          <input placeholder="010-1234-5678" />
+          <input css={s.input} placeholder="010-1234-5678" />
 
           {/* 프로필 이미지 업로드 */}
           <label css={s.uploadBox}>

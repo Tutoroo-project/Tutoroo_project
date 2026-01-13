@@ -1,6 +1,7 @@
 package com.tutoroo.entity;
 
 import lombok.*;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Getter
@@ -19,6 +20,9 @@ public class UserEntity {
     private String email;
     private String profileImage;
 
+    // [신규] 학부모 리포트용
+    private String parentPhone;
+
     // [OAuth2]
     private String provider;
     private String providerId;
@@ -29,11 +33,16 @@ public class UserEntity {
     private Integer totalPoint;
     private MembershipTier membershipTier;
 
-    // [Ranking] ★ 신규 추가: 배치로 업데이트 되는 랭킹
+    // [Ranking]
     private Integer dailyRank;
 
     private Integer level;
     private Integer exp;
+
+    // [신규] 스트릭 & 라이벌 시스템
+    private Integer currentStreak; // 연속 학습일 (잔디)
+    private LocalDate lastStudyDate; // 마지막 학습 날짜 (스트릭 계산용)
+    private Long rivalId;          // 현재 지정된 라이벌 ID
 
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;

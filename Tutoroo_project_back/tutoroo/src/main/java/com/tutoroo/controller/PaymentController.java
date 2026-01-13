@@ -29,9 +29,9 @@ public class PaymentController {
     @PostMapping("/verify")
     public ResponseEntity<PaymentDTO.VerificationResponse> verifyPayment(
             @RequestBody PaymentDTO.VerificationRequest request,
-            @AuthenticationPrincipal UserDetails userDetails // Security 유저 정보 주입
+            @AuthenticationPrincipal UserDetails userDetails
     ) {
-        // 인증 정보가 없을 경우(테스트 등) 처리
+        // 인증 정보가 없을 경우 처리 (익명 등)
         String username = (userDetails != null) ? userDetails.getUsername() : "anonymous";
 
         // 서비스의 verifyAndUpgrade 호출

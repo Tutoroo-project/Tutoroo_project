@@ -14,37 +14,26 @@ import java.util.List;
 @Mapper
 public interface StudyMapper {
 
-    // --- [기존 메서드 유지] ---
-
-    /** [기능: 신규 학습 플랜 저장] */
+    // --- [학습 플랜 관련] ---
     void savePlan(StudyPlanEntity plan);
-
-    /** [기능: 특정 학습 플랜 조회 (기존)] */
     StudyPlanEntity findPlanById(Long id);
-
-    /** * [기능: 사용자의 활성화된 학습 플랜 리스트 조회]
-     * 해결: image_5c66c8.png 오류 해결용
-     */
+    StudyPlanEntity findById(Long id);
     List<StudyPlanEntity> findActivePlansByUserId(Long userId);
-
-    /** [기능: 학습 플랜 상태 및 로드맵 업데이트 (전체 수정)] */
+    void updateProgress(StudyPlanEntity plan);
     void updatePlan(StudyPlanEntity plan);
 
-    /** [기능: 일일 학습 로그(테스트 결과 등) 저장] */
+    // --- [학습 로그(Log) 관련] ---
     void saveLog(StudyLogEntity log);
-
-    /** [기능: 특정 플랜의 모든 학습 로그 조회] */
     List<StudyLogEntity> findLogsByPlanId(Long planId);
+    StudyLogEntity findLatestLogByPlanId(Long planId);
+    void updateStudentFeedback(@Param("planId") Long planId,
+                               @Param("dayCount") int dayCount,
+                               @Param("feedback") String feedback);
 
-    // --- [★ 오류 해결을 위해 추가/통합된 메서드] ---
-
-    /** * [기능: ID로 플랜 조회 (서비스 호환용)]
-     * 설명: Service에서 findById를 호출하므로 findPlanById와 같은 기능을 하도록 매핑 필요
+    /** * [신규] 기능: 특정 기간의 학습 로그 조회 (Step 19 시험 출제용)
+     * 설명: startDay ~ endDay 사이의 'dailySummary'를 모아서 시험 문제를 출제합니다.
      */
-    StudyPlanEntity findById(Long id);
-
-    /** * [기능: 진도율(Progress)만 부분 업데이트]
-     * 사용처: StudyController /progress/{planId} 엔드포인트
-     */
-    void updateProgress(StudyPlanEntity plan);
+    List<StudyLogEntity> findLogsBetweenDays(@Param("planId") Long planId,
+                                             @Param("startDay") int startDay,
+                                             @Param("endDay") int endDay);
 }

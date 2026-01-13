@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.PaymentMapper">
+
+    <insert id="save" parameterType="com.tutoroo.entity.PaymentEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO payments (
+            user_id, plan_id, imp_uid, merchant_uid, item_name,
+            pay_method, pg_provider, amount, status, paid_at
+        ) VALUES (
+                     #{userId}, #{planId}, #{impUid}, #{merchantUid}, #{itemName},
+                     #{payMethod}, #{pgProvider}, #{amount}, #{status}, #{paidAt}
+                 )
+    </insert>
+
+    <select id="findByImpUid" resultType="com.tutoroo.entity.PaymentEntity">
+        SELECT
+            id, user_id AS userId, plan_id AS planId,
+            imp_uid AS impUid, merchant_uid AS merchantUid, item_name AS itemName,
+            pay_method AS payMethod, pg_provider AS pgProvider,
+            amount, status, paid_at AS paidAt
+        FROM payments
+        WHERE imp_uid = #{impUid}
+    </select>
+
+</mapper>

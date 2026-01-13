@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.CommonMapper">
+
+    <select id="findPromptContentByKey" resultType="string">
+        SELECT content FROM prompts WHERE prompt_key = #{key}
+    </select>
+
+    <select id="findTtsCacheByHash" resultType="com.tutoroo.entity.TtsCacheEntity">
+        SELECT * FROM tts_cache WHERE text_hash = #{textHash}
+    </select>
+
+    <insert id="saveTtsCache" parameterType="com.tutoroo.entity.TtsCacheEntity">
+        INSERT IGNORE INTO tts_cache (text_hash, audio_base64, created_at)
+        VALUES (#{textHash}, #{audioBase64}, NOW())
+    </insert>
+
+</mapper>

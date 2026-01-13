@@ -19,7 +19,7 @@ public class PaymentDTO {
         private String impUid;      // 포트원 결제 고유번호
         private String merchantUid; // 가맹점 주문번호
 
-        // 구독 결제인 경우 planId는 null일 수 있음 (혹은 특정 상품 ID)
+        // 구독 결제인 경우 planId는 null일 수 있음
         private Long planId;
         private int amount;         // 결제 금액 (9900, 29900 등)
 
@@ -33,8 +33,8 @@ public class PaymentDTO {
     @AllArgsConstructor
     public static class VerificationResponse {
         private boolean success;    // 성공 여부
-        private String message;     // 결과 메시지 (예: "STANDARD 등급으로 변경되었습니다.")
-        private String paidAt;      // 결제 완료 시간 (String ISO 포맷)
-        private String nextPaymentDate; // [추가] 다음 결제일/만료일 안내
+        private String message;     // 결과 메시지
+        private String paidAt;      // 결제 완료 시간 (ISO String)
+        private String nextPaymentDate; // 다음 결제일 안내
     }
 }

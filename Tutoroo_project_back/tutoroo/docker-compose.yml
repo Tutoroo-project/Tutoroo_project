@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  # MySQL 부분 삭제함 (원격 서버 35.185.220.220 사용 예정)
+
+  # Redis 캐시 서버 (로컬 실행)
+  tutoroo-redis:
+    image: redis:alpine
+    container_name: tutoroo-redis
+    restart: always
+    ports:
+      - "6379:6379"

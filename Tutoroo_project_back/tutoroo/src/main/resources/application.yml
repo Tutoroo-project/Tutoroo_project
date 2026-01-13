@@ -17,7 +17,13 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
-  # [추가] OAuth2 설정
+  # [Flyway] DB 형상 관리 (개발용 설정)
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    clean-disabled: true # 개발 중 스키마 초기화(clean) 명령 허용
+
+  # [OAuth2] 소셜 로그인 클라이언트 설정
   security:
     oauth2:
       client:

@@ -1,7 +1,6 @@
 /** @jsxImportSource @emotion/react */
-
-
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/layouts/Header";
 import ModalRoot from "../../components/modals/ModalRoot";
 
@@ -29,6 +28,7 @@ function getWeekDates(offset = 0) {
 }
 
 function DashboardPage() {
+  const navigate = useNavigate(); 
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
 
@@ -52,8 +52,11 @@ function DashboardPage() {
       <div css={s.pageBg}>
         <main css={s.container}>
           <div css={s.newtutorbtn}>
-            <div>신규 선생님 등록 +</div>
+            <div onClick={() => navigate("/tutor")} style={{ cursor: "pointer" }}>
+              신규 선생님 등록 +
             </div>
+          </div>
+
           <section css={s.greeting}>
             <div css={s.greetingText}>
               <h2>반가워요 {userName}님!</h2>
@@ -62,7 +65,7 @@ function DashboardPage() {
 
             <div css={s.actionWrap}>
               <button>학습선택 ▼</button>
-              <button>학습하러 가기</button>
+              <button onClick={() => navigate("/study")}>학습하러 가기</button>
             </div>
           </section>
 
@@ -152,7 +155,6 @@ function DashboardPage() {
         </main>
       </div>
 
-      {/* ✅ 모달은 대시보드 위에 항상 떠야 하니까 Root를 여기 박아두면 끝 */}
       <ModalRoot />
     </>
   );

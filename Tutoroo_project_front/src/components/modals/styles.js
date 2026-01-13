@@ -6,13 +6,17 @@ import { css } from "@emotion/react";
 export const overlay = css`
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
 `;
 
+/* ===============================
+   Modal Container
+================================ */
 /* ===============================
    Modal Container
 ================================ */
@@ -50,7 +54,7 @@ export const logo = css`
   }
 
   h2 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: #ff8a3d;
   }
@@ -62,13 +66,13 @@ export const logo = css`
 export const form = css`
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 
   input {
-    height: 53px;
-    border-radius: 8px;
-    border: 1px solid #dddddd;
+    height: 40px;
     padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #dcdcdc;
     font-size: 14px;
 
     &:focus {
@@ -78,49 +82,37 @@ export const form = css`
   }
 `;
 
-export const optionRow = css`
-  display: flex;
-  justify-content: space-between;
-  height: 15px;
-`;
-
-export const keepLogin = css`
-  display: flex;
-  gap: 3px;
-  font-size: 13px;
-  color: #888;
-  cursor: pointer;
-
-  input {
-    padding: 0;
-    height: 13px;
-    accent-color: #ffffff;
-    transform: scale(0.9);
-  }
-`;
-
-/* =========================
-   아이디 / 비밀번호 찾기
-========================= */
-
-export const links = css`
-  display: flex;
-  gap: 10px;
-  font-size: 12px;
-  color: #999;
-
-  span:hover {
-    text-decoration: underline;
-  }
-`;
-
-export const findId = css`
-  font-size: 13px;
-  color: #777777;
+/* ===============================
+   Login / Submit Button
+================================ */
+export const submitBtn = css`
+  margin-top: 12px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ff8a3d;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
   cursor: pointer;
 
   &:hover {
-    text-decoration: underline;
+    background: #ff7a1f;
+  }
+`;
+
+/* ===============================
+   Bottom Links
+================================ */
+export const linkRow = css`
+  margin-top: 10px;
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #666;
+
+  span {
+    cursor: pointer;
   }
 `;
 
@@ -177,17 +169,16 @@ export const signupLink = css`
    소셜 로그인
 ================================ */
 export const socialRow = css`
+  margin-top: 16px;
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-top: 22px;
+  gap: 14px;
 `;
 
 export const socialBtn = css`
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: none;
   display: flex;
   align-items: center;
   justify-content: center;

@@ -9,21 +9,19 @@ import naverIcon from "../../assets/icons/socials/Naver_icons.png";
 import kakaoIcon from "../../assets/icons/socials/Kakaotalk_icons.png";
 
 function LoginModal() {
-  const closeLogin = useModalStore((state) => state.closeLogin);
-  const openFindId = useModalStore((state) => state.openFindId);
-  const openFindPw = useModalStore((state) => state.openFindPw);
-  const openSignUp = useModalStore((state) => state.openSignUp);
-  const login = useAuthStore((state) => state.login);
+    const closeLogin = useModalStore((state) => state.closeLogin);
+    const openSignUp = useModalStore((state) => state.openSignUp);
+    const login = useAuthStore((state) => state.login);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
+    const handleSubmit = (e) => {
+        e.preventDefault();
 
-    // ⚠️ 임시 로그인 (백엔드 붙으면 교체)
-    login({ id: 1, name: "OOO" });
+        // ⚠️ 임시 로그인 (백엔드 붙으면 교체)
+        login({ id: 1, name: "OOO" });
 
-    // ✅ 성공하면 모달만 닫기
-    closeLogin();
-  };
+        // ✅ 성공하면 모달만 닫기
+        closeLogin();
+    };
 
   return (
     <div css={s.overlay} onClick={closeLogin}>

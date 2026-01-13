@@ -41,17 +41,38 @@
     <insert id="saveLog" parameterType="com.tutoroo.entity.StudyLogEntity">
         INSERT INTO study_logs (
             plan_id, study_date, day_count, content_summary, daily_summary,
-            test_score, ai_feedback, point_change, is_completed
+            test_score, ai_feedback, student_feedback, point_change, is_completed
         ) VALUES (
                      #{planId}, NOW(), #{dayCount}, #{contentSummary}, #{dailySummary},
-                     #{testScore}, #{aiFeedback}, #{pointChange}, #{isCompleted}
+                     #{testScore}, #{aiFeedback}, #{studentFeedback}, #{pointChange}, #{isCompleted}
                  )
     </insert>
+
+    <update id="updateStudentFeedback">
+        UPDATE study_logs
+        SET student_feedback = #{feedback}
+        WHERE plan_id = #{planId} AND day_count = #{dayCount}
+    </update>
 
     <select id="findLogsByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
         SELECT * FROM study_logs
         WHERE plan_id = #{planId}
         ORDER BY study_date DESC
+    </select>
+
+    <select id="findLatestLogByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
+        SELECT * FROM study_logs
+        WHERE plan_id = #{planId}
+        ORDER BY study_date DESC
+            LIMIT 1
+    </select>
+
+    <select id="findLogsBetweenDays" resultType="com.tutoroo.entity.StudyLogEntity">
+        SELECT * FROM study_logs
+        WHERE plan_id = #{planId}
+          AND day_count &gt;= #{startDay}
+          AND day_count &lt;= #{endDay}
+        ORDER BY day_count ASC
     </select>
 
 </mapper>

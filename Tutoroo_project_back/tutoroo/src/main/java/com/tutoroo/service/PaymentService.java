@@ -32,40 +32,34 @@ public class PaymentService {
             throw new IllegalArgumentException("존재하지 않는 사용자입니다.");
         }
 
-        // 2. 금액에 따른 등급 결정 (하드코딩된 금액 정책)
+        // 2. 금액에 따른 등급 결정 (정책 하드코딩)
         MembershipTier newTier;
         if (request.getAmount() == 9900) {
             newTier = MembershipTier.STANDARD;
         } else if (request.getAmount() == 29900) {
             newTier = MembershipTier.PREMIUM;
         } else {
+            // 예외 처리 또는 기본 로직
             throw new IllegalArgumentException("유효하지 않은 결제 금액입니다: " + request.getAmount());
         }
 
-        // 3. 등급 적용 및 기간 연장 (1개월)
+        // 3. 등급 적용
         user.setMembershipTier(newTier);
 
-        // [주의] UserEntity에 subscriptionEndDate 필드가 추가되어야 합니다.
-        // 만약 필드가 없다면 이 부분 로직은 UserEntity 수정 후 주석 해제하세요.
-        /*
-        LocalDateTime now = LocalDateTime.now();
-        if (user.getSubscriptionEndDate() != null && user.getSubscriptionEndDate().isAfter(now)) {
-            user.setSubscriptionEndDate(user.getSubscriptionEndDate().plusMonths(1));
-        } else {
-            user.setSubscriptionEndDate(now.plusMonths(1));
-        }
-        */
+        // (필요 시 SubscriptionEndDate 연장 로직 추가)
+        // user.setSubscriptionEndDate(LocalDateTime.now().plusMonths(1));
 
-        // 유저 정보 업데이트 (등급 변경 반영)
-        // 이전 단계의 UserMapper.xml에 있는 update 쿼리 사용
+        // 유저 정보 업데이트
         userMapper.update(user);
 
-        // 4. 결제 내역 저장 (PaymentEntity 빌더 패턴 사용)
+        // 4. 결제 내역 저장
         PaymentEntity payment = PaymentEntity.builder()
                 .userId(user.getId())
+                .planId(request.getPlanId()) // Plan ID가 있다면 저장
                 .amount(request.getAmount())
                 .payMethod(request.getPayMethod())
-                .itemName(newTier.name() + " SUBSCRIPTION") // 상품명 설정
+                .pgProvider(request.getPgProvider())
+                .itemName(newTier.name() + " SUBSCRIPTION")
                 .status("PAID")
                 .paidAt(LocalDateTime.now())
                 .impUid(request.getImpUid())
@@ -81,7 +75,7 @@ public class PaymentService {
                 .success(true)
                 .message(String.format("멤버십이 %s 등급으로 업그레이드 되었습니다.", newTier.name()))
                 .paidAt(LocalDateTime.now().toString())
-                // .nextPaymentDate(user.getSubscriptionEndDate().toString()) // 필드 있으면 추가
+                // .nextPaymentDate(...) // 필요 시 계산하여 주입
                 .build();
     }
 }

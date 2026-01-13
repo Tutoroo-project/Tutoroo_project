@@ -17,7 +17,8 @@ public class UserDTO {
     @NoArgsConstructor
     @AllArgsConstructor
     public static class UpdateRequest {
-        private String phone; // 수정 가능한 연락처 정보
+        private String password; // [추가] 본인 확인을 위한 검증용 비밀번호
+        private String phone;    // 수정 가능한 연락처 정보
     }
 
     @Data

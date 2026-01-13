@@ -1,64 +1,66 @@
 import { css } from "@emotion/react";
 
-/* =========================
-   공통 Overlay / Modal
-========================= */
-
+/* ===============================
+   Overlay
+================================ */
 export const overlay = css`
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.4);
+  background: rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(3px);
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 9999;
 `;
 
+/* ===============================
+   Modal Container
+================================ */
 export const modal = css`
   width: 360px;
-  background-color: #ffffff;
+  padding: 24px;
+  background: #ffffff;
   border-radius: 16px;
-  padding: 28px 24px 32px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.18);
 `;
 
-/* =========================
-   로고 영역
-========================= */
-
+/* ===============================
+   Logo Area
+================================ */
 export const logo = css`
   display: flex;
   flex-direction: column;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 
   img {
-    width: 48px;
-    height: 48px;
-    margin-bottom: 8px;
+    width: 46px;
+    height: 46px;
+    object-fit: contain;
+    margin-bottom: 6px;
   }
 
   h2 {
-    font-size: 24px;
+    font-size: 22px;
     font-weight: 700;
     color: #ff8a3d;
   }
 `;
 
-/* =========================
-   Form 공통
-========================= */
-
+/* ===============================
+   Form
+================================ */
 export const form = css`
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 8px;
 
   input {
-    height: 53px;
-    border-radius: 8px;
-    border: 1px solid #dddddd;
+    height: 40px;
     padding: 0 12px;
+    border-radius: 8px;
+    border: 1px solid #dcdcdc;
     font-size: 14px;
 
     &:focus {
@@ -68,172 +70,82 @@ export const form = css`
   }
 `;
 
-export const optionRow = css`
+/* ===============================
+   Login / Submit Button
+================================ */
+export const submitBtn = css`
+  margin-top: 12px;
+  height: 44px;
+  border-radius: 10px;
+  background: #ff8a3d;
+  color: #ffffff;
+  font-size: 15px;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+
+  &:hover {
+    background: #ff7a1f;
+  }
+`;
+
+/* ===============================
+   Bottom Links
+================================ */
+export const linkRow = css`
+  margin-top: 10px;
   display: flex;
   justify-content: space-between;
-  height: 15px;
-`;
-
-export const keepLogin = css`
-  display: flex;
-  gap: 3px;
-  font-size: 13px;
-  color: #888;
-  cursor: pointer;
-
-  input {
-    padding: 0;
-    height: 13px;
-    accent-color: #ffffff;
-    transform: scale(0.9);
-  }
-`;
-
-/* =========================
-   아이디 / 비밀번호 찾기
-========================= */
-
-export const links = css`
-  display: flex;
-  gap: 10px;
   font-size: 12px;
-  color: #999;
+  color: #666;
 
-  span:hover {
-    text-decoration: underline;
+  span {
+    cursor: pointer;
   }
 `;
 
-export const findId = css`
-  font-size: 13px;
-  color: #777777;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-export const findPw = css`
-  font-size: 13px;
-  color: #777777;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
-`;
-
-/* =========================
-   로그인 / 회원가입 버튼
-========================= */
-
-export const submitBtn = css`
-  margin-top: 4px; // 옵션과 너무 붙지 않게
-  height: 44px;
-  border-radius: 8px;
-  background-color: #ff8a3d;
-  color: white;
-  font-size: 16px;
-  font-weight: 600;
-
-  &:hover {
-    background-color: #ff7a1f;
-  }
-`;
-
-export const signupRow = css`
-  display: flex;
-  justify-content: center;
-  margin-top: 14px;
-`;
-
-export const signupMent = css`
-  font-size: 14px;
-`;
-
-export const signup = css`
-  font-size: 14px;
-  margin-left: 8px;
+export const signupLink = css`
   color: #ff8a3d;
-  cursor: pointer;
-
-  &:hover {
-    text-decoration: underline;
-  }
+  font-weight: 600;
 `;
 
-/* =========================
-   소셜 로그인
-========================= */
-
+/* ===============================
+   Social Login
+================================ */
 export const socialRow = css`
+  margin-top: 16px;
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-top: 22px;
+  gap: 14px;
 `;
 
 export const socialBtn = css`
-  width: 48px;
-  height: 48px;
+  width: 44px;
+  height: 44px;
   border-radius: 50%;
-  border: none;
   display: flex;
   align-items: center;
   justify-content: center;
+  border: none;
   cursor: pointer;
 
   img {
     width: 22px;
     height: 22px;
+    object-fit: contain;
   }
 `;
 
+/* --- Provider Colors --- */
 export const naver = css`
-  background-color: #03c75a;
+  background: #03c75a;
 `;
 
 export const google = css`
-  background-color: #ffffff;
-  border: 1px solid #dddddd;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
 `;
 
 export const kakao = css`
-  background-color: #fee500;
-`;
-
-/* =========================
-   FindId / FindPw / Signup 공통
-========================= */
-
-export const title = css`
-  font-size: 20px;
-  font-weight: 700;
-  text-align: center;
-  margin-bottom: 20px;
-`;
-
-export const description = css`
-  font-size: 14px;
-  color: #666666;
-  text-align: center;
-  margin-bottom: 20px;
-`;
-
-/* =========================
-   회원가입 Modal창
-========================= */
-export const formLabel = css`
-  font-size: 20px;
-  font-weight: 500;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-`;
-
-export const required = css`
-  color: #ff3b30;
-  font-size: 20px;
-  line-height: 1;
+  background: #fee500;
 `;

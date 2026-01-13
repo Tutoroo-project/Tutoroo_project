@@ -18,4 +18,16 @@ export const global = css`
     font-family: inherit;
   }
 
+  /* =========================
+     🔥 Swiper 강제 복구
+     ========================= */
+
+  .swiper-wrapper {
+    display: flex !important;
+    flex-direction: row !important;
+  }
+
+  .swiper-slide {
+    flex-shrink: 0;
+  }
 `;

@@ -12,11 +12,11 @@ import kangarooImg from "../../assets/images/mascots/logo_icon.png";
 import dragonImg from "../../assets/images/mascots/logo_dragon.png";
 
 const TUTORS = [
-  { id: "tiger", name: "호랑이 선생님", image: tigerImg, desc: "엄격하고 카리스마 있는 스파르타 스타일! 딴짓은 용납 못해요." },
-  { id: "turtle", name: "거북이 선생님", image: turtleImg, desc: "천천히, 하지만 확실하게! 이해할 때까지 친절하게 반복해줘요." },
-  { id: "rabbit", name: "토끼 선생님", image: rabbitImg, desc: "빠르고 효율적인 핵심 요약! 급한 시험 대비에 딱이에요." },
-  { id: "kangaroo", name: "캥거루 선생님", image: kangarooImg, desc: "주머니에서 꿀팁이 쏟아져요! 실전 예제 위주의 수업." },
-  { id: "dragon", name: "드래곤 선생님", image: dragonImg, desc: "방대한 지식의 수호자. 깊이 있는 원리 이해를 도와줘요." },
+  { id: "tiger", name: "호랑이 선생님", image: tigerImg, desc: <>엄격하고 카리스마 있는 스파르타 스타일!<br/> 딴짓은 용납 못해요.</> },
+  { id: "turtle", name: "거북이 선생님", image: turtleImg, desc: <>천천히, 하지만 확실하게!<br/> 이해할 때까지 친절하게 반복해줘요.</> },
+  { id: "rabbit", name: "토끼 선생님", image: rabbitImg, desc: <>빠르고 효율적인 핵심 요약!<br/> 급한 시험 대비에 딱이에요.</> },
+  { id: "kangaroo", name: "캥거루 선생님", image: kangarooImg, desc: <>주머니에서 꿀팁이 쏟아져요!<br/> 실전 예제 위주의 수업.</> },
+  { id: "dragon", name: "드래곤 선생님", image: dragonImg, desc: <>방대한 지식의 수호자.<br/> 깊이 있는 원리 이해를 도와줘요.</> },
 ];
 
 function TutorSelectionPage() {
@@ -31,7 +31,7 @@ function TutorSelectionPage() {
     setTutorId("kangaroo");
     setIsCustomMode(false);
     
-  }, [loadUserStatus, setTutorId]); // 의존성 배열에 함수 추가
+  }, [loadUserStatus, setTutorId]);
 
   const activeTutor = TUTORS.find((t) => t.id === selectedTutorId) || TUTORS[3];
 

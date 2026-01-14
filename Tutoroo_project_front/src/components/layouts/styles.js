@@ -8,18 +8,18 @@ export const header = css`
 `;
 
 export const inner = css`
-  width: 1270px;
-  height: 100%;
-  margin: 0 auto;
-
   display: flex;
   align-items: center;
   justify-content: space-between;
+  width: 1440px;
+  height: 72px;
+  margin: 0 auto;
 `;
 
 export const logoWrap = css`
   display: flex;
   align-items: center;
+  cursor: pointer;
 `;
 
 export const logoImg = css`
@@ -29,12 +29,13 @@ export const logoImg = css`
 `;
 
 export const profileBtn = css`
-  height: 40px;
+  width: 90px;
+  height: 34px;
   margin-right: 40px;
   padding: 0 16px;
   border-radius: 12px;
-  border: 1px solid #000;
+  border: 1px solid #dbdbdb;
   background: #ffd8a8;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
 `;

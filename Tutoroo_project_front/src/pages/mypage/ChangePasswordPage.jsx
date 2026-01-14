@@ -54,7 +54,7 @@ function ChangePasswordPage() {
                         </div>
                         
                     </div>
-                    <button css={s.subBtn}>변경하기</button>
+                    <button css={s.changesubBtn}>변경하기</button>
                 </div>
 
             </main>

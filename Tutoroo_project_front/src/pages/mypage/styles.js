@@ -116,18 +116,23 @@ export const wrapper = css`
     height: calc(100vh - 72px);
     background-color: #ffffff;
     padding-top: 50px;
+    overflow: hidden;
     box-sizing: border-box;
-    justify-content: center;
+    /* justify-content: center; */
     
 
 `;
 
 export const mainContainer = css`
+    flex: 1;
     display: flex;
     justify-content: center;
-    align-items: center;
-    height: 100%;
-    max-width: 800px;
+    align-items: flex-start;
+    /* height: 100%; */
+    /* max-width: 800px; */
+    padding-bottom: 100px;
+    padding-top: 50px;
+    overflow-y: hidden;
 `;
 
 export const scrollableCard = css`
@@ -312,7 +317,18 @@ export const pageTitle = css`
     color: #333;    
     text-align: center;
     margin-top: 20px;
-    margin-bottom: 50px;
+    margin-bottom: 20px;
+    
+    
+`;
+
+export const withdrawalTitle = css`
+    font-size: 40px;
+    font-weight: 600;
+    color: red;    
+    text-align: center;
+    margin-top: 40px;
+    margin-bottom: 10px;
     
     
 `;
@@ -322,11 +338,11 @@ export const passwordFormSection = css` //label + input 전체 레이아웃
     flex-direction: column;
     align-items: center;
     width: 100%;
-    margin-bottom: 50px; //버튼과의 간격
+    margin-top: 20px;
     gap: 20px; //입력창들과의 간격
     padding-bottom: 40px;
     border-bottom: 1px solid #e0e0e0;
-    margin-bottom: 40px;
+    margin-bottom: 60px;
     
 `;
 
@@ -340,7 +356,7 @@ export const passwordInputGroup = css` //label + input 하나씩 묶음
         font-size: 24px;
         font-weight: 500;
         color: #333;
-        margin-bottom: 10px;
+        margin-bottom: 5px;
         text-align: left;
     }
 
@@ -362,6 +378,29 @@ export const passwordInputGroup = css` //label + input 하나씩 묶음
 
     }
     
+
+`;
+
+export const changesubBtn = css`
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 50px;
+    border: none;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background-color:#FF8A3D ;
+    font-size: 28px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+
+    &:hover {
+        background-color: #e67e22;
+    }
+
 
 `;
 // changepassword
@@ -387,19 +426,21 @@ export const withdrawalFormSection = css`
     flex-direction: column;
     width: 100%;
     border-bottom: 1px solid #dbdbdb;
-    margin-bottom: 40px;
-    padding-bottom: 40px;
+    
+    padding-bottom: 20px;
    
 `;
 
 export const warningBox = css`
-    width: 100%;
+    width: 90%;
     border: 1px solid #FFD0D0;
     border-radius: 10px;
     background-color: #FFF5F5;
     padding: 20px;
+    margin: 27px;
     box-sizing: border-box;
-    margin-bottom: 25px;
+    margin-bottom: 20px;
+    justify-content: center;
 
     h3 {
         display: flex;
@@ -411,10 +452,9 @@ export const warningBox = css`
         margin: 0 0 10px 0;
 
         svg {
-            font-size: 18px;
+            font-size: 20px;
             color: #FBC02D; /* 노란색 아이콘 */
-            background-color: #D32F2F; /* 배경을 채워주는 느낌이 필요하면 조정 */
-            border-radius: 50%;
+           
         }
 
     }
@@ -431,4 +471,131 @@ export const warningBox = css`
             list-style-type: disc; /* 점 모양 */
         }
     }
+`;
+
+export const agreementSection = css`
+    display: flex;
+    width: 100%;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+
+    input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        margin-left: 30px;
+        cursor: pointer;
+        accent-color: #fff;
+
+    }
+
+    label {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+    }
+   
+`;
+
+export const reasonBox = css`
+    width: 90%;
+    margin-bottom: 1px;
+    margin-left: 27px;
+
+    .label-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 5px;
+
+        label {
+            font-size: 16px;
+            font-weight: 500;
+            color: #333;
+        }
+
+        span {
+            font-size: 12px;
+            color: #999;
+        }
+
+    }
+
+    textarea {
+        width: 100%;
+        height: 150px;
+        padding: 10px;
+        border: 1px solid #dbdbdb;
+        border-radius: 10px;
+        font-size: 14px;
+        resize: none;
+        box-sizing: border-box;
+        outline: none;
+        font-family: inherit;
+
+        &::placeholder {
+            color: #aaa;
+        }
+        &:focus {
+            border-color: #575454;
+        }
+
+    }
+`;
+
+export const passwordConfirm = css`
+    display: flex;
+    width: 90%;
+    flex-direction: column;
+    margin-bottom: 20px;
+    
+
+    label {
+        font-size: 16px;
+        font-weight: 500;
+        color: #333;
+        margin: 5px 0;
+        text-align: left;
+    }
+
+    input {
+        width: 100%;
+        height: 35px;
+        padding: 0 10px;
+        border: 1px solid #dbdbdb;
+        border-radius: 10px;
+        font-size: 16px;
+        outline: none;
+        box-sizing: border-box;
+
+        &:focus {
+            border-color: #FF8A3D;
+        }
+    }
+    
+
 `
+
+export const withdrawalSubBtn = css`
+    
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 90%;
+    height: 50px;
+    border: none;
+    border-radius: 10px;
+    background-color:#FF8A3D ;
+    font-size: 28px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: 0.2s;
+
+    &:hover {
+        background-color: #e67e22;
+    }
+
+
+`;
+
+

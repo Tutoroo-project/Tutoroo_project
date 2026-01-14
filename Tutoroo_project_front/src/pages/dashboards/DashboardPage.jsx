@@ -1,6 +1,5 @@
 /** @jsxImportSource @emotion/react */
 import { useEffect, useState } from "react";
-import { FaPlus } from "react-icons/fa";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/layouts/Header";
 import ModalRoot from "../../components/modals/ModalRoot";
@@ -49,12 +48,13 @@ function DashboardPage() {
     if (!user) openLogin();
   }, [user, openLogin]);
 
-  // ✅ 학습 목록 불러오기
+  // ✅ 학습 목록 불러오기 (임시 함수 - 실제 구현 필요 시 주석 해제)
+  /*
   useEffect(() => {
     if (!user) return;
-
     fetchStudyList();
   }, [user]);
+  */
 
   return (
     <>
@@ -84,7 +84,6 @@ function DashboardPage() {
                 onChange={(e) => setSelectedStudyId(e.target.value)}
               >
                 <option value="">학습 선택</option>
-                //임시
                 <option value="java">Java</option>
                 {studyList.map((study) => (
                   <option key={study.id} value={study.id}>
@@ -124,7 +123,12 @@ function DashboardPage() {
               </div>
             </div>
 
-            <div css={s.card}>
+            {/* ✅ [수정됨] 클릭 시 랭킹 페이지로 이동 */}
+            <div 
+              css={s.card} 
+              onClick={() => navigate("/ranking")} 
+              style={{ cursor: "pointer" }}
+            >
               <span>누적 포인트 / 랭킹</span>
               <strong css={s.pointText}>0 P</strong>
               <p css={s.rankText}>현재 전체 -위</p>

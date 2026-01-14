@@ -35,7 +35,7 @@ function WithdrawalPage() {
             <Sidebar />
             <main css={s.mainContainer}>
                 <div css={s.withdrawalCard}>
-                    <h1 css={s.pageTitle}>회원탈퇴</h1>
+                    <h1 css={s.withdrawalTitle}>회원탈퇴</h1>
                     <div css={s.withdrawalFormSection}>
                         <div css={s.warningBox}>
                             <h3>
@@ -51,22 +51,25 @@ function WithdrawalPage() {
 
                         <div css={s.agreementSection}>
                             <input type="checkbox"  id="agreeCheck" checked={agree} onChange={(e) => setAgree(e.target.checked) } />
-                            <label htmlFor="agreeCheck">안내사항을 모두 확인하였으며, 이에 동의</label>
+                            <label htmlFor="agreeCheck">안내사항을 모두 확인하였으며, 이에 동의합니다</label>
                         </div>
 
                         <div css={s.reasonBox}>
-                            <div className="label-row"></div>
-                            <label>탈퇴 사유</label>
-                            <span>최대 300자 이내</span>
+                            <div className="label-row">
+                                <label>탈퇴 사유</label>
+                                <span>최대 300자 이내</span>
+                            </div>
+                            <textarea 
+                                placeholder="탈퇴사유에 대하여 입력해주세요"
+                                value={reason} 
+                                onChange={(e) => setReason(e.target.value)} 
+                                maxLength={300} />
+                            
                         </div>
-                        <textarea 
-                        placeholder="탈퇴사유에 대하여 입력해주세요"
-                         value={reason} 
-                         onChange={(e) => setReason(e.target.value)} 
-                         maxLength={300} />
+                        
                     </div>
 
-                    <div css={s.passwordInputGroup}>
+                    <div css={s.passwordConfirm}>
                         <label>비밀번호 확인</label>
                         <input 
                             type="password" 
@@ -75,7 +78,7 @@ function WithdrawalPage() {
                             onChange={(e) => setPassword(e.target.value)} />
                     </div>
 
-                    <button css={s.subBtn}>탈퇴하기</button>
+                    <button css={s.withdrawalSubBtn}>탈퇴하기</button>
 
                 </div>
             </main>

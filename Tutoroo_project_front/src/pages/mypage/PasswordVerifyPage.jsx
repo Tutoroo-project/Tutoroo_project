@@ -9,6 +9,26 @@ import logoImg from "../../assets/images/mascots/logo.jpg";
 function PasswordVerifyPage() {
     const [ password, setPassword ] = useState("");
     const navigate = useNavigate();
+
+    const onClickHandleConfirm = () => {
+        // if (!password) {
+        //     alert("비밀번호를 확인해주세요.")
+        //     return;
+        // }
+
+        if (password.trim() === "") { //임시 데이터
+            alert("비밀번호를 입력해주세요.");
+            return;
+        }
+        navigate("/mypage/changeinfo"); //임시 변환
+    }
+
+    const handleKeyPress = (e) => {
+        if (e.key === "Enter") {
+        onClickHandleConfirm();
+        }
+    };
+
     return <>
         <Header />
         
@@ -24,9 +44,9 @@ function PasswordVerifyPage() {
                 </p>
                 <div css={s.inputGroup}>
                     <label>비밀번호 확인</label>
-                    <input type="password" placeholder="비밀번호를 입력해주세요" />
+                    <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} onKeyDown={handleKeyPress} placeholder="비밀번호를 입력해주세요" />
                 </div>
-                <button css={s.submitBtn}>확인</button>
+                <button css={s.submitBtn} onClick={onClickHandleConfirm}>확인</button>
             </div>
         </div>
            

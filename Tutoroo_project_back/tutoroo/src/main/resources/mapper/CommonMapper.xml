@@ -7,12 +7,18 @@
     </select>
 
     <select id="findTtsCacheByHash" resultType="com.tutoroo.entity.TtsCacheEntity">
-        SELECT * FROM tts_cache WHERE text_hash = #{textHash}
+        SELECT
+            id,
+            text_hash,
+            audio_path AS audioPath,
+            created_at
+        FROM tts_cache
+        WHERE text_hash = #{textHash}
     </select>
 
     <insert id="saveTtsCache" parameterType="com.tutoroo.entity.TtsCacheEntity">
-        INSERT IGNORE INTO tts_cache (text_hash, audio_base64, created_at)
-        VALUES (#{textHash}, #{audioBase64}, NOW())
+        INSERT IGNORE INTO tts_cache (text_hash, audio_path, created_at)
+        VALUES (#{textHash}, #{audioPath}, NOW())
     </insert>
 
 </mapper>

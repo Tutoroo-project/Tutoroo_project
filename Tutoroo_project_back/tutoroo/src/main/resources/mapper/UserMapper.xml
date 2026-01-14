@@ -28,7 +28,14 @@
 
     <update id="update" parameterType="com.tutoroo.entity.UserEntity">
         UPDATE users
-        SET total_point = #{totalPoint},
+        SET
+            username = #{username},
+            password = #{password},
+            name = #{name},
+            phone = #{phone},
+            email = #{email},
+            profile_image = #{profileImage},
+            total_point = #{totalPoint},
             membership_tier = #{membershipTier},
             level = #{level},
             exp = #{exp},
@@ -62,8 +69,10 @@
     </update>
 
     <update id="updateUserPointByPlan">
-        UPDATE users u JOIN study_plans p ON u.id = p.user_id
-            SET u.total_point = u.total_point + #{point} WHERE p.id = #{planId}
+        UPDATE users u
+            JOIN study_plans p ON u.id = p.user_id
+            SET u.total_point = u.total_point + #{point}
+        WHERE p.id = #{planId}
     </update>
 
     <update id="resetAllUserPoints">

@@ -9,6 +9,12 @@ server:
 spring:
   application:
     name: tutoroo
+
+  # [Upgrade 1] Java 21 가상 스레드 활성화 (성능 최적화)
+  threads:
+    virtual:
+      enabled: true
+
   profiles:
     include: secret
   jackson:
@@ -17,11 +23,12 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
-  # [Flyway] DB 형상 관리 (개발용 설정)
+  # [Flyway] DB 형상 관리 (안전 모드: clean-disabled=true 유지)
   flyway:
     enabled: true
     baseline-on-migrate: true
-    clean-disabled: true # 개발 중 스키마 초기화(clean) 명령 허용
+    clean-disabled: true
+
 
   # [OAuth2] 소셜 로그인 클라이언트 설정
   security:

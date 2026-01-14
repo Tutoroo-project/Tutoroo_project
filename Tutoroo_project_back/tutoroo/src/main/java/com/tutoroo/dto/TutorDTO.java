@@ -4,86 +4,95 @@ import java.util.List;
 
 public class TutorDTO {
 
+    // 1. 수업 시작 요청
     public record ClassStartRequest(
             Long planId,
             int dayCount,
-            String dailyMood
+            String dailyMood,
+            String personaName // [필수] 프론트에서 선택한 선생님 스타일
     ) {}
 
+    // 2. 수업 시작 응답
     public record ClassStartResponse(
             String topic,
-            String personaMessage,
+            String aiMessage,
             String audioBase64,
             String imageUrl,
-            String videoUrl,
-            int studyMinutes,
-            int breakMinutes
+            String backgroundMusicUrl,
+            int gainedExp,
+            int currentStreak
     ) {}
 
+    // 3. 데일리 테스트 생성 응답
     public record DailyTestResponse(
-            String testType,
-            String content,
+            String type,     // QUIZ, MISSION 등
+            String question,
             String imageUrl,
-            String videoUrl,
-            int timeLimit
+            String voiceUrl,
+            int timeLimitSeconds
     ) {}
 
+    // [NEW] 4. 테스트 제출 요청 (오류 해결을 위해 추가됨)
     public record TestSubmitRequest(
             Long planId,
             String textAnswer
     ) {}
 
+    // 5. 테스트 피드백 응답
     public record TestFeedbackResponse(
             int score,
-            String explanation,
-            String dailySummary,
+            String aiFeedback,
+            String summary,
             String audioBase64,
-            String imageUrl,
-            String videoUrl,
+            String explanationImageUrl,
+            String nextMission,
             boolean isPassed
     ) {}
 
-    public record TutorReviewRequest(
-            Long planId,
-            int dayCount,
-            String feedback
-    ) {}
-
+    // 6. 커리큘럼 조정 채팅 요청
     public record FeedbackChatRequest(
             Long planId,
-            String message,
-            boolean isFinished
+            String message
     ) {}
 
+    // 7. 커리큘럼 조정 채팅 응답
     public record FeedbackChatResponse(
-            String message,
+            String aiResponse,
             String audioBase64
     ) {}
 
-    // --- [신규] Step 19: 중간/기말고사 관련 DTO ---
-
-    public record ExamQuestion(
-            int number,         // 문제 번호
-            String question,    // 지문
-            List<String> options // 객관식 보기 (1~4번)
+    // 8. 선생님 평가 요청
+    public record TutorReviewRequest(
+            Long planId,
+            int dayCount,
+            String feedback,
+            int rating
     ) {}
 
+    // 9. 시험 생성 응답 (JSON 파싱용)
     public record ExamGenerateResponse(
-            String title,       // 시험 제목 (예: 1주차 중간 점검)
-            List<ExamQuestion> questions, // 문제 리스트
-            int timeLimit       // 제한 시간 (초)
-    ) {}
+            String title,
+            List<ExamQuestion> questions
+    ) {
+        public record ExamQuestion(
+                int number,
+                String question,
+                List<String> options
+        ) {}
+    }
 
+    // 10. 시험 제출 요청
     public record ExamSubmitRequest(
             Long planId,
-            List<Integer> answers // 학생이 고른 답 (순서대로 1, 3, 2, 4...)
+            List<Integer> answers // 객관식 답안 리스트
     ) {}
 
+    // 11. 시험 결과 응답
     public record ExamResultResponse(
-            int totalScore,     // 총점
-            int rankChange,     // 예상 등수 변동 (재미 요소)
-            String aiComment,   // AI 총평
-            List<String> wrongAnswerExplanations, // 틀린 문제 해설
+            int totalScore,
+            int gainedLevel,
+            String aiComment,
+            List<String> wrongAnswerNotes,
             boolean isPassed
     ) {}
 }

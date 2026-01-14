@@ -1,4 +1,4 @@
-package com.tutoroo.security.oauth;
+package com.tutoroo.security;
 
 import com.tutoroo.jwt.JwtTokenProvider;
 import com.tutoroo.security.CustomUserDetails;

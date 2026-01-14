@@ -10,6 +10,7 @@ import WithdrawalPage from "../pages/mypage/WithdrawalPage";
 import TutorSelectionPage from "../pages/tutor/TutorSelectionPage";
 import StudyPage from "../pages/studys/StudyPage";
 import LevelTestPage from "../pages/leveltests/LevelTestPage";
+import LevelTestResultPage from "../pages/leveltests/LevelTestResultPage";
 
 function Router() {
   return (
@@ -23,6 +24,7 @@ function Router() {
       <Route path="mypage/withdrawl" element={<WithdrawalPage />} />
 
       <Route path="/level-test" element={<LevelTestPage />} />
+      <Route path="/level-test/result" element={<LevelTestResultPage />} />
       <Route path="/tutor" element={<TutorSelectionPage />} />
       <Route path="/study" element={<StudyPage />} />
     </Routes>

@@ -1,8 +1,9 @@
 /** @jsxImportSource @emotion/react */
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Header from "../../components/layouts/Header";
 import * as s from "./styles";
-import { sendBtn } from "./styles";
+import { useRef } from "react";
 
 const QUESTIONS = [
   "학습할 과목을 입력해주세요. (예: Java, Python)",
@@ -11,6 +12,11 @@ const QUESTIONS = [
 ];
 
 function LevelTestPage() {
+  const navigate = useNavigate();
+
+  const imageInputRef = useRef(null);
+  const fileInputRef = useRef(null);
+
   const [showMenu, setShowMenu] = useState(false);
   const [isCompleted, setIsCompleted] = useState(false);
   const [messages, setMessages] = useState([
@@ -29,12 +35,27 @@ function LevelTestPage() {
     }
   }, [step]);
 
+  const handleImageUpload = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  console.log("이미지 업로드:", file);
+};
+
+const handleFileUpload = (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  console.log("파일 업로드:", file);
+};
+
+
   const handleSubmit = () => {
     if (!input.trim()) return;
 
     setMessages((prev) => [...prev, { role: "user", content: input }]);
-
     setInput("");
+    setShowMenu(false);
 
     // 마지막 질문
     if (step === QUESTIONS.length - 1) {
@@ -43,7 +64,7 @@ function LevelTestPage() {
         {
           role: "ai",
           content:
-            "레벨 테스트가 완료되었습니다 \n대시보드에서 튜터를 선택하고 학습을 시작해보세요.",
+            "레벨 테스트가 완료되었습니다 🎉\n결과를 확인하고 AI가 만들어준 로드맵을 확인해보세요!",
         },
       ]);
       setIsCompleted(true);
@@ -56,6 +77,7 @@ function LevelTestPage() {
   return (
     <>
       <Header />
+
       <div css={s.pageContainer}>
         {/* 채팅 영역 */}
         <main css={s.chatArea}>
@@ -66,43 +88,87 @@ function LevelTestPage() {
           ))}
         </main>
 
-        {/* 하단 입력 영역 */}
+        {/* 하단 영역 */}
         <footer css={s.bottomArea}>
-          <div css={s.bottomInner}>
-            <button css={s.plusBtn} onClick={() => setShowMenu(!showMenu)}>
-              ＋
-            </button>
-            {showMenu && (
-              <div css={s.plusMenu}>
-                <label>
-                  📷 사진 업로드
-                  <input type="file" accept="image/*" hidden />
-                </label>
-                <label>
-                  📎 파일 업로드
-                  <input type="file" hidden />
-                </label>
-              </div>
-            )}
-            <div css={s.inputWrapper}>
-              <input
-                css={s.inputBox}
-                value={input}
-                placeholder="답변을 입력하세요."
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    handleSubmit();
-                  }
-                }}
-              />
+          {isCompleted ? (
+            // ===== 레벨 테스트 완료 후 =====
+            <div css={s.resultFooter}>
+              <button
+                css={s.resultBtn}
+                onClick={() => navigate("/level-test/result")}
+              >
+                결과 확인하기
+              </button>
             </div>
+          ) : (
+            // ===== 테스트 진행 중 =====
+            <div css={s.bottomInner}>
+              <div css={s.inputWrapper}>
+                {/* + 버튼 */}
+                <button
+                  css={s.plusBtn}
+                  onClick={() => setShowMenu((prev) => !prev)}
+                >
+                  ＋
+                </button>
 
-            <button css={s.sendBtn} onClick={handleSubmit}>
-              전송
-            </button>
-          </div>
+                {/* 입력창 */}
+                <input
+                  css={s.inputBox}
+                  value={input}
+                  placeholder="답변을 입력하세요."
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      handleSubmit();
+                    }
+                  }}
+                />
+
+                {/* + 메뉴 */}
+                {/* + 메뉴 */}
+                {showMenu && (
+                  <div css={s.plusMenu}>
+                    <button
+                      css={s.menuItem}
+                      onClick={() => imageInputRef.current.click()}
+                    >
+                      + Upload Picture
+                    </button>
+
+                    <button
+                      css={s.menuItem}
+                      onClick={() => fileInputRef.current.click()}
+                    >
+                      + Upload File
+                    </button>
+
+                    {/* hidden inputs */}
+                    <input
+                      type="file"
+                      accept="image/*"
+                      ref={imageInputRef}
+                      hidden
+                      onChange={handleImageUpload}
+                    />
+
+                    <input
+                      type="file"
+                      ref={fileInputRef}
+                      hidden
+                      onChange={handleFileUpload}
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* 전송 버튼 */}
+              <button css={s.sendBtn} onClick={handleSubmit}>
+                전송
+              </button>
+            </div>
+          )}
         </footer>
       </div>
     </>

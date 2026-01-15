@@ -60,24 +60,30 @@ export const greetingText = css`
 export const actionWrap = css`
   display: flex;
   gap: 12px;
+`;
 
-    & > button:nth-of-type(1) {
-      width: 175px;
-      height: 40px;
-      border-radius: 12px;
-      border: 1px solid #000;
-      background: #fff;
-    }
+export const select = css`
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 8px;
+  border: 1px solid #dddddd;
+  font-size: 14px;
+  background-color: #fff;
 
-    & > button:nth-of-type(2) {
-      width: 240px;
-      height: 40px;
-      border-radius: 12px;
-      border: none;
-      background: #ff8a3d;
-      color: #fff;
-      font-weight: 600;
-    }
+  &:focus {
+    outline: none;
+    border-color: #ff8a3d;
+  }
+`;
+
+export const studyBtn = css`
+  width: 160px;
+  height: 40px;
+  border-radius: 12px;
+  border: none;
+  background: #ff8a3d;
+  color: #fff;
+  font-weight: 600;
 `;
 
 /* =========================
@@ -186,6 +192,12 @@ export const calendarCard = (active) => css`
   background: #fff;
   box-sizing: border-box;
   cursor: pointer;
+  transition: transform 0.2s ease;
+
+  &:hover,
+  &:focus {
+    transform: scale(1.05);
+  }
 `;
 
 export const calendarHeader = css`

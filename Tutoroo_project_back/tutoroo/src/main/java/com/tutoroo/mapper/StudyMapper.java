@@ -5,35 +5,57 @@ import com.tutoroo.entity.StudyPlanEntity;
 import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
+import java.time.LocalDate;
 import java.util.List;
 
-/**
- * [기능: 학습 플랜 및 로그 데이터 접근 매퍼]
- * 설명: 플랜 생성, 조회, 업데이트 및 일일 학습 로그 저장을 담당합니다.
- */
 @Mapper
 public interface StudyMapper {
 
-    // --- [학습 플랜 관련] ---
+    // --- [1. 학습 플랜 (StudyService 필수)] ---
+
+    // 플랜 생성
     void savePlan(StudyPlanEntity plan);
-    StudyPlanEntity findPlanById(Long id);
+
+    // ID로 플랜 조회 (Service에서 findById 호출함)
     StudyPlanEntity findById(Long id);
+
+    // (보조) 명시적 이름의 조회 메서드
+    StudyPlanEntity findPlanById(Long id);
+
+    // 활성화된 플랜 목록 조회 (생성 제한 확인용)
     List<StudyPlanEntity> findActivePlansByUserId(Long userId);
+
+    // 활성화된 플랜 개수 카운트 (최적화용)
+    int countActivePlansByUserId(Long userId);
+
+    // 진도율 업데이트 (Service에서 updateProgress 호출함)
     void updateProgress(StudyPlanEntity plan);
+
+    // 플랜 정보 전체 업데이트 (튜터 이름 변경 등)
     void updatePlan(StudyPlanEntity plan);
 
-    // --- [학습 로그(Log) 관련] ---
+
+    // --- [2. 학습 로그 (TutorService 필수)] ---
+
+    // 로그 저장
     void saveLog(StudyLogEntity log);
+
+    // 플랜별 로그 목록 조회
     List<StudyLogEntity> findLogsByPlanId(Long planId);
-    StudyLogEntity findLatestLogByPlanId(Long planId);
+
+    // 학생 피드백 저장
     void updateStudentFeedback(@Param("planId") Long planId,
                                @Param("dayCount") int dayCount,
                                @Param("feedback") String feedback);
 
-    /** * [신규] 기능: 특정 기간의 학습 로그 조회 (Step 19 시험 출제용)
-     * 설명: startDay ~ endDay 사이의 'dailySummary'를 모아서 시험 문제를 출제합니다.
-     */
+    // 시험 출제용 (특정 구간 로그 조회)
     List<StudyLogEntity> findLogsBetweenDays(@Param("planId") Long planId,
                                              @Param("startDay") int startDay,
                                              @Param("endDay") int endDay);
+
+    // --- [3. 펫 다마고치 연동 (PetService 필수)] ---
+
+    // 펫 일기 쓰기용: 유저의 특정 날짜 학습 기록 조회 (JOIN)
+    List<StudyLogEntity> findLogsByUserIdAndDate(@Param("userId") Long userId,
+                                                 @Param("date") LocalDate date);
 }

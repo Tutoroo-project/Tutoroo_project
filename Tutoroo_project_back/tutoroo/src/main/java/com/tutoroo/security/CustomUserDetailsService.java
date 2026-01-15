@@ -9,11 +9,6 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
-/**
- * [기능: 사용자 인증 데이터 로드 서비스]
- * 설명: Spring Security의 핵심 인터페이스인 UserDetailsService를 구현하여 DB 기반 인증을 수행합니다.
- * 작동원리: MyBatis 매퍼를 주입받아 실제 DB 쿼리를 실행하고 결과를 CustomUserDetails에 담아 반환합니다.
- */
 @Slf4j
 @Service
 @RequiredArgsConstructor
@@ -22,27 +17,25 @@ public class CustomUserDetailsService implements UserDetailsService {
     private final UserMapper userMapper;
 
     /**
-     * [기능: 아이디를 통한 사용자 조회 및 변환]
-     * 작동원리:
-     * 1. DB에서 username으로 사용자 정보를 검색합니다.
-     * 2. 검색 결과가 없을 시 즉각적인 예외 처리를 수행합니다.
-     * 3. 검색 결과를 CustomUserDetails record로 감싸서 리턴합니다.
-     * @param username 로그인 시도 아이디
-     * @return 시큐리티 인증 객체
-     * @throws UsernameNotFoundException 해당 사용자가 없을 경우 발생
+     * username(아이디)으로 사용자 정보를 조회하여 시큐리티 컨텍스트에 저장할 객체 반환
      */
     @Override
     public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        log.debug("사용자 인증 정보 조회 시작: {}", username);
 
         UserEntity user = userMapper.findByUsername(username);
 
         if (user == null) {
-            log.warn("사용자 인증 실패 - 존재하지 않는 아이디: {}", username);
+            log.warn("로그인 실패 - 존재하지 않는 사용자: {}", username);
             throw new UsernameNotFoundException("사용자를 찾을 수 없습니다: " + username);
         }
 
-        log.debug("사용자 인증 정보 조회 성공: {}", username);
+        // 상태 확인 (선택 사항: 여기서 예외를 던져도 되고, UserDetails.isEnabled()에서 처리해도 됨)
+        if (!"ACTIVE".equals(user.getStatus())) {
+            log.warn("로그인 차단 - 비활성화된 계정: {} 상태: {}", username, user.getStatus());
+            // 필요 시 여기서 바로 예외를 던질 수도 있음
+            // throw new DisabledException("계정이 비활성화 상태입니다.");
+        }
+
         return new CustomUserDetails(user);
     }
 }

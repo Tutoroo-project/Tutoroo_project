@@ -3,6 +3,7 @@ package com.tutoroo.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tutoroo.dto.TutorDTO;
 import com.tutoroo.entity.*;
+import com.tutoroo.event.StudyCompletedEvent;
 import com.tutoroo.exception.ErrorCode;
 import com.tutoroo.exception.TutorooException;
 import com.tutoroo.mapper.CommonMapper;
@@ -10,13 +11,10 @@ import com.tutoroo.mapper.StudyMapper;
 import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.util.FileStore;
 import lombok.extern.slf4j.Slf4j;
-
-// [Spring AI & Reactor Imports]
-import reactor.core.publisher.Flux;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.memory.InMemoryChatMemory;
-import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.Message;
+import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.image.ImagePrompt;
 import org.springframework.ai.openai.*;
 import org.springframework.ai.openai.api.OpenAiAudioApi;
@@ -25,7 +23,9 @@ import org.springframework.ai.openai.audio.speech.SpeechResponse;
 import org.springframework.ai.openai.OpenAiAudioSpeechOptions;
 import org.springframework.ai.openai.OpenAiImageOptions;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.MimeTypeUtils;
@@ -36,6 +36,7 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -48,57 +49,45 @@ public class TutorService {
     private final OpenAiAudioSpeechModel speechModel;
     private final OpenAiImageModel imageModel;
     private final OpenAiAudioTranscriptionModel transcriptionModel;
+    private final RedisTemplate<String, String> redisTemplate;
+    private final ObjectMapper objectMapper;
 
     private final StudyMapper studyMapper;
     private final UserMapper userMapper;
     private final CommonMapper commonMapper;
-    private final ObjectMapper objectMapper;
     private final FileStore fileStore;
+    private final ApplicationEventPublisher eventPublisher;
+    private final PetService petService; // [추가] 펫 버프 시스템 연동
 
-    // 대화 기억을 위한 인메모리 저장소
-    private final ChatMemory chatMemory = new InMemoryChatMemory();
-
-    // 생성자 주입
     public TutorService(ChatClient.Builder chatClientBuilder,
                         OpenAiAudioSpeechModel speechModel,
                         OpenAiImageModel imageModel,
                         OpenAiAudioTranscriptionModel transcriptionModel,
+                        RedisTemplate<String, String> redisTemplate,
+                        ObjectMapper objectMapper,
                         StudyMapper studyMapper,
                         UserMapper userMapper,
                         CommonMapper commonMapper,
-                        ObjectMapper objectMapper,
-                        FileStore fileStore) {
+                        FileStore fileStore,
+                        ApplicationEventPublisher eventPublisher,
+                        PetService petService) { // [추가] 생성자 주입
         this.chatClient = chatClientBuilder
                 .defaultSystem("당신은 Tutoroo의 AI 튜터입니다. 학생에게 친절하고 명확하게 설명해주세요.")
                 .build();
         this.speechModel = speechModel;
         this.imageModel = imageModel;
         this.transcriptionModel = transcriptionModel;
+        this.redisTemplate = redisTemplate;
+        this.objectMapper = objectMapper;
         this.studyMapper = studyMapper;
         this.userMapper = userMapper;
         this.commonMapper = commonMapper;
-        this.objectMapper = objectMapper;
         this.fileStore = fileStore;
+        this.eventPublisher = eventPublisher;
+        this.petService = petService;
     }
 
-    // --- [Upgrade 3: 실시간 스트리밍 & 대화 기억] ---
-
-    public Flux<String> chatWithTutorStream(Long userId, String message) {
-        String conversationId = "user:" + userId;
-        return chatClient.prompt()
-                .user(message)
-                .advisors(new MessageChatMemoryAdvisor(chatMemory, conversationId, 10))
-                .stream()
-                .content();
-    }
-
-    public void clearConversationMemory(Long userId) {
-        chatMemory.clear("user:" + userId);
-    }
-
-    // --- [핵심 비즈니스 로직] ---
-
-    // 1. 수업 시작
+    // --- [핵심 기능 1: 수업 시작] ---
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         UserEntity user = userMapper.findById(userId);
@@ -117,14 +106,13 @@ public class TutorService {
 
         String aiMessage = chatClient.prompt().user(promptText).call().content();
 
-        // [수정] 파일 저장 기반 TTS 생성 (URL 반환)
         String audioUrl = generateTieredTtsWithCache(aiMessage, user.getEffectiveTier());
         String imageUrl = generateImage("Illustration for " + plan.getGoal() + " class, " + selectedStyle + " style, vector art");
 
         return new TutorDTO.ClassStartResponse(request.dayCount() + "일차: " + plan.getGoal(), aiMessage, audioUrl, imageUrl, null, 25, 5);
     }
 
-    // 2. 적응형 과제 생성 (TTS 없음)
+    // --- [핵심 기능 2: 적응형 과제 생성] ---
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
         StudyPlanEntity plan = studyMapper.findPlanById(planId);
@@ -141,7 +129,7 @@ public class TutorService {
         return new TutorDTO.DailyTestResponse("MISSION [" + difficulty + "]", question, imageUrl, null, 300);
     }
 
-    // 3. Vision 첨삭 & 피드백
+    // --- [핵심 기능 3: 시험 제출 및 Vision 피드백] ---
     @Transactional
     public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
         UserEntity user = userMapper.findById(userId);
@@ -159,36 +147,80 @@ public class TutorService {
 
         int score = parseScore(aiResponse);
         String summary = aiResponse.contains("★") ? aiResponse.substring(aiResponse.indexOf("★")) : "요약 없음";
-        int totalPointChange = ((score >= 80) ? 100 : (score <= 40 ? -50 : 0)) + evaluateAttitude(textAnswer);
 
-        if (totalPointChange != 0) userMapper.updateUserPointByPlan(planId, totalPointChange);
+        // 1. 기본 포인트 계산
+        int basePointChange = ((score >= 80) ? 100 : (score <= 40 ? -50 : 0)) + evaluateAttitude(textAnswer);
+        int finalPointChange = basePointChange;
+
+        // 2. [RPG 요소 적용] 펫 버프 확인 (포인트를 얻는 경우에만 적용)
+        if (basePointChange > 0) {
+            double multiplier = petService.getPointMultiplier(userId);
+            if (multiplier > 1.0) {
+                finalPointChange = (int) (basePointChange * multiplier);
+                log.info("펫 버프 발동! User: {}, Multiplier: {}, Point: {} -> {}", userId, multiplier, basePointChange, finalPointChange);
+            }
+        }
+
+        if (finalPointChange != 0) userMapper.updateUserPointByPlan(planId, finalPointChange);
 
         boolean isPassed = score >= 60;
+        int currentDay = getCurrentDayCount(planId);
+
         studyMapper.saveLog(StudyLogEntity.builder()
                 .planId(planId)
-                .dayCount(getCurrentDayCount(planId))
+                .dayCount(currentDay)
                 .testScore(score)
                 .aiFeedback(aiResponse)
                 .dailySummary(summary)
-                .pointChange(totalPointChange)
+                .pointChange(finalPointChange)
                 .isCompleted(isPassed)
                 .build());
 
         updateStreak(user);
 
-        if (getCurrentDayCount(planId) == 1 && plan.getCustomTutorName() == null) {
+        // 펫 성장 연동: 합격 시 이벤트 발행
+        if (isPassed) {
+            try {
+                eventPublisher.publishEvent(new StudyCompletedEvent(userId, score));
+            } catch (Exception e) {
+                log.warn("펫 경험치 지급 실패 (이벤트 오류): {}", e.getMessage());
+            }
+        }
+
+        if (currentDay == 1 && plan.getCustomTutorName() == null) {
             plan.setCustomTutorName("나만의 AI 튜터");
             studyMapper.updatePlan(plan);
         }
 
-        // [수정] 파일 저장 기반 TTS 생성 (URL 반환)
         String audioUrl = generateTieredTtsWithCache(aiResponse.substring(0, Math.min(aiResponse.length(), 200)), user.getEffectiveTier());
         String expImage = (score < 100) ? generateImage("Explanation diagram for: " + plan.getGoal() + " - " + summary) : null;
 
         return new TutorDTO.TestFeedbackResponse(score, aiResponse, summary, audioUrl, expImage, null, isPassed);
     }
 
-    // 4. 시험 문제 생성 (JSON 모드)
+    // --- [핵심 기능 4: 대화형 피드백 (Redis Chat Memory 적용)] ---
+    @Transactional(readOnly = true)
+    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message) {
+        UserEntity user = userMapper.findById(userId);
+        String conversationKey = "chat:" + planId + ":" + userId;
+
+        List<Message> history = loadChatHistory(conversationKey);
+
+        String aiResponse = chatClient.prompt()
+                .messages(history)
+                .user(message)
+                .call()
+                .content();
+
+        saveChatMessage(conversationKey, new UserMessage(message));
+        saveChatMessage(conversationKey, new AssistantMessage(aiResponse));
+
+        String audioUrl = generateTieredTtsWithCache(aiResponse, user.getEffectiveTier());
+
+        return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
+    }
+
+    // --- [핵심 기능 5: 시험 문제 생성 (JSON)] ---
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId, int startDay, int endDay) {
         StudyPlanEntity plan = studyMapper.findPlanById(planId);
@@ -213,19 +245,41 @@ public class TutorService {
                 .entity(TutorDTO.ExamGenerateResponse.class);
     }
 
-    // 5. 중간/기말고사 제출
+    // --- [핵심 기능 6: 시험 결과 제출] ---
     @Transactional
     public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
         String prompt = "학생 답안: " + request.answers() + ". 5문제 채점 및 해설.";
         String aiFeedback = chatClient.prompt().user(prompt).call().content();
 
         int score = parseScore(aiFeedback);
-        int point = score * 5;
-        userMapper.updateUserPointByPlan(request.planId(), point);
-        return new TutorDTO.ExamResultResponse(score, (point > 200 ? 5 : 1), aiFeedback, new ArrayList<>(), score >= 60);
+
+        // 1. 기본 포인트
+        int basePoint = score * 5;
+        int finalPoint = basePoint;
+
+        // 2. [RPG 요소 적용] 펫 버프 확인
+        if (basePoint > 0) {
+            double multiplier = petService.getPointMultiplier(userId);
+            if (multiplier > 1.0) {
+                finalPoint = (int) (basePoint * multiplier);
+            }
+        }
+
+        userMapper.updateUserPointByPlan(request.planId(), finalPoint);
+
+        // 펫 성장 연동 (시험도 60점 넘으면 경험치)
+        if (score >= 60) {
+            try {
+                eventPublisher.publishEvent(new StudyCompletedEvent(userId, score));
+            } catch (Exception e) {
+                log.warn("펫 경험치 지급 실패: {}", e.getMessage());
+            }
+        }
+
+        return new TutorDTO.ExamResultResponse(score, (finalPoint > 200 ? 5 : 1), aiFeedback, new ArrayList<>(), score >= 60);
     }
 
-    // 6. 커스텀 선생님 이름 변경
+    // --- [기타 기능] ---
     @Transactional
     public void renameCustomTutor(Long planId, String newName) {
         StudyPlanEntity plan = studyMapper.findPlanById(planId);
@@ -235,7 +289,83 @@ public class TutorService {
         }
     }
 
-    // --- Helper Methods ---
+    @Transactional(readOnly = true)
+    public String convertSpeechToText(MultipartFile audioFile) {
+        try {
+            return transcriptionModel.call(new AudioTranscriptionPrompt(new ByteArrayResource(audioFile.getBytes()) {
+                @Override
+                public String getFilename() { return "speech.mp3"; }
+            })).getResult().getOutput();
+        } catch (Exception e) {
+            log.error("STT Error: {}", e.getMessage());
+            throw new TutorooException("STT Error", ErrorCode.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @Transactional
+    public void saveStudentFeedback(TutorDTO.TutorReviewRequest request) {
+        studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
+    }
+
+    @Transactional
+    protected void updateStreak(UserEntity user) {
+        LocalDate today = LocalDate.now();
+        LocalDate last = user.getLastStudyDate();
+        if (last == null) user.setCurrentStreak(1);
+        else if (last.equals(today.minusDays(1))) user.setCurrentStreak(user.getCurrentStreak() + 1);
+        else if (last.isBefore(today.minusDays(1))) user.setCurrentStreak(1);
+        user.setLastStudyDate(today);
+        userMapper.update(user);
+    }
+
+    // --- [Private Helpers] ---
+
+    private int getCurrentDayCount(Long planId) {
+        List<StudyLogEntity> logs = studyMapper.findLogsByPlanId(planId);
+        if (logs == null || logs.isEmpty()) return 1;
+        return logs.stream().mapToInt(StudyLogEntity::getDayCount).max().orElse(0) + 1;
+    }
+
+    private List<Message> loadChatHistory(String key) {
+        List<Message> messages = new ArrayList<>();
+        try {
+            List<String> jsonHistory = redisTemplate.opsForList().range(key, 0, -1);
+            if (jsonHistory != null) {
+                for (String json : jsonHistory) {
+                    ChatMessageDto dto = objectMapper.readValue(json, ChatMessageDto.class);
+                    if ("USER".equals(dto.role)) messages.add(new UserMessage(dto.content));
+                    else messages.add(new AssistantMessage(dto.content));
+                }
+            }
+        } catch (Exception e) {
+            log.error("채팅 기록 로드 실패", e);
+        }
+        return messages;
+    }
+
+    private void saveChatMessage(String key, Message message) {
+        try {
+            String role;
+            String content = message.getText(); // M6+ 대응
+
+            if (message instanceof UserMessage) {
+                role = "USER";
+            } else if (message instanceof AssistantMessage) {
+                role = "ASSISTANT";
+            } else {
+                return;
+            }
+
+            String json = objectMapper.writeValueAsString(new ChatMessageDto(role, content));
+
+            redisTemplate.opsForList().rightPush(key, json);
+            redisTemplate.expire(key, 7, TimeUnit.DAYS);
+        } catch (Exception e) {
+            log.error("채팅 기록 저장 실패", e);
+        }
+    }
+
+    private record ChatMessageDto(String role, String content) {}
 
     private String analyzeUniversalImage(MultipartFile imageFile, String goal) {
         try {
@@ -248,7 +378,7 @@ public class TutorService {
                     .content();
         } catch (Exception e) {
             log.error("Vision Analysis Error: {}", e.getMessage());
-            return "이미지 분석 중 오류가 발생했습니다.";
+            return "이미지 분석 중 오류가 발생했습니다: " + e.getMessage();
         }
     }
 
@@ -274,53 +404,6 @@ public class TutorService {
         return context.isEmpty() ? "첫 만남입니다." : context;
     }
 
-    @Transactional(readOnly = true)
-    public String convertSpeechToText(MultipartFile audioFile) {
-        try {
-            return transcriptionModel.call(new AudioTranscriptionPrompt(new ByteArrayResource(audioFile.getBytes()) {
-                @Override
-                public String getFilename() { return "speech.mp3"; }
-            })).getResult().getOutput();
-        } catch (Exception e) {
-            throw new TutorooException("STT Error", ErrorCode.INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    @Transactional
-    protected void updateStreak(UserEntity user) {
-        LocalDate today = LocalDate.now();
-        LocalDate last = user.getLastStudyDate();
-        if (last == null) user.setCurrentStreak(1);
-        else if (last.equals(today.minusDays(1))) user.setCurrentStreak(user.getCurrentStreak() + 1);
-        else if (last.isBefore(today.minusDays(1))) user.setCurrentStreak(1);
-        user.setLastStudyDate(today);
-        userMapper.update(user);
-    }
-
-    @Transactional(readOnly = true)
-    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message) {
-        UserEntity user = userMapper.findById(userId);
-        String aiResponse = chatClient.prompt().user("피드백: " + message).call().content();
-        return new TutorDTO.FeedbackChatResponse(aiResponse, generateTieredTtsWithCache(aiResponse, user.getEffectiveTier()));
-    }
-
-    @Transactional
-    public void saveStudentFeedback(TutorDTO.TutorReviewRequest request) {
-        studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
-    }
-
-    private int evaluateAttitude(String t) {
-        try {
-            String res = chatClient.prompt().user("답안: \"" + t + "\". 태도점수 0~10 숫자만.").call().content();
-            return Integer.parseInt(res.replaceAll("[^0-9]", ""));
-        } catch (Exception e) { return 0; }
-    }
-
-    private int getCurrentDayCount(Long id) {
-        StudyLogEntity l = studyMapper.findLatestLogByPlanId(id);
-        return l == null ? 1 : l.getDayCount();
-    }
-
     private String getPromptTemplate(String k) {
         String c = commonMapper.findPromptContentByKey(k);
         return c != null ? c : "Prompt: " + k;
@@ -332,29 +415,22 @@ public class TutorService {
         } catch (Exception e) { return null; }
     }
 
-    // --- [핵심 수정: 데이터 처리(byte[])와 경로(Path) 분리] ---
     private String generateTieredTtsWithCache(String text, MembershipTier tier) {
         if (text == null || text.isEmpty()) return null;
 
-        // 1. 해시 키 생성
         String voiceName = (tier.getTtsVoice() != null) ? tier.getTtsVoice() : "alloy";
         String hashKey = generateHash(text + ":" + voiceName);
 
-        // 2. DB 캐시 확인 (있으면 파일 URL 반환)
         TtsCacheEntity cached = commonMapper.findTtsCacheByHash(hashKey);
         if (cached != null) {
-            return cached.getAudioPath(); // DB에 저장된 URL 리턴
+            return cached.getAudioPath();
         }
 
-        // 3. OpenAI 호출 -> **바이트 데이터(Data)** 획득
         byte[] audioBytes = callOpenAiTts(text, tier);
         if (audioBytes == null) return null;
 
-        // 4. 파일 저장소에 저장 -> **접근 경로(Path/URL)** 획득
-        // (FileStore.storeFile 메서드가 byte[]를 받아 저장 후 URL을 리턴한다고 가정)
         String audioUrl = fileStore.storeFile(audioBytes, ".mp3");
 
-        // 5. DB에는 **경로(Path/URL)**만 저장
         commonMapper.saveTtsCache(TtsCacheEntity.builder()
                 .textHash(hashKey)
                 .audioPath(audioUrl)
@@ -363,7 +439,6 @@ public class TutorService {
         return audioUrl;
     }
 
-    // 반환 타입을 String(Base64)에서 byte[]로 변경하여 효율성 증대
     private byte[] callOpenAiTts(String text, MembershipTier tier) {
         try {
             OpenAiAudioApi.SpeechRequest.Voice voice = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
@@ -377,7 +452,6 @@ public class TutorService {
                             .voice(voice)
                             .build())
             );
-            // Base64 변환 없이 원본 바이트 배열 반환
             return res.getResult().getOutput();
         } catch (Exception e) {
             log.error("TTS Generation Error: {}", e.getMessage());
@@ -400,5 +474,12 @@ public class TutorService {
             if (m.find()) return Integer.parseInt(m.group(2));
         } catch (Exception e) {}
         return 50;
+    }
+
+    private int evaluateAttitude(String t) {
+        try {
+            String res = chatClient.prompt().user("답안: \"" + t + "\". 태도점수 0~10 숫자만.").call().content();
+            return Integer.parseInt(res.replaceAll("[^0-9]", ""));
+        } catch (Exception e) { return 0; }
     }
 }

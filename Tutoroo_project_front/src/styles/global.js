@@ -2,6 +2,10 @@ import { css } from "@emotion/react";
 import { theme } from "./theme";
 
 export const global = css`
+  html {
+    scrollbar-gutter: stable;
+  }
+
   * {
     box-sizing: border-box;
   }

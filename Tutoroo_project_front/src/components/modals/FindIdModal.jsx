@@ -1,4 +1,5 @@
 /** @jsxImportSource @emotion/react */
+import Swal from "sweetalert2";
 import * as s from "./styles";
 import useModalStore from "../../stores/modalStore";
 import { useState } from "react";
@@ -15,14 +16,54 @@ function FindIdModal() {
     e.preventDefault();
 
     if (!name || !phone || !email) {
-      alert("모든 항목을 입력해주세요.");
+      Swal.fire({
+        icon: "warning",
+        title: "입력 오류",
+        text: "모든 항목을 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+        showClass: {
+          popup: `
+          animate__animated
+          animate__shakeX
+          animate__faster
+        `,
+        },
+      });
       return;
     }
 
-    // ⚠️ 임시 처리 (추후 API 연동)
-    alert("입력하신 정보로 아이디를 찾고 있습니다.");
-    closeFindId();
-    openLogin();
+    // 임시 아이디 결과 나중에 api 연결시 삭제
+    const foundId = "tutoroo_user01";
+
+    Swal.fire({
+      icon: "success",
+      title: "아이디 찾기 완료 🎉",
+      html: `
+      <div style="font-size:14px; margin-bottom:6px;">
+        회원님의 아이디는
+      </div>
+      <strong style="font-size:18px;">${foundId}</strong>
+    `,
+      confirmButtonText: "로그인 하러가기",
+      confirmButtonColor: "#FF8A3D",
+      showClass: {
+        popup: `
+        animate__animated
+        animate__fadeInUp
+        animate__faster
+      `,
+      },
+      hideClass: {
+        popup: `
+        animate__animated
+        animate__fadeOutDown
+        animate__faster
+      `,
+      },
+    }).then(() => {
+      closeFindId();
+      openLogin();
+    });
   };
 
   return (

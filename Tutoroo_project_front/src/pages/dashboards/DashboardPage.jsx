@@ -28,9 +28,12 @@ function getWeekDates(offset = 0) {
 }
 
 function DashboardPage() {
-  const navigate = useNavigate(); 
+  const navigate = useNavigate();
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
+
+  const [studyList, setStudyList] = useState([]);
+  const [selectedStudyId, setSelectedStudyId] = useState("");
 
   const userName = user?.name || "OOO";
 
@@ -45,6 +48,14 @@ function DashboardPage() {
     if (!user) openLogin();
   }, [user, openLogin]);
 
+  // ✅ 학습 목록 불러오기 (임시 함수 - 실제 구현 필요 시 주석 해제)
+  /*
+  useEffect(() => {
+    if (!user) return;
+    fetchStudyList();
+  }, [user]);
+  */
+
   return (
     <>
       <Header />
@@ -52,7 +63,10 @@ function DashboardPage() {
       <div css={s.pageBg}>
         <main css={s.container}>
           <div css={s.newtutorbtn}>
-            <div onClick={() => navigate("/tutor")} style={{ cursor: "pointer" }}>
+            <div
+              onClick={() => navigate("/tutor")}
+              style={{ cursor: "pointer" }}
+            >
               신규 선생님 등록 +
             </div>
           </div>
@@ -64,8 +78,34 @@ function DashboardPage() {
             </div>
 
             <div css={s.actionWrap}>
-              <button>학습선택 ▼</button>
-              <button onClick={() => navigate("/study")}>학습하러 가기</button>
+              <select
+                css={s.select}
+                value={selectedStudyId}
+                onChange={(e) => setSelectedStudyId(e.target.value)}
+              >
+                <option value="">학습 선택</option>
+                <option value="java">Java</option>
+                {studyList.map((study) => (
+                  <option key={study.id} value={study.id}>
+                    {study.name}
+                  </option>
+                ))}
+              </select>
+              <button css={s.studyBtn} onClick={() => navigate("/level-test")}>
+                학습 추가 +
+              </button>
+              <button
+                css={s.studyBtn}
+                onClick={() => {
+                  if (!selectedStudyId) {
+                    alert("학습을 선택해주세요");
+                    return;
+                  }
+                  navigate(`/study/` /*${selectedStudyId}*/);
+                }}
+              >
+                학습하러 가기
+              </button>
             </div>
           </section>
 
@@ -83,7 +123,12 @@ function DashboardPage() {
               </div>
             </div>
 
-            <div css={s.card}>
+            {/* ✅ [수정됨] 클릭 시 랭킹 페이지로 이동 */}
+            <div 
+              css={s.card} 
+              onClick={() => navigate("/ranking")} 
+              style={{ cursor: "pointer" }}
+            >
               <span>누적 포인트 / 랭킹</span>
               <strong css={s.pointText}>0 P</strong>
               <p css={s.rankText}>현재 전체 -위</p>
@@ -140,8 +185,9 @@ function DashboardPage() {
               <div css={s.feedbackCard}>
                 <h3 css={s.detailTitle}>AI 강의 피드백</h3>
                 <p css={s.feedbackText}>
-                  현재 개념은 잘 이해하고 있지만, 응용 문제에서 실수가 반복되고 있어요.
-                  핵심 개념을 다시 정리한 뒤 난이도가 낮은 문제부터 차근차근 풀어보세요.
+                  현재 개념은 잘 이해하고 있지만, 응용 문제에서 실수가 반복되고
+                  있어요. 핵심 개념을 다시 정리한 뒤 난이도가 낮은 문제부터
+                  차근차근 풀어보세요.
                 </p>
 
                 <ul css={s.feedbackList}>

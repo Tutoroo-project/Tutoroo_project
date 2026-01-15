@@ -6,11 +6,13 @@
         INSERT INTO users (
             username, password, name, email, phone, parent_phone, age, gender,
             role, provider, provider_id, membership_tier, total_point,
-            level, exp, profile_image, current_streak, last_study_date, created_at
+            level, exp, profile_image, current_streak, last_study_date,
+            status, created_at, updated_at
         ) VALUES (
                      #{username}, #{password}, #{name}, #{email}, #{phone}, #{parentPhone}, #{age}, #{gender},
                      #{role}, #{provider}, #{providerId}, #{membershipTier}, #{totalPoint},
-                     #{level}, #{exp}, #{profileImage}, 0, NULL, NOW()
+                     #{level}, #{exp}, #{profileImage}, 0, NULL,
+                     'ACTIVE', NOW(), NOW()
                  )
     </insert>
 
@@ -29,29 +31,39 @@
     <update id="update" parameterType="com.tutoroo.entity.UserEntity">
         UPDATE users
         SET
-            username = #{username},
             password = #{password},
             name = #{name},
-            phone = #{phone},
             email = #{email},
+            phone = #{phone},
+            parent_phone = #{parentPhone},
             profile_image = #{profileImage},
-            total_point = #{totalPoint},
             membership_tier = #{membershipTier},
+            total_point = #{totalPoint},
             level = #{level},
             exp = #{exp},
             current_streak = #{currentStreak},
             last_study_date = #{lastStudyDate},
             rival_id = #{rivalId},
+            status = #{status},
+            withdrawal_reason = #{withdrawalReason},
+            deleted_at = #{deletedAt},
             updated_at = NOW()
         WHERE id = #{id}
     </update>
 
     <select id="findByNameAndEmailAndPhone" resultType="com.tutoroo.entity.UserEntity">
-        SELECT * FROM users WHERE name=#{name} AND email=#{email} AND phone=#{phone}
+        SELECT * FROM users
+        WHERE name = #{name}
+          AND email = #{email}
+          AND phone = #{phone}
+          AND status = 'ACTIVE'
     </select>
 
     <select id="findByUsernameAndEmail" resultType="com.tutoroo.entity.UserEntity">
-        SELECT * FROM users WHERE username=#{username} AND email=#{email}
+        SELECT * FROM users
+        WHERE username = #{username}
+          AND email = #{email}
+          AND status = 'ACTIVE'
     </select>
 
     <update id="updatePassword">
@@ -64,8 +76,18 @@
 
     <update id="updateSocialUser">
         UPDATE users
-        SET email=#{email}, phone=#{phone}, age=#{age}, gender=#{gender}, profile_image=#{profileImage}, role=#{role}, updated_at=NOW()
-        WHERE username=#{username}
+        SET
+            phone = #{phone},
+            parent_phone = #{parentPhone},
+            age = #{age},
+            gender = #{gender},
+            role = 'ROLE_USER',
+            updated_at = NOW()
+        WHERE username = #{username}
+    </update>
+
+    <update id="updateUserPoint">
+        UPDATE users SET total_point = #{point} WHERE id = #{userId}
     </update>
 
     <update id="updateUserPointByPlan">
@@ -82,7 +104,8 @@
     <select id="getRankingList" resultType="com.tutoroo.entity.UserEntity">
         SELECT * FROM users
         <where>
-            AND role = 'ROLE_USER'
+            role = 'ROLE_USER'
+            AND status = 'ACTIVE'
             <if test="gender != null and gender != ''">AND gender = #{gender}</if>
             <if test="ageGroup != null">AND age >= #{ageGroup} AND age &lt; #{ageGroup} + 10</if>
         </where>
@@ -90,13 +113,14 @@
     </select>
 
     <select id="findAllByOrderByTotalPointDesc" resultType="com.tutoroo.entity.UserEntity">
-        SELECT * FROM users ORDER BY total_point DESC
+        SELECT * FROM users WHERE status = 'ACTIVE' ORDER BY total_point DESC
     </select>
 
     <select id="findPotentialRival" resultType="com.tutoroo.entity.UserEntity">
         SELECT * FROM users
         WHERE id != #{myId}
           AND rival_id IS NULL
+          AND status = 'ACTIVE'
           AND total_point BETWEEN #{myPoint} - 200 AND #{myPoint} + 200
             LIMIT 1
     </select>
@@ -104,12 +128,21 @@
     <select id="findUsersForWeeklyReport" resultType="com.tutoroo.entity.UserEntity">
         SELECT u.* FROM users u
         WHERE u.parent_phone IS NOT NULL
+          AND u.status = 'ACTIVE'
           AND EXISTS (
             SELECT 1 FROM study_plans p
-                              JOIN study_logs l ON p.id = l.plan_id
-            WHERE p.user_id = u.id
-              AND l.study_date > DATE_SUB(NOW(), INTERVAL 7 DAY)
+            WHERE p.user_id = u.id AND p.status = 'PROCEEDING'
         )
     </select>
+
+    <select id="findWithdrawnUsersForPurge" resultType="com.tutoroo.entity.UserEntity">
+        SELECT * FROM users
+        WHERE status = 'WITHDRAWN'
+          AND deleted_at &lt; DATE_SUB(NOW(), INTERVAL 90 DAY)
+    </select>
+
+    <delete id="deleteUserPermanently">
+        DELETE FROM users WHERE id = #{id}
+    </delete>
 
 </mapper>

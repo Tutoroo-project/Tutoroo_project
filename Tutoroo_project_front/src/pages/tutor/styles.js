@@ -2,12 +2,12 @@ import { css } from "@emotion/react";
 import { theme } from "../../styles/theme"; 
 
 export const container = css`
-  width: ${theme.layout.contentWidth};
-  margin: 0 auto;
-  padding-top: 60px;
   display: flex;
   flex-direction: column;
   align-items: center;
+  margin: 0 auto;
+  padding-top: 60px;
+  width: ${theme.layout.contentWidth};
 `;
 
 export const title = css`
@@ -24,31 +24,31 @@ export const contentWrap = css`
 `;
 
 export const listPanel = css`
-  width: 380px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  width: 380px;  
+  gap: 17px;
 `;
 
 export const detailPanel = css`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 70px;
   width: 500px;
   height: 550px;
   border-radius: 20px;
   background-color: #FFF9F0; 
   border: 1px solid #EADDD2;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 40px;
   box-sizing: border-box;
 `;
 
 export const tutorItem = (isActive) => css`
   display: flex;
   align-items: center;
+  padding: 0 24px;
   width: 100%;
   height: 72px; 
-  padding: 0 24px;
   border-radius: 12px;
   border: 1px solid ${isActive ? theme.colors.primary : "#ddd"};
   background: ${isActive ? "#FFF" : "#FFF"};
@@ -57,10 +57,10 @@ export const tutorItem = (isActive) => css`
   
   /* ✅ 리스트 아이콘 이미지 스타일 */
   .icon { 
-    width: 58px; 
-    height: 58px; 
-    object-fit: contain; 
     margin-right: 16px; 
+    width: 68px; 
+    height: 68px; 
+    object-fit: contain; 
   }
   
   .name { 
@@ -78,10 +78,13 @@ export const tutorItem = (isActive) => css`
 `;
 
 export const customBtn = (isActive) => css`
-  ${tutorItem(isActive)};
   justify-content: center;
+  ${tutorItem(isActive)};
   height: 64px;
-  .name { flex: unset; }
+
+  .name { 
+    flex: unset; 
+  }
 `;
 
 export const infoBox = css`
@@ -102,21 +105,21 @@ export const detailProfileImg = css`
 
 export const guideText = css`
   font-size: 18px;
-  margin-bottom: 20px; 
-  word-break: keep-all; 
+  margin-bottom: 20px;
+  word-break: keep-all;
   line-height: 1.5;
 `;
 
 export const descBox = css`
-  background: rgba(255,255,255,0.6); 
+  background: #ffffff;
+  margin-bottom: 30px;
   padding: 16px; 
-  border-radius: 8px; 
-  margin-bottom: 30px; 
+  border-radius: 16px;
   width: 100%;
 `;
 
 export const customInput = css`
-  width: 100%; 
+  width: 100%;
   height: 120px; 
   padding: 16px; 
   border: 1px solid #ccc; 

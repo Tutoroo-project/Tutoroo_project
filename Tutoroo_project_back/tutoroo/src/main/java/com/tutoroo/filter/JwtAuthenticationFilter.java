@@ -1,6 +1,6 @@
 package com.tutoroo.filter;
 
-import com.tutoroo.jwt.JwtTokenProvider; // [해결] 실제 패키지 경로로 임포트
+import com.tutoroo.jwt.JwtTokenProvider;
 import com.tutoroo.security.CustomUserDetailsService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -17,15 +17,11 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 
-/**
- * [기능: JWT 인증 필터]
- * 설명: 모든 요청에 대해 토큰을 검증하고 보안 컨텍스트를 설정합니다.
- */
 @Slf4j
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    private final JwtTokenProvider jwtTokenProvider; // [해결] image_5dc7e6.png 심볼 오류 해결
+    private final JwtTokenProvider jwtTokenProvider;
     private final CustomUserDetailsService userDetailsService;
 
     @Override
@@ -46,7 +42,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContextHolder.getContext().setAuthentication(authentication);
             }
         } catch (Exception ex) {
-            log.error("SecurityContext에 사용자 인증 정보를 설정할 수 없습니다: {}", ex.getMessage());
+            log.error("SecurityContext 인증 설정 실패: {}", ex.getMessage());
         }
 
         filterChain.doFilter(request, response);

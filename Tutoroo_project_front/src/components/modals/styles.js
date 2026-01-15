@@ -62,7 +62,7 @@ export const form = css`
     height: 53px;
     border-radius: 8px;
     border: 1px solid #dddddd;
-    paddint 0 12px;
+    padding: 0 12px;
     font-size: 14px;
 
     &:focus {
@@ -111,7 +111,6 @@ export const keepLogin = css`
     transform: scale(0.9);
   }
 `;
-  
 
 /* ===============================
    Bottom Links
@@ -148,7 +147,6 @@ export const findPw = css`
 /* =========================
    로그인 / 회원가입 버튼
 ========================= */
-
 
 export const signupRow = css`
   display: flex;
@@ -377,7 +375,7 @@ export const helperText = css`
   margin-top: 6px;
   font-size: 12px;
   line-height: 1.4;
-  user-select: none; 
+  user-select: none;
 `;
 
 export const errorText = css`

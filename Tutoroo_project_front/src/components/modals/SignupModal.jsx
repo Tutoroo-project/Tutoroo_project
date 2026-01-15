@@ -165,10 +165,9 @@ function SignUpModal() {
                 성별
               </label>
               <select css={s.select}>
-                <option value="">성별 선택</option>
-                <option value="M">남성</option>
-                <option value="F">여성</option>
-                <option value="N">선택 안 함</option>
+                <option css={s.option} value="">성별 선택</option>
+                <option css={s.option} value="M">남성</option>
+                <option css={s.option} value="F">여성</option>
               </select>
             </div>
           </div>

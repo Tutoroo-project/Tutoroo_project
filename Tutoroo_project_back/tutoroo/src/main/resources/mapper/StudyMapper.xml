@@ -3,8 +3,8 @@
 <mapper namespace="com.tutoroo.mapper.StudyMapper">
 
     <insert id="savePlan" parameterType="com.tutoroo.entity.StudyPlanEntity" useGeneratedKeys="true" keyProperty="id">
-        INSERT INTO study_plans (user_id, goal, persona, roadmap_json, start_date, progress_rate, status, is_paid, created_at)
-        VALUES (#{userId}, #{goal}, #{persona}, #{roadmapJson}, NOW(), #{progressRate}, #{status}, #{isPaid}, NOW())
+        INSERT INTO study_plans (user_id, goal, persona, custom_tutor_name, roadmap_json, start_date, progress_rate, status, is_paid, created_at)
+        VALUES (#{userId}, #{goal}, #{persona}, #{customTutorName}, #{roadmapJson}, NOW(), #{progressRate}, #{status}, #{isPaid}, NOW())
     </insert>
 
     <select id="findById" resultType="com.tutoroo.entity.StudyPlanEntity">
@@ -21,6 +21,11 @@
         ORDER BY created_at DESC
     </select>
 
+    <select id="countActivePlansByUserId" resultType="int">
+        SELECT count(*) FROM study_plans
+        WHERE user_id = #{userId} AND status = 'PROCEEDING'
+    </select>
+
     <update id="updateProgress" parameterType="com.tutoroo.entity.StudyPlanEntity">
         UPDATE study_plans
         SET progress_rate = #{progressRate},
@@ -32,13 +37,15 @@
         UPDATE study_plans
         SET goal = #{goal},
             roadmap_json = #{roadmapJson},
+            custom_tutor_name = #{customTutorName},
             progress_rate = #{progressRate},
             status = #{status},
-            is_paid = #{isPaid}
+            is_paid = #{isPaid},
+            updated_at = NOW()
         WHERE id = #{id}
     </update>
 
-    <insert id="saveLog" parameterType="com.tutoroo.entity.StudyLogEntity">
+    <insert id="saveLog" parameterType="com.tutoroo.entity.StudyLogEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO study_logs (
             plan_id, study_date, day_count, content_summary, daily_summary,
             test_score, ai_feedback, student_feedback, point_change, is_completed
@@ -57,14 +64,7 @@
     <select id="findLogsByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
         SELECT * FROM study_logs
         WHERE plan_id = #{planId}
-        ORDER BY study_date DESC
-    </select>
-
-    <select id="findLatestLogByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
-        SELECT * FROM study_logs
-        WHERE plan_id = #{planId}
-        ORDER BY study_date DESC
-            LIMIT 1
+        ORDER BY day_count ASC
     </select>
 
     <select id="findLogsBetweenDays" resultType="com.tutoroo.entity.StudyLogEntity">
@@ -73,6 +73,13 @@
           AND day_count &gt;= #{startDay}
           AND day_count &lt;= #{endDay}
         ORDER BY day_count ASC
+    </select>
+
+    <select id="findLogsByUserIdAndDate" resultType="com.tutoroo.entity.StudyLogEntity">
+        SELECT l.* FROM study_logs l
+                            JOIN study_plans p ON l.plan_id = p.id
+        WHERE p.user_id = #{userId}
+          AND DATE(l.study_date) = #{date}
     </select>
 
 </mapper>

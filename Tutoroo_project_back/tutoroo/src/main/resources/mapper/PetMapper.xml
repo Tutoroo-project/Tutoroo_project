@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.PetMapper">
+
+    <select id="findByUserId" resultType="com.tutoroo.entity.PetInfoEntity">
+        SELECT * FROM pet_info WHERE user_id = #{userId}
+    </select>
+
+    <select id="findAllPets" resultType="com.tutoroo.entity.PetInfoEntity">
+        SELECT * FROM pet_info
+    </select>
+
+    <insert id="createPet" parameterType="com.tutoroo.entity.PetInfoEntity" useGeneratedKeys="true" keyProperty="petId">
+        INSERT INTO pet_info (
+            user_id, pet_name,
+            fullness, intimacy, exp,
+            cleanliness, stress, energy, is_sleeping,
+            stage, pet_type,
+            created_at, last_fed_at, last_played_at, last_cleaned_at, last_slept_at
+        ) VALUES (
+                     #{userId}, #{petName},
+                     #{fullness}, #{intimacy}, #{exp},
+                     100, 0, 100, false,
+                     #{stage}, #{petType},
+                     NOW(), NOW(), NOW(), NOW(), NULL
+                 )
+    </insert>
+
+    <update id="updatePet" parameterType="com.tutoroo.entity.PetInfoEntity">
+        UPDATE pet_info
+        SET
+            fullness = #{fullness},
+            intimacy = #{intimacy},
+            exp = #{exp},
+            cleanliness = #{cleanliness},
+            stress = #{stress},
+            energy = #{energy},
+            is_sleeping = #{isSleeping},
+            stage = #{stage},
+            pet_type = #{petType},
+            equipped_items = #{equippedItems},
+            last_fed_at = #{lastFedAt},
+            last_played_at = #{lastPlayedAt},
+            last_cleaned_at = #{lastCleanedAt},
+            last_slept_at = #{lastSleptAt}
+        WHERE pet_id = #{petId}
+    </update>
+
+    <select id="findNextEvolutionType" resultType="string">
+        SELECT next_pet_type
+        FROM pet_evolution_rule
+        WHERE current_stage = #{currentStage}
+          AND required_exp &lt;= #{exp}
+        ORDER BY required_exp DESC
+            LIMIT 1
+    </select>
+
+    <insert id="saveDiary" parameterType="com.tutoroo.entity.PetDiaryEntity">
+        INSERT INTO pet_diary (pet_id, date, content, mood, created_at)
+        VALUES (#{petId}, #{date}, #{content}, #{mood}, NOW())
+    </insert>
+
+    <select id="findSkillEffect" resultType="double">
+        SELECT effect_value FROM pet_skills
+        WHERE pet_type = #{petType} AND skill_code = #{skillCode}
+            LIMIT 1
+    </select>
+
+</mapper>

@@ -88,7 +88,7 @@ public class RankingService {
      */
     public RankingDTO getFilteredRankings(RankingDTO.FilterRequest filter) {
         // DB에서 필터링된 목록 조회
-        List<UserEntity> users = userMapper.getRankingList(filter.getGender(), filter.getAgeGroup());
+        List<UserEntity> users = userMapper.getRankingList(filter.gender(), filter.ageGroup());
 
         List<RankingDTO.RankEntry> entries = IntStream.range(0, users.size())
                 .mapToObj(i -> {

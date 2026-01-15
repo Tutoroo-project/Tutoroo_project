@@ -9,7 +9,7 @@ function Sidebar() {
     const menus = [
         {name: "회원 정보 변경", path: "/mypage/changeinfo"},
         {name: "비밀번호 변경", path: "/mypage/changepassword"},
-        {name: "회원 탈퇴", path: "/mypage/withdrawl"}
+        {name: "회원 탈퇴", path: "/mypage/withdrawal"}
     ];
 
     return(

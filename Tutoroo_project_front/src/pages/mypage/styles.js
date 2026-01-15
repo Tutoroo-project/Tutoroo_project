@@ -27,7 +27,7 @@ export const titleWrapper = css`
     margin-bottom: 24px;
 
     img {
-        width: 35px; /* 로고 크기 조정 */
+        width: 35px; 
         height: auto;
     }
 `
@@ -89,24 +89,24 @@ export const submitBtn = css`
 export const infoPageWrapper = css`
     display: flex;
     width: 100%;
-    height: calc(100vh - 72px); /* 헤더 제외 높이 고정 */
+    height: calc(100vh - 72px); 
     background-color: #ffffff;
-    overflow: hidden; /* ★ 전체 화면 스크롤 막기 */
+    overflow: hidden; 
     box-sizing: border-box;
     justify-content: center;
     padding-top: 50px;
 `;
 
-// [회원정보 변경 전용] 오른쪽 메인 영역 (여기만 스크롤 됨)
+
 export const infoPageMainContainer = css`
     
     height: 100%; 
     display: flex;
     justify-content: center;
-    align-items: center; /* 위쪽부터 내용 쌓기 */
+    align-items: center;
     padding-top: 50px;
-    padding-bottom: 100px; /* 스크롤 끝부분 여유 공간 */
-    overflow-y: auto; /* ★ 내용이 길어지면 여기서만 스크롤 발생 */
+    padding-bottom: 100px; 
+    overflow-y: auto;
 `;
 
 
@@ -242,7 +242,7 @@ export const infoInputGroup = css`
     
 
     label {
-        display: block;
+        
         font-size: 20px;
         color: #333;
         margin-bottom: 10px;
@@ -453,7 +453,7 @@ export const warningBox = css`
 
         svg {
             font-size: 20px;
-            color: #FBC02D; /* 노란색 아이콘 */
+            color: #FBC02D; 
            
         }
 
@@ -468,7 +468,7 @@ export const warningBox = css`
             color: #D32F2F;
             margin-bottom: 6px;
             line-height: 1.5;
-            list-style-type: disc; /* 점 모양 */
+            list-style-type: disc; 
         }
     }
 `;
@@ -572,10 +572,8 @@ export const passwordConfirm = css`
             border-color: #FF8A3D;
         }
     }
-    
 
 `
-
 export const withdrawalSubBtn = css`
     
     display: flex;
@@ -594,7 +592,6 @@ export const withdrawalSubBtn = css`
     &:hover {
         background-color: #e67e22;
     }
-
 
 `;
 

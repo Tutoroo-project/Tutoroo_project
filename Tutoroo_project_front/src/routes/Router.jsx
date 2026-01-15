@@ -19,7 +19,7 @@ function Router() {
       {/* <Route path="sidebar" element={<Sidebar />} /> */}
       <Route path="mypage/changeinfo" element={<ChangeInfoPage/>}/>
       <Route path="mypage/changepassword" element={<ChangePasswordPage />} />
-      <Route path="mypage/withdrawl" element={<WithdrawalPage />} />
+      <Route path="mypage/withdrawal" element={<WithdrawalPage />} />
       
 
       <Route path="/tutor" element={<TutorSelectionPage />} />

@@ -9,7 +9,11 @@ import useModalStore from "../../stores/modalStore";
 
 import * as s from "./styles";
 
+// 요일 이름
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
+
+// 기준 날짜를 기준으로 한 주 7일 날짜 정보 생성
+// -offset : 주단위 이동 (0 = 이번 주, -1 = 이전 주, +1 = 다음 주)
 
 function getWeekDates(offset = 0) {
   const today = new Date();
@@ -27,28 +31,42 @@ function getWeekDates(offset = 0) {
   });
 }
 
+/** 로그인 후 사용자 메인 대시보드 페이지 ("/") 홈 화면임 그냥
+ *
+ * - 사용자 인사 / 학습 선택 / 학습 진입
+ * - 요약 카드 (목표, 진도, 포인트/랭킹)
+ * - 주간 캘린더
+ * - 상세 정보 (AI 피드백, 진행률)
+ */
+
 function DashboardPage() {
   const navigate = useNavigate();
+
+  // 전역 상태 (Zustand)
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
 
-  const [studyList, setStudyList] = useState([]);
-  const [selectedStudyId, setSelectedStudyId] = useState("");
+  // 상태 저장
+  const [studyList, setStudyList] = useState([]); // 학습 목록 (임시임)
+  const [selectedStudyId, setSelectedStudyId] = useState(""); // 선택된 학습 ID
 
   const userName = user?.name || "OOO";
+  // 캘린더 관련 상태
+  const [weekOffset, setWeekOffset] = useState(0); // 주 이동 offset
+  const [selectedIndex, setSelectedIndex] = useState(0); // 선택된 날짜 인덱스
 
-  const [weekOffset, setWeekOffset] = useState(0);
-  const [selectedIndex, setSelectedIndex] = useState(0);
+  // 상세 영역 토글
   const [showDetail, setShowDetail] = useState(false);
 
+  // 현재 주 날짜 목록
   const dates = getWeekDates(weekOffset);
 
-  // ✅ 로그인 안 되어있으면 자동으로 로그인 모달
+  // 로그인 안 되어있으면 자동으로 로그인 모달 열어줌
   useEffect(() => {
     if (!user) openLogin();
   }, [user, openLogin]);
 
-  // ✅ 학습 목록 불러오기 (임시 함수 - 실제 구현 필요 시 주석 해제)
+  // 학습 목록 불러오기 (API 연동 해주면 주석 해제해서 쓸거임)
   /*
   useEffect(() => {
     if (!user) return;
@@ -58,10 +76,12 @@ function DashboardPage() {
 
   return (
     <>
+      {/* 공통으로 사용하는 헤더 컴포넌트 */}
       <Header />
 
       <div css={s.pageBg}>
         <main css={s.container}>
+          {/* 신규 튜터 등록버튼 */}
           <div css={s.newtutorbtn}>
             <div
               onClick={() => navigate("/tutor")}
@@ -71,13 +91,16 @@ function DashboardPage() {
             </div>
           </div>
 
+          {/* 인삿말 영역 */}
           <section css={s.greeting}>
             <div css={s.greetingText}>
               <h2>반가워요 {userName}님!</h2>
               <p>오늘의 목표를 달성하고 포인트를 획득해보세요</p>
             </div>
 
+            {/* 학습 액션 버튼 영역 */}
             <div css={s.actionWrap}>
+              {/* 학습 선택 */}
               <select
                 css={s.select}
                 value={selectedStudyId}
@@ -91,9 +114,12 @@ function DashboardPage() {
                   </option>
                 ))}
               </select>
+              {/* 학습 추가 버튼 (클릭하면 "/level-test 페이지로 이동")) */}
               <button css={s.studyBtn} onClick={() => navigate("/level-test")}>
                 학습 추가 +
               </button>
+
+              {/* 학습 시작 */}
               <button
                 css={s.studyBtn}
                 onClick={() => {
@@ -108,7 +134,7 @@ function DashboardPage() {
               </button>
             </div>
           </section>
-
+          {/* 상단 요약 카드 영역 */}
           <section css={s.cards}>
             <div css={s.card}>
               <span>현재학습 목표</span>
@@ -123,10 +149,10 @@ function DashboardPage() {
               </div>
             </div>
 
-            {/* ✅ [수정됨] 클릭 시 랭킹 페이지로 이동 */}
-            <div 
-              css={s.card} 
-              onClick={() => navigate("/ranking")} 
+            {/* 포인트 / 랭킹 카드 (클릭하면 "/ranking" 페이지로 이동) */}
+            <div
+              css={s.card}
+              onClick={() => navigate("/ranking")}
               style={{ cursor: "pointer" }}
             >
               <span>누적 포인트 / 랭킹</span>
@@ -135,7 +161,9 @@ function DashboardPage() {
             </div>
           </section>
 
+          {/* 캘린더 영역 */}
           <section css={s.calendarArea}>
+            {/* 이전 주 */}
             <button
               css={s.arrowBtn}
               onClick={() => {
@@ -159,6 +187,7 @@ function DashboardPage() {
               ))}
             </div>
 
+            {/* 다음 주 */}
             <button
               css={s.arrowBtn}
               onClick={() => {
@@ -170,12 +199,14 @@ function DashboardPage() {
             </button>
           </section>
 
+          {/* 상세 정보 토글 */}
           <div css={s.more} onClick={() => setShowDetail((prev) => !prev)}>
             {showDetail ? "접기" : "더보기"}
           </div>
 
           {showDetail && (
             <section css={s.detailSection}>
+              {/* 수업 성취 진행률 (그래프) */}
               <div css={s.detailCard}>
                 <h3 css={s.detailTitle}>수업 성취 진행률</h3>
                 <div css={s.chartPlaceholder}>그래프 영역 (차트 예정)</div>
@@ -190,6 +221,7 @@ function DashboardPage() {
                   차근차근 풀어보세요.
                 </p>
 
+                {/* AI 튜터 피드백 */}
                 <ul css={s.feedbackList}>
                   <li>✔️ 개념 이해도 우수</li>
                   <li>✔️ 학습 지속성 좋음</li>
@@ -201,6 +233,7 @@ function DashboardPage() {
         </main>
       </div>
 
+      {/* 전역 모달 랜더링 */}
       <ModalRoot />
     </>
   );

@@ -222,7 +222,7 @@ export const formLabel = css`
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 8px;
 `;
 
 export const required = css`

@@ -4,17 +4,22 @@ import * as s from "./styles";
 import useModalStore from "../../stores/modalStore";
 import { useState } from "react";
 
+// 아이디 찾기 모달 컴포넌트
 function FindIdModal() {
+  // 모달 열기 닫기
   const closeFindId = useModalStore((state) => state.closeFindId);
   const openLogin = useModalStore((state) => state.openLogin);
 
+  // 상태 지정
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
   const handleSubmit = (e) => {
+    // 페이지 새로고침 방지
     e.preventDefault();
 
+    // 필수 입력값 누락 시 경고 알림
     if (!name || !phone || !email) {
       Swal.fire({
         icon: "warning",
@@ -32,7 +37,7 @@ function FindIdModal() {
       return;
     }
 
-    // 임시 아이디 결과 나중에 api 연결시 삭제
+    // 임시로 일단 성공처리 백엔드 연동하고 API 호출로 변경할거임
     const foundId = "tutoroo_user01";
 
     Swal.fire({
@@ -61,14 +66,18 @@ function FindIdModal() {
       `,
       },
     }).then(() => {
+      // Alert 확인 후 비밀번호 찾기 모달 닫고 로그인 모달 열거임
       closeFindId();
       openLogin();
     });
   };
 
   return (
+    // 배경 클릭하면 비밀번호 찾기 모달 닫기
     <div css={s.overlay} onClick={closeFindId}>
+      {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>
+        {/* 모달 타이틀 */}
         <div css={s.title}>아이디 찾기</div>
 
         <form css={s.form} onSubmit={handleSubmit}>
@@ -108,11 +117,13 @@ function FindIdModal() {
             placeholder="가입 시 사용한 이메일"
           />
 
+          {/* 아이디 찾기 버튼 */}
           <button css={s.submitBtn} type="submit">
             아이디 찾기
           </button>
         </form>
 
+        {/* 로그인 모달로 이동 */}
         <div css={s.loginRow}>
           <span css={s.loginMent}>로그인 화면으로 돌아가기</span>
           <span css={s.loginLink} onClick={openLogin}>

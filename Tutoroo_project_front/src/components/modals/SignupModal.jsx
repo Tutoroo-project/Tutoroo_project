@@ -3,30 +3,36 @@ import * as s from "./styles";
 import { FiCamera } from "react-icons/fi";
 import useModalStore from "../../stores/modalStore";
 import useAuthStore from "../../stores/useAuthStore";
+import { BsPersonCircle } from "react-icons/bs";
 import { useState } from "react";
 
+// 회원가입 모달 컴포넌트
 function SignUpModal() {
-  // ================== state ==================
+  // 상태 지정해둔곳
   const [username, setUsername] = useState("");
+
+  // 아이디 중복 확인하는 상태값
   const [isChecking, setIsChecking] = useState(false);
   const [isDuplicated, setIsDuplicated] = useState(null);
   // null: 확인 안 함 | true: 중복 | false: 사용 가능
 
+  // 아이디 유효성 검사
   const [isValidUsername, setIsValidUsername] = useState(null);
-  // null | true | false (아이디 유효성 검사)
-
+  // null | true | false
 
   const closeSignUp = useModalStore((state) => state.closeSignUp);
   const openLogin = useModalStore((state) => state.openLogin);
+
+  // 회원가입 성공시 로그인 처리 (임시로)
   const login = useAuthStore((state) => state.login);
 
-  // ================== handlers ==================
+  // 아이디 중복확인 핸들러
   const handleCheckDuplicate = async () => {
     if (!username) return;
 
     setIsChecking(true);
 
-    // ⚠️ 임시 중복확인 (백엔드 연동 시 API 호출로 교체)
+    // 임시 중복확인 (백엔드 연동 시 API 호출하고 교체할거임)
     setTimeout(() => {
       if (username === "admin") {
         setIsDuplicated(true); // 중복
@@ -37,25 +43,28 @@ function SignUpModal() {
     }, 500);
   };
 
+  // 회원가입 폼 제출
   const handleSubmit = (e) => {
     e.preventDefault();
 
     // 중복확인 안 했거나, 중복이면 제출 차단
     if (isDuplicated !== false) return;
 
-    // ⚠️ 임시 회원가입 성공 처리
+    // 임시 회원가입 성공 처리
     login({ id: 1, name: "OOO" });
     closeSignUp();
   };
 
-  // ================== render ==================
   return (
+    // 배경 클릭 시 회원가입 모달 닫기
     <div css={s.overlay} onClick={closeSignUp}>
+      {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>
+        {/* 모달 타이틀 */}
         <div css={s.title}>회원가입</div>
 
         <form css={s.form} onSubmit={handleSubmit}>
-          {/* 아이디 */}
+          {/* 아이디 입력*/}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             아이디
@@ -69,6 +78,7 @@ function SignUpModal() {
                 const value = e.target.value;
                 setUsername(value);
 
+                // 아이디 형식 검사 (4~12자 영문 소문자, 숫자, _가능)
                 const usernameRegex = /^(?=.*[a-z])[a-z0-9_]{4,12}$/;
 
                 if (!value) {
@@ -85,23 +95,21 @@ function SignUpModal() {
               placeholder="아이디를 입력하세요"
             />
 
+            {/* 중복 확인 버튼 */}
             <button
               type="button"
               css={s.dupCheckBtn}
               onClick={handleCheckDuplicate}
               disabled={
-                isChecking ||
-                isDuplicated === false ||
-                isValidUsername !== true
+                isChecking || isDuplicated === false || isValidUsername !== true
               }
             >
               {isChecking
                 ? "확인중..."
                 : isDuplicated === false
-                  ? "확인완료"
-                  : "중복확인"}
+                ? "확인완료"
+                : "중복확인"}
             </button>
-
           </div>
 
           {/* 아이디 상태 메시지 */}
@@ -129,11 +137,16 @@ function SignUpModal() {
             placeholder="비밀번호를 8자 이상 입력해주세요."
             type="password"
           />
+
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             비밀번호 확인
           </label>
-          <input css={s.input}placeholder="비밀번호를 다시 입력해주세요." type="password" />
+          <input
+            css={s.input}
+            placeholder="비밀번호를 다시 입력해주세요."
+            type="password"
+          />
 
           {/* 이메일 */}
           <label css={s.formLabel}>
@@ -165,14 +178,20 @@ function SignUpModal() {
                 성별
               </label>
               <select css={s.select}>
-                <option css={s.option} value="">성별 선택</option>
-                <option css={s.option} value="M">남성</option>
-                <option css={s.option} value="F">여성</option>
+                <option css={s.option} value="">
+                  성별 선택
+                </option>
+                <option css={s.option} value="M">
+                  남성
+                </option>
+                <option css={s.option} value="F">
+                  여성
+                </option>
               </select>
             </div>
           </div>
 
-          {/* 이름 */}
+          {/* 전화번호 */}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             전화번호
@@ -180,6 +199,10 @@ function SignUpModal() {
           <input css={s.input} placeholder="010-1234-5678" />
 
           {/* 프로필 이미지 업로드 */}
+          <label css={s.formLabel}>
+            <BsPersonCircle size={35} />
+            프로필 이미지 업로드
+          </label>
           <label css={s.uploadBox}>
             <input
               type="file"
@@ -189,12 +212,14 @@ function SignUpModal() {
                 const file = e.target.files[0];
                 if (!file) return;
 
+                // 파일 크기 제한 (5MB)
                 if (file.size > 5 * 1024 * 1024) {
                   alert("5MB 이하의 이미지만 업로드 가능합니다.");
                   return;
                 }
 
-                console.log(file); // 👉 여기서 state / API 연동
+                // 나중에 API 연결 되고 수정하겠습니다
+                console.log(file);
               }}
             />
 
@@ -211,7 +236,7 @@ function SignUpModal() {
             </div>
           </label>
 
-          {/* 가입 버튼 */}
+          {/* 회원가입 버튼 */}
           <button
             css={s.submitBtn}
             type="submit"
@@ -221,6 +246,7 @@ function SignUpModal() {
           </button>
         </form>
 
+        {/* 로그인 모달로 이동 */}
         <div css={s.loginRow}>
           <span css={s.loginMent}>이미 계정이 있나요?</span>
           <span css={s.loginLink} onClick={openLogin}>

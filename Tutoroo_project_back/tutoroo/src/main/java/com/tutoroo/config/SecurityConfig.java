@@ -4,7 +4,6 @@ import com.tutoroo.filter.JwtAuthenticationFilter;
 import com.tutoroo.jwt.JwtTokenProvider;
 import com.tutoroo.security.CustomUserDetailsService;
 import com.tutoroo.security.OAuth2SuccessHandler;
-import com.tutoroo.security.OAuth2SuccessHandler;
 import com.tutoroo.service.CustomOAuth2UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -51,21 +50,14 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // 1. [수정] Swagger 및 공용 엔드포인트 접근 허용 (여기에 추가됨!)
+                        // 1. 누구나 접근 가능한 경로 (로그인, 회원가입, 랭킹조회 등)
                         .requestMatchers(
                                 "/api/auth/**", "/login/**", "/oauth2/**",
-                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html" // ★ 이 줄이 추가되었습니다!
+                                "/swagger-ui/**", "/v3/api-docs/**", "/swagger-ui.html",
+                                "/api/ranking/public"
                         ).permitAll()
 
-                        .requestMatchers("/api/ranking/public").permitAll()
-
-                        // 2. 인증된 사용자 (GUEST, USER) 접근 가능 -> 추가 정보 입력
-                        .requestMatchers("/api/auth/oauth/complete").authenticated()
-
-                        // 3. 나머지는 USER 권한 필요 (GUEST가 URL로 직접 접근 시 차단)
-                        .requestMatchers("/api/user/**", "/api/study/**", "/api/tutor/**", "/api/payment/**").hasRole("USER")
-
-                        // 그 외 모든 요청 인증 필요
+                        // 2. 그 외 모든 요청은 "로그인만 되어 있으면" 허용 (관리자 구분 없음)
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(new JwtAuthenticationFilter(jwtTokenProvider, userDetailsService),
@@ -83,11 +75,12 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        // 프론트엔드 포트 (Vite 5173, React 3000)
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);
-        configuration.setExposedHeaders(List.of("Authorization"));
+        configuration.setExposedHeaders(List.of("Authorization", "RefreshToken")); // 토큰 헤더 노출
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

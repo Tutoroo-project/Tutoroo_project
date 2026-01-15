@@ -1,6 +1,7 @@
 package com.tutoroo.entity;
 
 import lombok.*;
+
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 
@@ -10,6 +11,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 @Builder
 public class UserEntity {
+
     private Long id;
     private String username;
     private String password;
@@ -20,39 +22,47 @@ public class UserEntity {
     private String email;
     private String profileImage;
 
-    // [신규] 학부모 리포트용
+    // 학부모 리포트용 (19세 미만 필수)
     private String parentPhone;
 
-    // [OAuth2]
+    // OAuth2 정보
     private String provider;
     private String providerId;
 
-    private String role;
+    private String role; // ROLE_USER, ROLE_GUEST
 
-    // [Membership & Point]
+    // Membership & Point (Enum 타입 사용)
     private Integer totalPoint;
     private MembershipTier membershipTier;
 
-    // [Ranking]
+    // Ranking & Stats
     private Integer dailyRank;
-
     private Integer level;
     private Integer exp;
 
-    // [신규] 스트릭 & 라이벌 시스템
-    private Integer currentStreak; // 연속 학습일 (잔디)
-    private LocalDate lastStudyDate; // 마지막 학습 날짜 (스트릭 계산용)
-    private Long rivalId;          // 현재 지정된 라이벌 ID
+    // Streak & Rival
+    private Integer currentStreak;
+    private LocalDate lastStudyDate;
+    private Long rivalId;
 
+    // [회원 상태 관리]
+    private String status;           // ACTIVE, WITHDRAWN
+    private String withdrawalReason; // 탈퇴 사유
+    private LocalDateTime deletedAt; // 삭제 예정일
+
+    // Time Stamps
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // --- 유틸 메서드 ---
+    // --- [편의 메서드] ---
+
+    // 이름 마스킹 (김*영)
     public String getMaskedName() {
         if (name == null || name.length() < 2) return name;
         return name.charAt(0) + "*".repeat(name.length() - 1);
     }
 
+    // [중요] 멤버십 등급 안전하게 가져오기 (Null이면 BASIC 반환)
     public MembershipTier getEffectiveTier() {
         if (this.membershipTier == null) return MembershipTier.BASIC;
         return this.membershipTier;

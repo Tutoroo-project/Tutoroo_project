@@ -32,7 +32,7 @@ public class AssessmentService {
      * [기능: 대화형 수준 파악 (TTS 포함)]
      */
     public AssessmentDTO.ConsultResponse consult(AssessmentDTO.ConsultRequest request) {
-        int currentCount = (request.getHistory() != null ? request.getHistory().size() : 0) / 2 + 1;
+        int currentCount = (request.history() != null ? request.history().size() : 0) / 2 + 1;
 
         if (request.isStopRequested() || currentCount > MAX_QUESTIONS) {
             String msg = "수준 파악이 완료되었습니다. 로드맵을 생성하시겠습니까?";
@@ -48,14 +48,14 @@ public class AssessmentService {
             당신은 입시 컨설턴트 AI입니다.
             학생 정보: [목표:%s, 시간:%s, 기간:%s]
             미션: 학생의 수준을 파악하기 위한 질문을 하세요. (%d번째 질문)
-            """, request.getGoal(), request.getAvailableTime(), request.getTargetDuration(), currentCount);
+            """, request.goal(), request.availableTime(), request.targetDuration(), currentCount);
 
         String question;
-        if (request.getHistory() == null || request.getHistory().isEmpty()) {
+        if (request.history() == null || request.history().isEmpty()) {
             question = chatModel.call(systemPrompt + " 첫 질문을 해주세요.");
         } else {
-            String historyText = request.getHistory().stream()
-                    .map(m -> m.getRole() + ": " + m.getContent())
+            String historyText = request.history().stream()
+                    .map(m -> m.role() + ": " + m.content())
                     .collect(Collectors.joining("\n"));
             question = chatModel.call(systemPrompt + "\n대화내역:\n" + historyText);
         }
@@ -80,7 +80,7 @@ public class AssessmentService {
             요청: 주차별 커리큘럼 JSON 생성
             형식: {"summary":"...", "weeklyCurriculum":{"1주차:..."}, "examSchedule":[]}
             JSON만 응답해.
-            """, request.getGoal());
+            """, request.goal());
 
         // 1. AI 호출 (오래 걸림 - No Transaction)
         String json = chatModel.call(prompt);
@@ -101,8 +101,8 @@ public class AssessmentService {
 
             StudyPlanEntity plan = StudyPlanEntity.builder()
                     .userId(userId)
-                    .goal(request.getGoal())
-                    .persona(request.getTeacherType())
+                    .goal(request.goal())
+                    .persona(request.teacherType())
                     .roadmapJson(json)
                     .progressRate(0.0)
                     .status("PROCEEDING")

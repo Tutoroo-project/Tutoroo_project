@@ -6,6 +6,7 @@ import ChangeInfoPage from "../pages/mypage/ChangeInfoPage";
 import Sidebar from "../pages/mypage/Sidebar";
 import ChangePasswordPage from "../pages/mypage/ChangePasswordPage";
 import WithdrawalPage from "../pages/mypage/WithdrawalPage";
+import RankingPage from "../pages/ranking/RankingPage";
 
 import TutorSelectionPage from "../pages/tutor/TutorSelectionPage";
 import StudyPage from "../pages/studys/StudyPage";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="mypage/changeinfo" element={<ChangeInfoPage />} />
       <Route path="mypage/changepassword" element={<ChangePasswordPage />} />
       <Route path="mypage/withdrawl" element={<WithdrawalPage />} />
+      <Route path="/ranking" element={<RankingPage />} />
 
       <Route path="/level-test" element={<LevelTestPage />} />
       <Route path="/level-test/result" element={<LevelTestResultPage />} />

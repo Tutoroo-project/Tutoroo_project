@@ -15,25 +15,6 @@ export const container = css`
   padding-bottom: 40px;
 `;
 
-export const newtutorbtn = css`
-  display: flex;
-  justify-content: flex-end;
-
-  & > div {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    width: 160px;
-    height: 40px;
-    border-radius: 12px;
-    font-size: 14px;
-    border: none;
-    background: #ff8a3d;
-    color: #fff;
-    font-weight: 500;
-  }
-`;
-
 /* =========================
    Greeting
 ========================= */

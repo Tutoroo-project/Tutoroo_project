@@ -37,7 +37,7 @@ function LoginModal() {
 
   return (
     // 배경 클릭하면 모달 닫힘 (나중에 빼기)
-    <div css={s.overlay} onClick={closeLogin}>
+    <div css={s.overlay}>
       {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>
         {/* 로고 */}

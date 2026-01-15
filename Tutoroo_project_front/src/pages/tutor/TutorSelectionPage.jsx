@@ -36,7 +36,7 @@ function TutorSelectionPage() {
   const activeTutor = TUTORS.find((t) => t.id === selectedTutorId) || TUTORS[3];
 
   const handleStart = () => {
-    startStudyPlan(isCustomMode ? customInput : null, navigate);
+    startStudyPlan(isCustomMode ? customInput : null, navigate("/study"));
   };
 
   return (

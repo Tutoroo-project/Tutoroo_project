@@ -46,7 +46,7 @@ export const logo = css`
 
   img {
     width: 300px;
-    height: 280px;
+    height: 270px;
   }
 `;
 

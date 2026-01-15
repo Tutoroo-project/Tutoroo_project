@@ -66,6 +66,15 @@ function DashboardPage() {
     if (!user) openLogin();
   }, [user, openLogin]);
 
+  // 학습목록이 하나라도 있으면 학습선택이 아니라 java가 뜨게됨
+  useEffect(() => {
+    // 학습이 하나라도 있고, 아직 선택된 값이 없을 때
+    if (studyList.length > 0 && !selectedStudyId) {
+      setSelectedStudyId(studyList[0].id);
+      // 또는 studyList[0].id
+    }
+  }, [studyList, selectedStudyId]);
+
   // 학습 목록 불러오기 (API 연동 해주면 주석 해제해서 쓸거임)
   /*
   useEffect(() => {
@@ -78,19 +87,8 @@ function DashboardPage() {
     <>
       {/* 공통으로 사용하는 헤더 컴포넌트 */}
       <Header />
-
       <div css={s.pageBg}>
         <main css={s.container}>
-          {/* 신규 튜터 등록버튼 */}
-          <div css={s.newtutorbtn}>
-            <div
-              onClick={() => navigate("/tutor")}
-              style={{ cursor: "pointer" }}
-            >
-              신규 선생님 등록 +
-            </div>
-          </div>
-
           {/* 인삿말 영역 */}
           <section css={s.greeting}>
             <div css={s.greetingText}>
@@ -105,9 +103,12 @@ function DashboardPage() {
                 css={s.select}
                 value={selectedStudyId}
                 onChange={(e) => setSelectedStudyId(e.target.value)}
+                disabled={studyList.length === 0}
               >
-                <option value="">학습 선택</option>
-                <option value="java">Java</option>
+                <option value="">
+                  {studyList.length === 0 ? "학습이 없습니다" : "학습 선택"}
+                </option>
+                {/* 서버에서 받아온 학습 목록 */}
                 {studyList.map((study) => (
                   <option key={study.id} value={study.id}>
                     {study.name}
@@ -127,7 +128,7 @@ function DashboardPage() {
                     alert("학습을 선택해주세요");
                     return;
                   }
-                  navigate(`/study/` /*${selectedStudyId}*/);
+                  navigate(`/tutor`);
                 }}
               >
                 학습하러 가기

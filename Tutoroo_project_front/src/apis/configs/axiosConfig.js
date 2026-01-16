@@ -26,7 +26,7 @@ api.interceptors.response.use(
       if (!refreshToken) return Promise.reject(error);
 
       try {
-        // ✅ 너희 백엔드: RefreshToken 헤더로 재발급
+        //  너희 백엔드: RefreshToken 헤더로 재발급
         const reissueRes = await api.post("/api/auth/reissue", null, {
           headers: { RefreshToken: refreshToken },
         });

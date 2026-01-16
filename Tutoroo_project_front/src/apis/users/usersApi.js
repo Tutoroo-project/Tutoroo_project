@@ -29,8 +29,6 @@ export const authApi = {
     );
 
     if (profileImage) formData.append("profileImage", profileImage);
-
-    // ✅ headers에서 Content-Type 지정하지 마세요 (브라우저가 boundary 포함해서 자동 세팅)
     const res = await api.post("/api/auth/join", formData);
     return res.data;
   },

@@ -45,7 +45,7 @@ function SignUpModal() {
   const handleCheckDuplicate = async () => {
     if (!username) return;
 
-    // ✅ 아이디 형식이 맞아야만 체크
+    //  아이디 형식이 맞아야만 체크
     if (isValidUsername !== true) {
       Swal.fire({
         icon: "warning",
@@ -58,7 +58,6 @@ function SignUpModal() {
 
     setIsChecking(true);
 
-    // 임시 중복확인 (백엔드 연동 시 API 호출하고 교체할거임)
     try {
       const available = await authApi.checkId(username); // true면 사용가능
       if (available) {
@@ -142,12 +141,12 @@ function SignUpModal() {
       return;
     }
 
-    // ✅ 백엔드 조건: 19세 미만이면 parentPhone 필수
-    if (ageNumber < 19 && !parentPhone.trim()) {
+    //  백엔드 조건: 20세 미만이면 parentPhone 필수
+    if (ageNumber < 20 && !parentPhone.trim()) {
       Swal.fire({
         icon: "warning",
         title: "보호자 연락처 필요",
-        text: "19세 미만은 보호자 연락처를 입력해야 합니다.",
+        text: "20세 미만은 보호자 연락처를 입력해야 합니다.",
         confirmButtonColor: "#FF8A3D",
       });
       return;
@@ -156,21 +155,21 @@ function SignUpModal() {
     setIsSubmitting(true);
 
     try {
-      // ✅ 회원가입 요청 payload
+      //  회원가입 요청 payload
       const joinData = {
         username,
         password,
         name,
-        gender, // "M" | "F"
+        gender,
         age: ageNumber,
         phone,
         email,
-        parentPhone: ageNumber < 19 ? parentPhone : null,
+        parentPhone: ageNumber < 20 ? parentPhone : null,
       };
 
       await authApi.join({ data: joinData, profileImage });
 
-      // ✅ 가입 성공하면 바로 로그인까지
+      //  가입 성공하면 바로 로그인까지
       const loginData = await authApi.login({ username, password });
       login(loginData);
 
@@ -352,17 +351,17 @@ function SignUpModal() {
                 <option css={s.option} value="">
                   성별 선택
                 </option>
-                <option css={s.option} value="M">
+                <option css={s.option} value="Male">
                   남성
                 </option>
-                <option css={s.option} value="F">
+                <option css={s.option} value="Female">
                   여성
                 </option>
               </select>
             </div>
           </div>
 
-          {/* ✅ 19세 미만이면 보호자 연락처 */}
+          {/*  19세 미만이면 보호자 연락처 */}
           {age && Number(age) < 19 && (
             <>
               <label css={s.formLabel}>

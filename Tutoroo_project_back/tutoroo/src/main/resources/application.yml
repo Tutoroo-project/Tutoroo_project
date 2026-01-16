@@ -14,34 +14,35 @@ spring:
   profiles:
     include: secret
 
-  # [성능] Java 21 가상 스레드 활성화 (비동기 처리 최적화)
+  # [성능] Java 21 가상 스레드 활성화
   threads:
     virtual:
       enabled: true
 
-  # [필수 추가] 파일 업로드 용량 제한 해제
-  # DALL-E 이미지나 고화질 프로필 사진 업로드를 위해 넉넉하게 잡았습니다.
+  # [파일] 업로드 용량 제한 해제
   servlet:
     multipart:
       max-file-size: 20MB
       max-request-size: 20MB
 
-  # [JSON 설정] 날짜 포맷 통일
+  # [JSON] 날짜 포맷 통일
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Seoul
 
-  # [빈 설정] 재정의 허용
+  # [빈] 재정의 허용
   main:
     allow-bean-definition-overriding: true
 
-  # [Flyway] DB 형상 관리 (개발 편의 모드)
-  # 주의: 이 설정은 '개발 중'에만 사용하세요. 운영(Prod) 배포 시에는 clean 옵션을 꺼야 합니다.
+  # [Flyway] DB 형상 관리 (데이터 보존 모드)
   flyway:
     enabled: true
-    baseline-on-migrate: true
-    clean-disabled: false          # true면 DB 삭제 불가능 -> 개발 중엔 false로 해서 초기화 가능하게 함
+    baseline-on-migrate: false
+    # [핵심 수정] true로 설정하여 DB 삭제(clean)를 원천 차단합니다.
+    # 이제 서버를 재시작해도 데이터가 유지됩니다.
+    clean-disabled: true
 
+# [MyBatis] 설정 유지
 mybatis:
   mapper-locations: classpath:mapper/*.xml
   type-aliases-package: com.tutoroo.entity
@@ -54,7 +55,7 @@ mybatis:
 logging:
   level:
     root: INFO
-    com.tutoroo: DEBUG           # 내 코드 로그는 자세히
-    com.tutoroo.mapper: DEBUG    # SQL 실행 로그 확인용
+    com.tutoroo: DEBUG
+    com.tutoroo.mapper: DEBUG
     org.springframework.security: INFO
     org.springframework.web: INFO

@@ -16,7 +16,7 @@ public class TutorDTO {
     public record ClassStartResponse(
             String topic,
             String aiMessage,
-            String audioBase64,
+            String audioUrl, // [최적화] Base64 -> URL
             String imageUrl,
             String backgroundMusicUrl,
             int gainedExp,
@@ -28,11 +28,11 @@ public class TutorDTO {
             String type,     // QUIZ, MISSION 등
             String question,
             String imageUrl,
-            String voiceUrl,
+            String voiceUrl, // [확인] 이미 URL 네이밍을 사용 중이므로 유지 (내부 데이터는 파일 경로로 변경됨)
             int timeLimitSeconds
     ) {}
 
-    // [NEW] 4. 테스트 제출 요청 (오류 해결을 위해 추가됨)
+    // 4. 테스트 제출 요청
     public record TestSubmitRequest(
             Long planId,
             String textAnswer
@@ -43,7 +43,7 @@ public class TutorDTO {
             int score,
             String aiFeedback,
             String summary,
-            String audioBase64,
+            String audioUrl, // [최적화] Base64 -> URL
             String explanationImageUrl,
             String nextMission,
             boolean isPassed
@@ -58,7 +58,7 @@ public class TutorDTO {
     // 7. 커리큘럼 조정 채팅 응답
     public record FeedbackChatResponse(
             String aiResponse,
-            String audioBase64
+            String audioUrl // [최적화] Base64 -> URL
     ) {}
 
     // 8. 선생님 평가 요청

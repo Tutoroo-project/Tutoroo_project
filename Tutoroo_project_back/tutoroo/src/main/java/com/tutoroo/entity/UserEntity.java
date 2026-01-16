@@ -31,11 +31,11 @@ public class UserEntity {
 
     private String role;
 
-    // [수정됨] 포인트 시스템 분리
+    // [포인트 시스템]
     private Integer totalPoint;   // 누적 랭킹 포인트 (감소 X)
     private Integer pointBalance; // 사용 가능 포인트 (감소 O)
 
-    private MembershipTier membershipTier;
+    private MembershipTier membershipTier; // 멤버십 등급 Enum
 
     private Integer dailyRank;
     private Integer level;
@@ -52,14 +52,17 @@ public class UserEntity {
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 
-    // 편의 메서드
+    // --- [편의 메서드] ---
+
+    // 1. 이름 마스킹 (김철수 -> 김*수)
     public String getMaskedName() {
         if (name == null || name.length() < 2) return name;
-        return name.charAt(0) + "*".repeat(name.length() - 1);
+        return name.charAt(0) + "*" + name.substring(2);
     }
 
+    // 2. [중요] 유효 멤버십 조회 (Null-Safe)
+    // PetService에서 user.getEffectiveTier().getAllowedPets() 호출 시 사용됨
     public MembershipTier getEffectiveTier() {
-        if (this.membershipTier == null) return MembershipTier.BASIC;
-        return this.membershipTier;
+        return this.membershipTier != null ? this.membershipTier : MembershipTier.BASIC;
     }
 }

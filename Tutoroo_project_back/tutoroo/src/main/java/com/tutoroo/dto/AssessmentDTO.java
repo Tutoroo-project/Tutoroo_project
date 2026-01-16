@@ -21,7 +21,7 @@ public class AssessmentDTO {
     @Builder
     public record ConsultResponse(
             String question,
-            String audioBase64,
+            String audioUrl, // [최적화 변경] Base64 데이터 대신 파일 접근 URL 반환
             int questionCount,
             boolean isFinished
     ) {}

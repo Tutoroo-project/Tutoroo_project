@@ -4,7 +4,21 @@ export const api = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL, //.env 값 가져오기
 });
 
+const AUTH_FREE_PATHS = [
+  "/api/auth/login",
+  "/api/auth/join",
+  "/api/auth/reissue",
+];
+
+// url이 auth-free 인지 검사
+const isAuthFree = (url = "") => AUTH_FREE_PATHS.some((p) => url.includes(p));
+
 api.interceptors.request.use((config) => {
+  const url = config?.url ?? "";
+
+  //  로그인/회원가입/재발급 같은 요청에는 토큰을 붙이지 않음
+  if (isAuthFree(url)) return config;
+
   const accessToken = localStorage.getItem("accessToken");
   if (accessToken) {
     config.headers = config.headers ?? {};
@@ -17,6 +31,12 @@ api.interceptors.response.use(
   (res) => res,
   async (error) => {
     const original = error.config;
+    const url = original?.url ?? "";
+
+    //  auth-free 요청(로그인/회원가입 등)은 reissue 로직 타지 않게
+    if (isAuthFree(url)) {
+      return Promise.reject(error);
+    }
 
     // accessToken 만료 등으로 401 발생 + 무한루프 방지
     if (error?.response?.status === 401 && !original?._retry) {
@@ -26,7 +46,7 @@ api.interceptors.response.use(
       if (!refreshToken) return Promise.reject(error);
 
       try {
-        //  너희 백엔드: RefreshToken 헤더로 재발급
+        //  백엔드: RefreshToken 헤더로 재발급
         const reissueRes = await api.post("/api/auth/reissue", null, {
           headers: { RefreshToken: refreshToken },
         });

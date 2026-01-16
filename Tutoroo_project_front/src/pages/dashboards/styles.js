@@ -184,6 +184,7 @@ export const calendarCard = (active) => css`
 export const calendarHeader = css`
   height: 32px;
   background: #ffd8a8;
+  border-radius: 10px;
   display: flex;
   align-items: center;
   justify-content: center;

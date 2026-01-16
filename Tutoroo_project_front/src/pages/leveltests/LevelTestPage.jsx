@@ -21,7 +21,6 @@ function LevelTestPage() {
   const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const [showMenu, setShowMenu] = useState(false); // + 메뉴 열림 상태
   const [isCompleted, setIsCompleted] = useState(false); // 테스트 완료 여부
 
   // 채팅 메시지 목록 (AI 와 유저)
@@ -41,22 +40,20 @@ function LevelTestPage() {
     }
   }, [step]);
 
-  // 이미지 업로드 핸들러 (사용자가 이미지를 업로드해야하는 경우가 있을때를 위해)
-  const handleImageUpload = (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-
-    console.log("이미지 업로드:", file);
-  };
-
   // 파일 업로드 핸들러 (사용자가 파일 업로드해야하는 경우가 있을때를 위해)
   const handleFileUpload = (e) => {
-    const file = e.target.files[0];
+    const file = e.target.files?.[0];
     if (!file) return;
 
-    console.log("파일 업로드:", file);
-  };
+    if (file.type.startsWith("image/")) {
+      console.log("이미지 업로드:", file);
+    } else {
+      console.log("파일 업로드:", file);
+    }
 
+    // 같은 파일 다시 선택 가능하게 초기화(선택)
+    e.target.value = "";
+  };
   // 사용자 입력 전송
   const handleSubmit = () => {
     if (!input.trim()) return;
@@ -64,7 +61,6 @@ function LevelTestPage() {
     // 사용자 메시지 추가
     setMessages((prev) => [...prev, { role: "user", content: input }]);
     setInput("");
-    setShowMenu(false);
 
     // 마지막 질문일 경우
     if (step === QUESTIONS.length - 1) {
@@ -118,11 +114,11 @@ function LevelTestPage() {
                 {/* + 버튼 (첨부 메뉴 토글 스위치)*/}
                 <button
                   css={s.plusBtn}
-                  onClick={() => setShowMenu((prev) => !prev)}
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
                 >
                   ＋
                 </button>
-
                 {/* 입력창 */}
                 <input
                   css={s.inputBox}
@@ -137,41 +133,13 @@ function LevelTestPage() {
                   }}
                 />
 
-                {/* + 메뉴 */}
-                {showMenu && (
-                  <div css={s.plusMenu}>
-                    <button
-                      css={s.menuItem}
-                      onClick={() => imageInputRef.current.click()}
-                    >
-                      + Upload Picture
-                    </button>
-
-                    <button
-                      css={s.menuItem}
-                      onClick={() => fileInputRef.current.click()}
-                    >
-                      + Upload File
-                    </button>
-
-                    {/* hidden IMAGE inputs */}
-                    <input
-                      type="file"
-                      accept="image/*"
-                      ref={imageInputRef}
-                      hidden
-                      onChange={handleImageUpload}
-                    />
-
-                    {/* hidden FILE inputs */}
-                    <input
-                      type="file"
-                      ref={fileInputRef}
-                      hidden
-                      onChange={handleFileUpload}
-                    />
-                  </div>
-                )}
+                {/* hidden IMAGE inputs */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  hidden
+                  onChange={handleFileUpload}
+                />
               </div>
 
               {/* 전송 버튼 */}

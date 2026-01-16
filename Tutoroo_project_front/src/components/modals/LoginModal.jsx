@@ -2,6 +2,9 @@
 import * as s from "./styles";
 import useModalStore from "../../stores/modalStore";
 import useAuthStore from "../../stores/useAuthStore";
+import Swal from "sweetalert2";
+import { useState } from "react";
+import { authApi } from "../../apis/users/usersApi";
 
 // 이미지 import
 import logoImg from "../../assets/images/mascots/logo.png";
@@ -23,20 +26,56 @@ function LoginModal() {
   // 로그인 성공 시 사용자 정보를 전역 상태에 저장
   const login = useAuthStore((state) => state.login);
 
+  // 입력값 상태 추가
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   // 로그인 폼 제출 시 실행
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     // 페이지 새로고침 방지
     e.preventDefault();
 
-    // 임시 로그인 백엔드 붙으면 교체 하면 될듯
-    login({ id: 1, name: "OOO" });
+    //  입력 검증
+    if (!username || !password) {
+      Swal.fire({
+        icon: "warning",
+        title: "입력 오류",
+        text: "아이디와 비밀번호를 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
 
-    // 로그인 성공하면 모달만 닫기
-    closeLogin();
+    // ✅ 실제 로그인 API 연동
+    try {
+      setIsSubmitting(true);
+
+      const data = await authApi.login({ username, password });
+      // data: { accessToken, refreshToken, username, name, role, isNewUser }
+      login(data);
+
+      // 로그인 성공하면 모달만 닫기
+      closeLogin();
+    } catch (err) {
+      const status = err?.response?.status;
+      const msg =
+        status === 401
+          ? "아이디 또는 비밀번호가 올바르지 않습니다."
+          : "로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+
+      Swal.fire({
+        icon: "error",
+        title: "로그인 실패",
+        text: msg,
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    // 배경 클릭하면 모달 닫힘 (나중에 빼기)
     <div css={s.overlay}>
       {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>
@@ -47,9 +86,23 @@ function LoginModal() {
 
         {/* 로그인 폼 */}
         <form onSubmit={handleSubmit} css={s.form}>
-          <input css={s.input} type="text" placeholder="ID" />{" "}
+          <input
+            css={s.input}
+            type="text"
+            placeholder="ID"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            autoComplete="username"
+          />{" "}
           {/* 아이디 입력 창 */}
-          <input css={s.input} type="password" placeholder="PASSWORD" />{" "}
+          <input
+            css={s.input}
+            type="password"
+            placeholder="PASSWORD"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+          />{" "}
           {/* 패스워드 입력 창 */}
           {/* 로그인 옵션 영역 */}
           <div css={s.optionRow}>
@@ -70,8 +123,8 @@ function LoginModal() {
             </div>
           </div>
           {/* 로그인 버튼 */}
-          <button type="submit" css={s.submitBtn}>
-            로그인
+          <button type="submit" css={s.submitBtn} disabled={isSubmitting}>
+            {isSubmitting ? "로그인 중..." : "로그인"}
           </button>
         </form>
 
@@ -85,15 +138,15 @@ function LoginModal() {
 
         {/* 소셜 로그인 API 연동 예정 (백엔드 붙으면)*/}
         <div css={s.socialRow}>
-          <button css={[s.socialBtn]}>
+          <button css={[s.socialBtn]} type="button">
             <img src={naverIcon} css={s.naver} />
           </button>
 
-          <button css={[s.socialBtn]}>
+          <button css={[s.socialBtn]} type="button">
             <img src={googleIcon} css={s.google} />
           </button>
 
-          <button css={[s.socialBtn]}>
+          <button css={[s.socialBtn]} type="button">
             <img src={kakaoIcon} css={s.kakao} />
           </button>
         </div>

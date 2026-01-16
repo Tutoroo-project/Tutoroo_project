@@ -5,6 +5,8 @@ import useModalStore from "../../stores/modalStore";
 import useAuthStore from "../../stores/useAuthStore";
 import { BsPersonCircle } from "react-icons/bs";
 import { useState } from "react";
+import Swal from "sweetalert2";
+import { authApi } from "../../apis/users/usersApi";
 
 // 회원가입 모달 컴포넌트
 function SignUpModal() {
@@ -20,6 +22,19 @@ function SignUpModal() {
   const [isValidUsername, setIsValidUsername] = useState(null);
   // null | true | false
 
+  // ✅ 회원가입 입력값 상태들
+  const [password, setPassword] = useState("");
+  const [passwordConfirm, setPasswordConfirm] = useState("");
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [age, setAge] = useState(""); // input은 string
+  const [gender, setGender] = useState("");
+  const [phone, setPhone] = useState("");
+  const [parentPhone, setParentPhone] = useState(""); // 19세 미만이면 필수
+  const [profileImage, setProfileImage] = useState(null);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const closeSignUp = useModalStore((state) => state.closeSignUp);
   const openLogin = useModalStore((state) => state.openLogin);
 
@@ -30,29 +45,161 @@ function SignUpModal() {
   const handleCheckDuplicate = async () => {
     if (!username) return;
 
+    // ✅ 아이디 형식이 맞아야만 체크
+    if (isValidUsername !== true) {
+      Swal.fire({
+        icon: "warning",
+        title: "아이디 형식 오류",
+        text: "아이디 형식을 먼저 맞춰주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
     setIsChecking(true);
 
     // 임시 중복확인 (백엔드 연동 시 API 호출하고 교체할거임)
-    setTimeout(() => {
-      if (username === "admin") {
-        setIsDuplicated(true); // 중복
-      } else {
+    try {
+      const available = await authApi.checkId(username); // true면 사용가능
+      if (available) {
         setIsDuplicated(false); // 사용 가능
+      } else {
+        setIsDuplicated(true); // 중복
       }
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "중복확인 실패",
+        text: "서버 오류가 발생했습니다. 잠시 후 다시 시도해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
       setIsChecking(false);
-    }, 500);
+    }
   };
 
   // 회원가입 폼 제출
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
     // 중복확인 안 했거나, 중복이면 제출 차단
-    if (isDuplicated !== false) return;
+    if (isDuplicated !== false) {
+      Swal.fire({
+        icon: "warning",
+        title: "중복확인 필요",
+        text: "아이디 중복확인을 완료해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
 
-    // 임시 회원가입 성공 처리
-    login({ id: 1, name: "OOO" });
-    closeSignUp();
+    // ✅ 기본 입력값 검증
+    if (!password || password.length < 8) {
+      Swal.fire({
+        icon: "warning",
+        title: "비밀번호 오류",
+        text: "비밀번호는 8자 이상 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    if (password !== passwordConfirm) {
+      Swal.fire({
+        icon: "warning",
+        title: "비밀번호 확인",
+        text: "비밀번호가 일치하지 않습니다.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    const ageNumber = Number(age);
+    if (
+      !name ||
+      !email ||
+      !phone ||
+      !gender ||
+      !age ||
+      Number.isNaN(ageNumber)
+    ) {
+      Swal.fire({
+        icon: "warning",
+        title: "입력 오류",
+        text: "필수 항목을 모두 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    if (ageNumber < 8) {
+      Swal.fire({
+        icon: "warning",
+        title: "나이 제한",
+        text: "8세 이상만 가입 가능합니다.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    // ✅ 백엔드 조건: 19세 미만이면 parentPhone 필수
+    if (ageNumber < 19 && !parentPhone.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "보호자 연락처 필요",
+        text: "19세 미만은 보호자 연락처를 입력해야 합니다.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      // ✅ 회원가입 요청 payload
+      const joinData = {
+        username,
+        password,
+        name,
+        gender, // "M" | "F"
+        age: ageNumber,
+        phone,
+        email,
+        parentPhone: ageNumber < 19 ? parentPhone : null,
+      };
+
+      await authApi.join({ data: joinData, profileImage });
+
+      // ✅ 가입 성공하면 바로 로그인까지
+      const loginData = await authApi.login({ username, password });
+      login(loginData);
+
+      Swal.fire({
+        icon: "success",
+        title: "회원가입 완료",
+        text: "회원가입이 완료되었습니다!",
+        confirmButtonColor: "#FF8A3D",
+      });
+
+      closeSignUp();
+    } catch (err) {
+      const status = err?.response?.status;
+
+      // 400/409 등은 백엔드 예외 케이스가 섞일 수 있음
+      let msg = "회원가입 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.";
+
+      if (status === 409) msg = "이미 사용 중인 아이디입니다.";
+      if (status === 400) msg = "입력값을 다시 확인해주세요.";
+
+      Swal.fire({
+        icon: "error",
+        title: "회원가입 실패",
+        text: msg,
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -136,6 +283,8 @@ function SignUpModal() {
             css={s.input}
             placeholder="비밀번호를 8자 이상 입력해주세요."
             type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
           />
 
           <label css={s.formLabel}>
@@ -146,6 +295,8 @@ function SignUpModal() {
             css={s.input}
             placeholder="비밀번호를 다시 입력해주세요."
             type="password"
+            value={passwordConfirm}
+            onChange={(e) => setPasswordConfirm(e.target.value)}
           />
 
           {/* 이메일 */}
@@ -153,14 +304,24 @@ function SignUpModal() {
             <span css={s.required}>*</span>
             이메일
           </label>
-          <input css={s.input} placeholder="email@email.com" />
+          <input
+            css={s.input}
+            placeholder="email@email.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
           {/* 이름 */}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             이름
           </label>
-          <input css={s.input} placeholder="이름" />
+          <input
+            css={s.input}
+            placeholder="이름"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
 
           {/* 나이 + 성별 */}
           <div css={s.row}>
@@ -169,7 +330,13 @@ function SignUpModal() {
                 <span css={s.required}>*</span>
                 나이
               </label>
-              <input css={s.input} placeholder="나이" />
+              <input
+                css={s.input}
+                placeholder="나이"
+                type="number"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+              />
             </div>
 
             <div css={s.field}>
@@ -177,7 +344,11 @@ function SignUpModal() {
                 <span css={s.required}>*</span>
                 성별
               </label>
-              <select css={s.select}>
+              <select
+                css={s.select}
+                value={gender}
+                onChange={(e) => setGender(e.target.value)}
+              >
                 <option css={s.option} value="">
                   성별 선택
                 </option>
@@ -191,12 +362,33 @@ function SignUpModal() {
             </div>
           </div>
 
+          {/* ✅ 19세 미만이면 보호자 연락처 */}
+          {age && Number(age) < 19 && (
+            <>
+              <label css={s.formLabel}>
+                <span css={s.required}>*</span>
+                보호자 연락처
+              </label>
+              <input
+                css={s.input}
+                placeholder="010-0000-0000"
+                value={parentPhone}
+                onChange={(e) => setParentPhone(e.target.value)}
+              />
+            </>
+          )}
+
           {/* 전화번호 */}
           <label css={s.formLabel}>
             <span css={s.required}>*</span>
             전화번호
           </label>
-          <input css={s.input} placeholder="010-1234-5678" />
+          <input
+            css={s.input}
+            placeholder="010-1234-5678"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+          />
 
           {/* 프로필 이미지 업로드 */}
           <label css={s.formLabel}>
@@ -214,12 +406,18 @@ function SignUpModal() {
 
                 // 파일 크기 제한 (5MB)
                 if (file.size > 5 * 1024 * 1024) {
-                  alert("5MB 이하의 이미지만 업로드 가능합니다.");
+                  Swal.fire({
+                    icon: "warning",
+                    title: "업로드 제한",
+                    text: "5MB 이하의 이미지만 업로드 가능합니다.",
+                    confirmButtonColor: "#FF8A3D",
+                  });
                   return;
                 }
 
                 // 나중에 API 연결 되고 수정하겠습니다
                 console.log(file);
+                setProfileImage(file);
               }}
             />
 
@@ -240,16 +438,22 @@ function SignUpModal() {
           <button
             css={s.submitBtn}
             type="submit"
-            disabled={isDuplicated !== false}
+            disabled={isDuplicated !== false || isSubmitting}
           >
-            회원가입 완료
+            {isSubmitting ? "가입 중..." : "회원가입 완료"}
           </button>
         </form>
 
         {/* 로그인 모달로 이동 */}
         <div css={s.loginRow}>
           <span css={s.loginMent}>이미 계정이 있나요?</span>
-          <span css={s.loginLink} onClick={openLogin}>
+          <span
+            css={s.loginLink}
+            onClick={() => {
+              closeSignUp();
+              openLogin();
+            }}
+          >
             로그인
           </span>
         </div>

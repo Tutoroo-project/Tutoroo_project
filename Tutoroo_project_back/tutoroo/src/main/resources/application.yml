@@ -10,33 +10,37 @@ spring:
   application:
     name: tutoroo
 
-  # [핵심] application-secret.yml 파일을 함께 로드합니다.
-  # (DB, Redis, AI, OAuth2, Mail, Payment 설정은 secret 파일에 있습니다)
+  # [보안] secret 파일 로드 (DB, AI Key 등)
   profiles:
     include: secret
 
-  # [Upgrade] Java 21 가상 스레드 활성화 (성능 최적화)
+  # [성능] Java 21 가상 스레드 활성화 (비동기 처리 최적화)
   threads:
     virtual:
       enabled: true
 
-  # [JSON 직렬화 설정]
+  # [필수 추가] 파일 업로드 용량 제한 해제
+  # DALL-E 이미지나 고화질 프로필 사진 업로드를 위해 넉넉하게 잡았습니다.
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 20MB
+
+  # [JSON 설정] 날짜 포맷 통일
   jackson:
     date-format: yyyy-MM-dd HH:mm:ss
     time-zone: Asia/Seoul
 
-  # [Bean 재정의 허용]
+  # [빈 설정] 재정의 허용
   main:
     allow-bean-definition-overriding: true
 
-  # [Flyway] DB 형상 관리 (안전 모드)
+  # [Flyway] DB 형상 관리 (개발 편의 모드)
+  # 주의: 이 설정은 '개발 중'에만 사용하세요. 운영(Prod) 배포 시에는 clean 옵션을 꺼야 합니다.
   flyway:
     enabled: true
     baseline-on-migrate: true
-    clean-disabled: true
-
-  # [주의] OAuth2 클라이언트 설정은 application-secret.yml에 정의되어 있으므로
-  # 이곳에는 작성하지 않습니다. (중복 작성 시 설정 충돌 우려)
+    clean-disabled: false          # true면 DB 삭제 불가능 -> 개발 중엔 false로 해서 초기화 가능하게 함
 
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -44,14 +48,13 @@ mybatis:
   configuration:
     map-underscore-to-camel-case: true
     jdbc-type-for-null: NULL
-    # [설정] Null 값이 조회되어도 Setter를 호출하여 필드(Key)를 유지함 (Map 리턴 시 유용)
     call-setters-on-nulls: true
     default-fetch-size: 100
 
 logging:
   level:
     root: INFO
-    com.tutoroo: DEBUG
-    com.tutoroo.mapper: DEBUG
+    com.tutoroo: DEBUG           # 내 코드 로그는 자세히
+    com.tutoroo.mapper: DEBUG    # SQL 실행 로그 확인용
     org.springframework.security: INFO
     org.springframework.web: INFO

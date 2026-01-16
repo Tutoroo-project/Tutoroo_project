@@ -110,8 +110,8 @@
         WHERE p.id = #{planId}
     </update>
 
-    <update id="resetAllUserPoints">
-        UPDATE users SET total_point = 0, point_balance = 0
+    <update id="resetRankingPoints">
+        UPDATE users SET total_point = 0, daily_rank = 0
     </update>
 
     <select id="getRankingList" resultType="com.tutoroo.entity.UserEntity">

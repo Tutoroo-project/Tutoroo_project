@@ -30,7 +30,8 @@ public enum ErrorCode {
     INSUFFICIENT_POINTS(HttpStatus.BAD_REQUEST, "L004", "보유 포인트가 부족합니다."),
     STT_PROCESSING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "L005", "음성 인식(STT) 처리 중 오류가 발생했습니다."),
 
-    // --- [Pet: 펫/다마고치 (P)] (여기가 많이 부족했음) ---
+    // --- [Pet: 펫/다마고치 (P)] ---
+    // 아래 부분이 PetService에서 사용하는 핵심 에러들입니다.
     PET_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "육성 중인 펫 정보를 찾을 수 없습니다."),
     ALREADY_HAS_PET(HttpStatus.BAD_REQUEST, "P002", "이미 육성 중인 펫이 있습니다. 졸업 후 입양해주세요."),
     INVALID_PET_TYPE(HttpStatus.BAD_REQUEST, "P003", "유효하지 않은 펫 종류입니다."),

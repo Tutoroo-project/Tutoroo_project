@@ -30,7 +30,7 @@ public interface UserMapper {
     void spendPoints(@Param("userId") Long userId, @Param("amount") int amount);
 
     void updateUserPointByPlan(@Param("planId") Long planId, @Param("point") int point);
-    void resetAllUserPoints();
+    void resetRankingPoints();
 
     // --- [랭킹 & 라이벌] ---
     List<UserEntity> getRankingList(@Param("gender") String gender, @Param("ageGroup") Integer ageGroup);

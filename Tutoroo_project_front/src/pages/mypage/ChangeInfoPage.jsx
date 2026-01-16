@@ -42,62 +42,54 @@ import axios from "axios";
         }
     }
 
-    return (
+   return (
         <>
             <Header />
-            <div css={s.infoPageWrapper}>
+            <div css={s.wrapper}> 
                 <Sidebar />
-                <main css={s.infoPageMainContainer}>
-                    <div css={s.scrollableCard}>
-
-                        <div css={s.profileSection}>
-                            <div css={s.sectionTitle}>
-                                <div className="icon-person">
-                                    <BsPersonCircle size={50}/>
+                <main css={s.mainContainer}> 
+                    <div css={s.commonCard}>
+                        <h1 css={s.cardTitle}>회원 정보 변경</h1>
+                        <div css={s.cardContent}>
+                            <div css={s.profileSection}>
+                                <div style={{display:'flex', alignItems:'center', gap:'10px', fontSize:'18px', fontWeight:'600' , marginBottom: '10px' }}>
+                                    <BsPersonCircle size={40} color="#ccc"/>
+                                    프로필 이미지 수정
                                 </div>
-                                프로필 이미지 수정
-                            </div>
-
-                            <div css={s.imageUploadBox}>
-                                <div css={s.uploadPlaceholder}>
-                                    <FaCamera size={40} color="#333"/>
-                                    <p>이미지를 드래그하거나 선택해서 업로드</p>
-                                    <span>최대 1개 파일 5MB 이해</span>
-                                    <button type="button">파일 선택</button>
+                                <div css={s.imageUploadBox}>
+                                    <div css={s.uploadPlaceholder}>
+                                        <FaCamera size={30} />
+                                        <p style={{fontSize:'16px'}}>이미지 드래그 또는 선택</p>
+                                        <button type="button">파일 선택</button>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
 
-                        <div css={s.formSection}>
-                            <div css={s.infoInputGroup}>
+                            <div css={s.commonInputGroup}>
                                 <label>이름</label>
-                                <input type="text" value={profile.name} />
+                                <input type="text" value={profile.name} onChange={(e)=>setProfile({...profile, name:e.target.value})} />
                             </div>
-                            <div css={s.infoInputGroup}>
+                            <div css={s.commonInputGroup}>
                                 <label>전화번호</label>
-                                <input type="text" value={profile.phone} />
+                                <input type="text" value={profile.phone} onChange={(e)=>setProfile({...profile, phone:e.target.value})} />
                             </div>
-                            <div css={s.infoInputGroup}>
+                            <div css={s.commonInputGroup}>
                                 <label>나이</label>
-                                <input type="text" value={profile.age} />
+                                <input type="text" value={profile.age} onChange={(e)=>setProfile({...profile, age:e.target.value})} />
                             </div>
-                            <div css={s.infoInputGroup}>
+                            <div css={s.commonInputGroup}>
                                 <label>이메일</label>
-                                <input type="email" value={profile.email} />
+                                <input type="email" value={profile.email} onChange={(e)=>setProfile({...profile, email:e.target.value})} />
                             </div>
                         </div>
 
-                        <button css={s.subBtn}>변경하기</button>
-
-
+                        <button css={s.actionBtn}>변경하기</button>
                     </div>
+
                 </main>
             </div>
         </>
-           
-        
-
     );
- }
+}
  
- export default ChangeInfoPage;
+export default ChangeInfoPage;

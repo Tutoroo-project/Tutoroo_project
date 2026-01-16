@@ -29,61 +29,61 @@ function WithdrawalPage() {
     const [ password, setPassword ] = useState("");
 
 
-    return <>
-        <Header />
-        <div css={s.wrapper}>
-            <Sidebar />
-            <main css={s.mainContainer}>
-                <div css={s.withdrawalCard}>
-                    <h1 css={s.withdrawalTitle}>회원탈퇴</h1>
-                    <div css={s.withdrawalFormSection}>
-                        <div css={s.warningBox}>
-                            <h3>
-                                <TiWarning />
-                                탈퇴 시 유의사항
-                            </h3>
-                            <ul>
-                                <li>회원 탈퇴 시 회원님의 모든 정보가 즉시 삭제됩니다.</li>
-                                <li>삭제된 데이터는 복구할 수 없습니다.</li>
-                                <li>결제 진행된 구독서비스를 해제 후 탈퇴해주시기 바랍니다.</li>
-                            </ul>
-                        </div>
-
-                        <div css={s.agreementSection}>
-                            <input type="checkbox"  id="agreeCheck" checked={agree} onChange={(e) => setAgree(e.target.checked) } />
-                            <label htmlFor="agreeCheck">안내사항을 모두 확인하였으며, 이에 동의합니다</label>
-                        </div>
-
-                        <div css={s.reasonBox}>
-                            <div className="label-row">
-                                <label>탈퇴 사유</label>
-                                <span>최대 300자 이내</span>
-                            </div>
-                            <textarea 
-                                placeholder="탈퇴사유에 대하여 입력해주세요"
-                                value={reason} 
-                                onChange={(e) => setReason(e.target.value)} 
-                                maxLength={300} />
-                            
-                        </div>
+   return (
+        <>
+            <Header />
+            <div css={s.wrapper}>
+                <Sidebar />
+                <main css={s.mainContainer}>
+                    
+                   
+                    <div css={s.commonCard}>
                         
+                        <h1 css={s.cardTitle} style={{color:'#d32f2f'}}>회원탈퇴</h1>
+                        
+                        <div css={s.cardContent}>
+                            <div css={s.warningBox}>
+                                <h3><TiWarning /> 탈퇴 시 유의사항</h3>
+                                <ul>
+                                    <li>회원 탈퇴 시 모든 정보가 즉시 삭제됩니다.</li>
+                                    <li>삭제된 데이터는 복구할 수 없습니다.</li>
+                                    <li>구독 중인 서비스는 해지 후 탈퇴해주세요.</li>
+                                </ul>
+                            </div>
+
+                            <div css={s.agreementSection}>
+                                <input type="checkbox" id="agreeCheck" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
+                                <label htmlFor="agreeCheck">위 내용을 확인하였으며 동의합니다.</label>
+                            </div>
+
+                            <div css={s.reasonBox}>
+                                <label>탈퇴 사유</label>
+                                <textarea 
+                                    placeholder="탈퇴 사유를 입력해주세요 (선택사항)"
+                                    value={reason} 
+                                    onChange={(e) => setReason(e.target.value)} 
+                                    maxLength={300} 
+                                />
+                            </div>
+
+                            <div css={s.commonInputGroup}>
+                                <label>비밀번호 확인</label>
+                                <input 
+                                    type="password" 
+                                    placeholder="본인 확인을 위해 비밀번호를 입력해주세요" 
+                                    value={password} 
+                                    onChange={(e) => setPassword(e.target.value)} 
+                                />
+                            </div>
+                        </div>
+
+                        <button css={s.actionBtn} onClick={handleWithdraw}>탈퇴하기</button>
                     </div>
 
-                    <div css={s.passwordConfirm}>
-                        <label>비밀번호 확인</label>
-                        <input 
-                            type="password" 
-                            placeholder="비밀번호를 입력해주세요" 
-                            value={password} 
-                            onChange={(e) => setPassword(e.target.value)} />
-                    </div>
-
-                    <button css={s.withdrawalSubBtn}>탈퇴하기</button>
-
-                </div>
-            </main>
-        </div>
-    </>
+                </main>
+            </div>
+        </>
+    );
 }
 
 export default WithdrawalPage;

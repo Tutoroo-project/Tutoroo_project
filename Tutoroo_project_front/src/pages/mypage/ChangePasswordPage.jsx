@@ -16,51 +16,55 @@ function ChangePasswordPage() {
         setPasswords({...passwords, [name]: value});
    }
     
-    return <>
-        <Header />
-        <div css={s.wrapper}>
-            <Sidebar />
-
-            <main css={s.mainContainer}>
-                <div css={s.passwordCard}>
-                    <h1 css={s.pageTitle}>비밀번호 변경</h1>
-                    <div css={s.passwordFormSection}>
-                        <div css={s.passwordInputGroup}>
-                            <label>현재 비밀번호</label>
-                            <input 
-                            type="password" 
-                            name="currentPassword" 
-                            placeholder="현재 비밀번호를 입력해주세요" 
-                            value={passwords.currentPassword} 
-                            onChange={handleInputChange}/>
-                        </div>
-                        <div css={s.passwordInputGroup}>
-                            <label>새로운 비밀번호</label>
-                            <input 
-                            type="password" 
-                            name="newPassword" 
-                            placeholder="8자 이상 입력해주세요" 
-                            value={passwords.newPassword} 
-                            onChange={handleInputChange}/>
-                        </div>
-                        <div css={s.passwordInputGroup}>
-                            <label>현재 비밀번호</label>
-                            <input 
-                            type="password" 
-                            name="currentPassword" 
-                            placeholder="새로운 비밀번호를 다시 입력해주세요" 
-                            value={passwords.confirmPassword} 
-                            onChange={handleInputChange}/>
-                        </div>
+    return (
+        <>
+            <Header />
+            <div css={s.wrapper}>
+                <Sidebar />
+                <main css={s.mainContainer}>
+                    
+                    
+                    <div css={s.commonCard}>
                         
+                        <h1 css={s.cardTitle}>비밀번호 변경</h1>
+                        
+                        <div css={[s.cardContent, s.centerContent]} >
+                            <div css={s.commonInputGroup}>
+                                <label>현재 비밀번호</label>
+                                <input 
+                                    type="password" name="currentPassword" 
+                                    placeholder="현재 비밀번호를 입력해주세요" 
+                                    value={passwords.currentPassword} 
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div css={s.commonInputGroup}>
+                                <label>새로운 비밀번호</label>
+                                <input 
+                                    type="password" name="newPassword" 
+                                    placeholder="8자 이상 (영문/숫자/특수문자 포함)" 
+                                    value={passwords.newPassword} 
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                            <div css={s.commonInputGroup}>
+                                <label>새로운 비밀번호 확인</label>
+                                <input 
+                                    type="password" name="confirmPassword" 
+                                    placeholder="비밀번호를 다시 입력해주세요" 
+                                    value={passwords.confirmPassword} 
+                                    onChange={handleInputChange}
+                                />
+                            </div>
+                        </div>
+
+                        <button css={s.actionBtn}>비밀번호 변경하기</button>
                     </div>
-                    <button css={s.changesubBtn}>변경하기</button>
-                </div>
 
-            </main>
-
-        </div>
-    </>
+                </main>
+            </div>
+        </>
+    );
 }
 
 export default ChangePasswordPage;

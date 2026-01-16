@@ -92,7 +92,7 @@ function SignUpModal() {
       return;
     }
 
-    // ✅ 기본 입력값 검증
+    // 기본 입력값 검증
     if (!password || password.length < 8) {
       Swal.fire({
         icon: "warning",
@@ -152,6 +152,17 @@ function SignUpModal() {
       return;
     }
 
+    // (선택) 프로필 이미지 용량 제한(현재 백엔드가 1MB 제한이라면 프론트에서도 먼저 컷)
+    // if (profileImage && profileImage.size > 1024 * 1024) {
+    //   Swal.fire({
+    //     icon: "warning",
+    //     title: "이미지 용량 초과",
+    //     text: "프로필 이미지는 1MB 이하로 올려주세요.",
+    //     confirmButtonColor: "#FF8A3D",
+    //   });
+    //   return;
+    // }
+
     setIsSubmitting(true);
 
     try {
@@ -169,18 +180,15 @@ function SignUpModal() {
 
       await authApi.join({ data: joinData, profileImage });
 
-      //  가입 성공하면 바로 로그인까지
-      const loginData = await authApi.login({ username, password });
-      login(loginData);
-
       Swal.fire({
         icon: "success",
         title: "회원가입 완료",
-        text: "회원가입이 완료되었습니다!",
+        text: "회원가입이 완료되었습니다! 로그인 후 이용해주세요.",
         confirmButtonColor: "#FF8A3D",
       });
 
       closeSignUp();
+      openLogin(); // ✅ 회원가입 후 로그인 모달 열기(원하면 제거 가능)
     } catch (err) {
       const status = err?.response?.status;
 
@@ -189,6 +197,9 @@ function SignUpModal() {
 
       if (status === 409) msg = "이미 사용 중인 아이디입니다.";
       if (status === 400) msg = "입력값을 다시 확인해주세요.";
+      if (status === 413)
+        msg = "프로필 이미지 용량이 너무 큽니다. (20MB 이하로 올려주세요)";
+      if (status === 500) msg = "서버 오류가 발생했습니다.";
 
       Swal.fire({
         icon: "error",
@@ -403,12 +414,12 @@ function SignUpModal() {
                 const file = e.target.files[0];
                 if (!file) return;
 
-                // 파일 크기 제한 (5MB)
+                // 파일 크기 제한 (20MB)
                 if (file.size > 5 * 1024 * 1024) {
                   Swal.fire({
                     icon: "warning",
                     title: "업로드 제한",
-                    text: "5MB 이하의 이미지만 업로드 가능합니다.",
+                    text: "20MB 이하의 이미지만 업로드 가능합니다.",
                     confirmButtonColor: "#FF8A3D",
                   });
                   return;
@@ -427,7 +438,7 @@ function SignUpModal() {
 
               <p css={s.uploadText}>이미지를 드래그하거나 선택해서 업로드</p>
 
-              <span css={s.uploadSubText}>최대 5MB 이하</span>
+              <span css={s.uploadSubText}>최대 20MB 이하</span>
 
               <div css={s.uploadBtn}>파일 선택</div>
             </div>

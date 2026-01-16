@@ -15,7 +15,6 @@ function Header() {
         >
           <img css={s.logoImg} src={logoImg} alt="Tutoroo" />
         </div>
-
         <button css={s.profileBtn} onClick={() => navigate("/mypage/verify")}>프로필 ▼</button>
       </div>
     </header>

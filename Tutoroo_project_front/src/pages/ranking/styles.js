@@ -7,7 +7,8 @@ export const pageBg = css`
 `;
 
 export const container = css`
-  width: 1440px;
+  max-width: 1440px;
+  min-width: 800px;
   margin: 0 auto;
   padding-top: 60px;
 `;
@@ -42,7 +43,9 @@ export const filterSelect = css`
   font-size: 14px;
   cursor: pointer;
   outline: none;
-  &:hover { border-color: #FF9F43; }
+  &:hover {
+     border-color: #FF9F43; 
+    }
 `;
 
 export const contentRow = css`
@@ -68,7 +71,8 @@ export const rankCard = (rank) => css`
   border: 1px solid #E5E5E5;
   background-color: #fff;
   
-    ${rank <= 3 && `
+    ${
+    rank <= 3 && `
     border-color: #FF9F43;
     box-shadow: 0 4px 12px rgba(255, 159, 67, 0.1);
     `}
@@ -98,7 +102,10 @@ export const rankBadge = (rank) => css`
   font-weight: 800;
   width: 100px;
   color: ${rank === 1 ? "#FFB703" : rank === 2 ? "#A9A9A9" : rank === 3 ? "#CD7F32" : "#333"};
-  .medal-icon { margin-right: 8px; font-size: 24px; }
+  
+    .medal-icon { 
+      margin-right: 8px; font-size: 24px; 
+    }
 `;
 
 export const userInfo = css`

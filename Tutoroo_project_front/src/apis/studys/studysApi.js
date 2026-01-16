@@ -19,11 +19,9 @@ export const studyApi = {
     return response.data;
   },
 
-  // (메시지 전송)
+  // 메시지 전송 POST /api/study/chat
   sendChatMessage: async (message) => {
-    // 백엔드 엔드포인트: POST /api/study/chat
-    // 보낼 데이터: { message: "유저가 쓴 말" }
     const response = await api.post("/api/study/chat", { message });
-    return response.data; // { reply: "AI의 대답" } 이라고 가정
+    return response.data;
   }
 };

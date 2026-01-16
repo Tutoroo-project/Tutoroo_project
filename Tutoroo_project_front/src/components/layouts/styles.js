@@ -11,7 +11,8 @@ export const inner = css`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  width: 1440px;
+  max-width: 1440px;
+  min-width: 800px;
   height: 72px;
   margin: 0 auto;
 `;

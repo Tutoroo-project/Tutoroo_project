@@ -2,10 +2,10 @@ import { create } from "zustand";
 import { studyApi } from "../apis/studys/studysApi";
 
 export const SESSION_MODES = {
-  CLASS: { label: "수업", defaultTime: 50 },          // 50초 (테스트용)
-  BREAK: { label: "휴식", defaultTime: 10 },          // 10초
-  TEST: { label: "테스트", defaultTime: 30 },         // 30초
-  FEEDBACK: { label: "피드백", defaultTime: 0 },      // 무제한
+  CLASS: { label: "수업", defaultTime: 50 * 60 },
+  BREAK: { label: "휴식", defaultTime: 10 * 60 },   
+  TEST: { label: "테스트", defaultTime: 30 * 60}, 
+  FEEDBACK: { label: "피드백", defaultTime: 0 },
 };
 
 const useStudyStore = create((set, get) => ({
@@ -30,7 +30,7 @@ const useStudyStore = create((set, get) => ({
 
   setTutorId: (id) => set({ selectedTutorId: id }),
 
-  // --- 학습 시작 ---
+  // 학습 시작 
   startStudyPlan: async (customReq, navigate) => {
     set({ isLoading: true });
     const { selectedTutorId } = get();
@@ -43,9 +43,9 @@ const useStudyStore = create((set, get) => ({
         start_date: new Date().toISOString().split('T')[0]
       });
 
-      // ✅ 입장 메시지 추가
+      // 입장 메시지 추가
       set({ 
-        messages: [{ type: 'AI', content: `안녕하세요! ${selectedTutorId} 선생님입니다. 50초 동안 수업을 진행하겠습니다!` }] 
+        messages: [{ type: 'AI', content: `안녕하세요! ${selectedTutorId} 선생님입니다. 50분 동안 수업을 진행하겠습니다!` }] 
       });
 
       navigate("/study");
@@ -58,11 +58,11 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // --- ✅ [추가] 채팅 전송 액션 ---
+  // 채팅 전송 
   sendMessage: async (userText) => {
     if (!userText.trim()) return;
 
-    // 1. 내 말풍선 즉시 추가
+    // 내 말풍선 즉시 추가
     const prevMessages = get().messages;
     set({ 
       messages: [...prevMessages, { type: 'USER', content: userText }],
@@ -70,11 +70,9 @@ const useStudyStore = create((set, get) => ({
     });
 
     try {
-      // 2. API 호출
       const data = await studyApi.sendChatMessage(userText);
       const aiReply = data.reply || "AI 응답이 없습니다.";
 
-      // 3. AI 응답 말풍선 추가
       set((state) => ({
         messages: [...state.messages, { type: 'AI', content: aiReply }],
         isChatLoading: false
@@ -88,7 +86,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // --- 타이머 및 세션 자동 전환 ---
+  // 타이머 및 세션 자동 전환
   currentMode: "CLASS",
   timeLeft: SESSION_MODES.CLASS.defaultTime,
   isTimerRunning: false,
@@ -102,7 +100,7 @@ const useStudyStore = create((set, get) => ({
     });
   },
 
-  // ✅ 1초씩 감소 + 0초가 되면 다음 단계로 이동
+  // 1초씩 감소 + 0초가 되면 다음 단계로 이동
   tick: () => {
     const { timeLeft, currentMode } = get();
 
@@ -114,12 +112,12 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // ✅ 세션 종료 시 처리 (자동 진행)
+  // 세션 종료 시 자동 진행
   handleSessionEnd: (mode) => {
     if (mode === "CLASS") {
       // 수업 끝 -> 휴식 시작
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "50초 수업이 끝났습니다! 잠시 휴식할까요?" }]
+        messages: [...state.messages, { type: 'AI', content: "50분 수업이 끝났습니다! 잠시 휴식할까요?" }]
       }));
       get().setSessionMode("BREAK");
     } 

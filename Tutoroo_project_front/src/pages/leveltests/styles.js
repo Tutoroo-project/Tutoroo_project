@@ -52,15 +52,15 @@ export const inputWrapper = css`
   padding: 0 12px;
 `;
 
-
 export const inputBox = css`
+  height: 50px;
   flex: 1;
+  padding: 0 12px;
   border: none;
   background: transparent;
   font-size: 14px;
   outline: none;
 `;
-
 
 export const sendBtn = css`
   width: 80px;
@@ -152,7 +152,6 @@ export const menuItem = css`
     background-color: #f5f5f5;
   }
 `;
-
 
 export const resultFooter = css`
   width: 100%;

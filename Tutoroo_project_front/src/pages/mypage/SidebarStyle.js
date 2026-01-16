@@ -3,7 +3,7 @@ import { css } from "@emotion/react";
 export const sidebarContainer = css`
     
     width: 250px;
-    margin-right: 50px;
+    margin-right: 250px;
     flex-shrink: 0; //화면 줄어도 사이드바 유지
    
 `;

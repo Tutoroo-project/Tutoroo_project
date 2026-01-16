@@ -99,7 +99,7 @@ export const infoPageWrapper = css`
 
 
 export const infoPageMainContainer = css`
-    
+    width: 600px; //--------
     height: 100%; 
     display: flex;
     justify-content: center;
@@ -118,14 +118,15 @@ export const wrapper = css`
     padding-top: 50px;
     overflow: hidden;
     box-sizing: border-box;
-    /* justify-content: center; */
+    justify-content: center;
     
 
 `;
 
 export const mainContainer = css`
-    flex: 1;
+    
     display: flex;
+    width: 600px; //-----------
     justify-content: center;
     align-items: flex-start;
     /* height: 100%; */
@@ -418,6 +419,8 @@ export const withdrawalCard = css`
     background-color: #fff;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     align-items: center;
+
+    
     
 `;
 

@@ -1,31 +1,28 @@
 import { create } from "zustand";
 import { studyApi } from "../apis/studys/studysApi";
 
-/* 백엔드 DB/Enum과 매칭될 세션 상태 상수 */
 export const SESSION_MODES = {
-  CLASS: { label: "수업", defaultTime: 50 * 60 },      // 50분
-  BREAK: { label: "휴식", defaultTime: 10 * 60 },      // 10분
-  TEST: { label: "테스트", defaultTime: 20 * 60 },     // 20분
-  FEEDBACK: { label: "피드백", defaultTime: 0 },       // 시간제한 없음
-  EXPLANATION: { label: "해설", defaultTime: 15 * 60 },// 15분
+  CLASS: { label: "수업", defaultTime: 50 },          // 50초 (테스트용)
+  BREAK: { label: "휴식", defaultTime: 10 },          // 10초
+  TEST: { label: "테스트", defaultTime: 30 },         // 30초
+  FEEDBACK: { label: "피드백", defaultTime: 0 },      // 무제한
 };
 
 const useStudyStore = create((set, get) => ({
-  // --- [Data] 유저 & 튜터 정보 ---
-  studyDay: 1, // 기본 1일차 (API 로드 전)
+  studyDay: 1,
   isLoading: false,
-  selectedTutorId: "kangaroo", // 기본 튜터
+  selectedTutorId: "kangaroo",
   
-  // --- [Action] 초기 데이터 로드 ---
+  messages: [],  
+  isChatLoading: false,
+
   loadUserStatus: async () => {
     set({ isLoading: true });
     try {
       const data = await studyApi.getStudyStatus();
-      // 백엔드에서 user.day_count를 준다고 가정
       set({ studyDay: data.day_count || 1 }); 
     } catch (error) {
-      console.error("상태 로드 실패(기본값 사용):", error);
-      set({ studyDay: 1 }); // 에러 시 1일차로 간주
+      set({ studyDay: 1 });
     } finally {
       set({ isLoading: false });
     }
@@ -33,40 +30,65 @@ const useStudyStore = create((set, get) => ({
 
   setTutorId: (id) => set({ selectedTutorId: id }),
 
-  // --- [Action] 튜터 선택 완료 및 학습 시작 ---
+  // --- 학습 시작 ---
   startStudyPlan: async (customReq, navigate) => {
     set({ isLoading: true });
     const { selectedTutorId } = get();
-
-    // 백엔드 DB (study_plans.persona) 형식에 맞춰 데이터 가공
-    // 커스텀이 없으면 "KANGAROO", 있으면 "BASE:KANGAROO|CUSTOM:사투리..."
-    const personaString = customReq 
-      ? `BASE:${selectedTutorId}|CUSTOM:${customReq}`
-      : selectedTutorId;
+    const personaString = customReq ? `BASE:${selectedTutorId}|CUSTOM:${customReq}` : selectedTutorId;
 
     try {
-      // API 호출
       await studyApi.createStudyPlan({
         persona: personaString,
-        goal: "Daily Study", // 기본 목표
+        goal: "Daily Study", 
         start_date: new Date().toISOString().split('T')[0]
       });
-      
-      // 성공 시 페이지 이동
+
+      // ✅ 입장 메시지 추가
+      set({ 
+        messages: [{ type: 'AI', content: `안녕하세요! ${selectedTutorId} 선생님입니다. 50초 동안 수업을 진행하겠습니다!` }] 
+      });
+
       navigate("/study");
-      
-      // 수업 모드로 타이머 시작
       get().setSessionMode("CLASS");
 
     } catch (error) {
-      alert("학습 시작에 실패했습니다.");
-      console.error(error);
+      alert("학습 시작 실패");
     } finally {
       set({ isLoading: false });
     }
   },
 
-  // --- [Timer] 학습 타이머 로직 ---
+  // --- ✅ [추가] 채팅 전송 액션 ---
+  sendMessage: async (userText) => {
+    if (!userText.trim()) return;
+
+    // 1. 내 말풍선 즉시 추가
+    const prevMessages = get().messages;
+    set({ 
+      messages: [...prevMessages, { type: 'USER', content: userText }],
+      isChatLoading: true 
+    });
+
+    try {
+      // 2. API 호출
+      const data = await studyApi.sendChatMessage(userText);
+      const aiReply = data.reply || "AI 응답이 없습니다.";
+
+      // 3. AI 응답 말풍선 추가
+      set((state) => ({
+        messages: [...state.messages, { type: 'AI', content: aiReply }],
+        isChatLoading: false
+      }));
+    } catch (error) {
+      console.error(error);
+      set((state) => ({
+        messages: [...state.messages, { type: 'AI', content: "서버 연결에 실패했습니다." }],
+        isChatLoading: false
+      }));
+    }
+  },
+
+  // --- 타이머 및 세션 자동 전환 ---
   currentMode: "CLASS",
   timeLeft: SESSION_MODES.CLASS.defaultTime,
   isTimerRunning: false,
@@ -76,13 +98,46 @@ const useStudyStore = create((set, get) => ({
     set({ 
       currentMode: modeKey, 
       timeLeft: config.defaultTime,
-      isTimerRunning: true // 모드 변경 시 자동 시작
+      isTimerRunning: true 
     });
   },
 
-  tick: () => set((state) => ({ 
-    timeLeft: state.timeLeft > 0 ? state.timeLeft - 1 : 0 
-  })),
+  // ✅ 1초씩 감소 + 0초가 되면 다음 단계로 이동
+  tick: () => {
+    const { timeLeft, currentMode } = get();
+
+    if (timeLeft > 0) {
+      set({ timeLeft: timeLeft - 1 });
+    } else {
+      // 시간이 0이 되었을 때 다음 단계 로직
+      get().handleSessionEnd(currentMode);
+    }
+  },
+
+  // ✅ 세션 종료 시 처리 (자동 진행)
+  handleSessionEnd: (mode) => {
+    if (mode === "CLASS") {
+      // 수업 끝 -> 휴식 시작
+      set((state) => ({
+        messages: [...state.messages, { type: 'AI', content: "50초 수업이 끝났습니다! 잠시 휴식할까요?" }]
+      }));
+      get().setSessionMode("BREAK");
+    } 
+    else if (mode === "BREAK") {
+      // 휴식 끝 -> 테스트 시작
+      set((state) => ({
+        messages: [...state.messages, { type: 'AI', content: "휴식 끝! 이제 배운 내용을 테스트해보겠습니다." }]
+      }));
+      get().setSessionMode("TEST");
+    }
+    else if (mode === "TEST") {
+      // 테스트 끝 -> 피드백
+      set((state) => ({
+        messages: [...state.messages, { type: 'AI', content: "테스트 종료! 결과를 분석해 드릴게요." }]
+      }));
+      get().setSessionMode("FEEDBACK");
+    }
+  }
 }));
 
 export default useStudyStore;

@@ -8,6 +8,8 @@ const AUTH_FREE_PATHS = [
   "/api/auth/login",
   "/api/auth/join",
   "/api/auth/reissue",
+  "/api/auth/email/send-verification",
+  "/api/auth/email/verify",
 ];
 
 // url이 auth-free 인지 검사

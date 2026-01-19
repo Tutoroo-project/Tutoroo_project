@@ -33,6 +33,12 @@ function SignUpModal() {
   const [parentPhone, setParentPhone] = useState(""); // 19세 미만이면 필수
   const [profileImage, setProfileImage] = useState(null);
 
+  const [emailCode, setEmailCode] = useState("");
+  const [isCodeSent, setIsCodeSent] = useState(false);
+  const [isEmailVerified, setIsEmailVerified] = useState(false);
+  const [isSendingCode, setIsSendingCode] = useState(false);
+  const [isVerifyingCode, setIsVerifyingCode] = useState(false);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const closeSignUp = useModalStore((state) => state.closeSignUp);
@@ -51,7 +57,7 @@ function SignUpModal() {
   const handleCheckDuplicate = async () => {
     if (!username) return;
 
-    //  아이디 형식이 맞아야만 체크
+    // 아이디 형식이 맞아야만 체크
     if (isValidUsername !== true) {
       Swal.fire({
         icon: "warning",
@@ -63,14 +69,9 @@ function SignUpModal() {
     }
 
     setIsChecking(true);
-
     try {
       const available = await authApi.checkId(username); // true면 사용가능
-      if (available) {
-        setIsDuplicated(false); // 사용 가능
-      } else {
-        setIsDuplicated(true); // 중복
-      }
+      setIsDuplicated(available ? false : true);
     } catch (e) {
       Swal.fire({
         icon: "error",
@@ -80,6 +81,92 @@ function SignUpModal() {
       });
     } finally {
       setIsChecking(false);
+    }
+  };
+
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  //  이메일 인증번호 발송
+  const handleSendEmailCode = async () => {
+    if (!emailRegex.test(email)) {
+      Swal.fire({
+        icon: "warning",
+        title: "이메일 확인",
+        text: "올바른 이메일 형식으로 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    setIsSendingCode(true);
+    try {
+      await authApi.sendEmailVerification(email);
+      setIsCodeSent(true);
+      setIsEmailVerified(false);
+      clearError("emailVerify");
+
+      Swal.fire({
+        icon: "success",
+        title: "발송 완료",
+        text: "인증번호가 이메일로 발송되었습니다. (유효시간 5분)",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "발송 실패",
+        text: "인증번호 발송 중 오류가 발생했습니다.",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsSendingCode(false);
+    }
+  };
+
+  // 이메일 인증번호 확인
+  const handleVerifyEmailCode = async () => {
+    if (!emailRegex.test(email) || !emailCode.trim()) {
+      Swal.fire({
+        icon: "warning",
+        title: "입력 확인",
+        text: "이메일과 인증번호를 확인해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+      return;
+    }
+
+    setIsVerifyingCode(true);
+    try {
+      const ok = await authApi.verifyEmailCode(email, emailCode.trim());
+
+      if (ok) {
+        setIsEmailVerified(true);
+        clearError("emailVerify");
+
+        Swal.fire({
+          icon: "success",
+          title: "인증 완료",
+          text: "이메일 인증이 완료되었습니다.",
+          confirmButtonColor: "#FF8A3D",
+        });
+      } else {
+        setIsEmailVerified(false);
+        Swal.fire({
+          icon: "warning",
+          title: "인증 실패",
+          text: "인증번호가 올바르지 않거나 만료되었습니다.",
+          confirmButtonColor: "#FF8A3D",
+        });
+      }
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "인증 오류",
+        text: "인증 확인 중 오류가 발생했습니다.",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsVerifyingCode(false);
     }
   };
 
@@ -113,6 +200,9 @@ function SignUpModal() {
     if (!phone.trim()) nextErrors.phone = true;
     if (!gender) nextErrors.gender = true;
 
+    // 이메일 인증 완료 필수
+    if (!isEmailVerified) nextErrors.emailVerify = true;
+
     // age
     if (!age || Number.isNaN(ageNumber) || ageNumber < 8) nextErrors.age = true;
 
@@ -130,6 +220,7 @@ function SignUpModal() {
       else if (nextErrors.password) msg = "비밀번호는 8자 이상 입력해주세요.";
       else if (nextErrors.passwordConfirm)
         msg = "비밀번호가 일치하지 않습니다.";
+      else if (nextErrors.emailVerify) msg = "이메일 인증을 완료해주세요.";
       else if (nextErrors.age) msg = "나이는 8세 이상으로 입력해주세요.";
       else if (nextErrors.parentPhone)
         msg = "20세 미만은 보호자 연락처가 필요합니다.";
@@ -295,15 +386,81 @@ function SignUpModal() {
             <span css={s.required}>*</span>
             이메일
           </label>
-          <input
-            css={[s.input, fieldErrors.email && s.fieldError]}
-            placeholder="example@email.com"
-            value={email}
-            onChange={(e) => {
-              setEmail(e.target.value);
-              clearError("email");
-            }}
-          />
+
+          <div css={s.inputWithButton}>
+            <input
+              css={[
+                s.input,
+                fieldErrors.email && s.fieldError,
+                fieldErrors.emailVerify && s.fieldError,
+              ]}
+              placeholder="example@email.com"
+              value={email}
+              onChange={(e) => {
+                const v = e.target.value;
+                setEmail(v);
+                clearError("email");
+                clearError("emailVerify");
+
+                setIsCodeSent(false);
+                setIsEmailVerified(false);
+                setEmailCode("");
+              }}
+              disabled={isEmailVerified}
+            />
+
+            <button
+              type="button"
+              css={s.dupCheckBtn}
+              onClick={handleSendEmailCode}
+              disabled={isSendingCode || isEmailVerified || !email}
+            >
+              {isSendingCode
+                ? "발송중"
+                : isEmailVerified
+                ? "완료"
+                : isCodeSent
+                ? "재전송"
+                : "발송"}
+            </button>
+          </div>
+
+          {isEmailVerified && (
+            <p css={s.successText}>이메일 인증이 완료되었습니다.</p>
+          )}
+          {isCodeSent && !isEmailVerified && (
+            <p css={s.helperText}>인증번호가 발송되었습니다. (유효시간 5분)</p>
+          )}
+
+          {/* 인증번호 입력 (발송 후에만 표시) */}
+          {isCodeSent && !isEmailVerified && (
+            <>
+              <label css={s.formLabel}>
+                <span css={s.required}>*</span>
+                인증번호
+              </label>
+
+              <div css={s.inputWithButton}>
+                <input
+                  css={[s.input, fieldErrors.emailVerify && s.fieldError]}
+                  placeholder="6자리 인증번호"
+                  value={emailCode}
+                  onChange={(e) => {
+                    setEmailCode(e.target.value);
+                    clearError("emailVerify");
+                  }}
+                />
+                <button
+                  type="button"
+                  css={s.dupCheckBtn}
+                  onClick={handleVerifyEmailCode}
+                  disabled={isVerifyingCode || !emailCode.trim()}
+                >
+                  {isVerifyingCode ? "확인중" : "확인"}
+                </button>
+              </div>
+            </>
+          )}
 
           {/* 이름 */}
           <label css={s.formLabel}>
@@ -444,7 +601,9 @@ function SignUpModal() {
           <button
             css={s.submitBtn}
             type="submit"
-            disabled={isDuplicated !== false || isSubmitting}
+            disabled={
+              isDuplicated !== false || isSubmitting || !isEmailVerified
+            }
           >
             {isSubmitting ? "가입 중..." : "회원가입 완료"}
           </button>

@@ -19,6 +19,20 @@ export const authApi = {
     return res.data; // boolean
   },
 
+  sendEmailVerification: async (email) => {
+    const res = await api.post("/api/auth/email/send-verification", null, {
+      params: { email },
+    });
+    return res.data; // "인증번호가 메일로 발송되었습니다."
+  },
+
+  verifyEmailCode: async (email, code) => {
+    const res = await api.post("/api/auth/email/verify", null, {
+      params: { email, code },
+    });
+    return res.data; // boolean
+  },
+
   //  회원가입 추가 (multipart)
   join: async ({ data, profileImage }) => {
     const formData = new FormData();

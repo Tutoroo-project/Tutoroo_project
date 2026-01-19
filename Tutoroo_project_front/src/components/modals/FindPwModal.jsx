@@ -2,6 +2,7 @@
 import Swal from "sweetalert2";
 import * as s from "./styles";
 import useModalStore from "../../stores/modalStore";
+import { authApi } from "../../apis/users/usersApi";
 import { useState } from "react";
 
 // 비밀번호 찾기 모달 컴포넌트
@@ -16,62 +17,98 @@ function FindPwModal() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleSubmit = (e) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState({});
+
+  const clearError = (key) => {
+    setFieldErrors((prev) => {
+      if (!prev[key]) return prev;
+      const next = { ...prev };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleSubmit = async (e) => {
     // 페이지 새로고침 방지
     e.preventDefault();
+    if (isSubmitting) return;
 
-    // 필수 항목 누락 시 경고 알림
-    if (!username || !name || !phone || !email) {
+    const nextErrors = {};
+    if (!username.trim()) nextErrors.username = true;
+    if (!name.trim()) nextErrors.name = true;
+    if (!phone.trim()) nextErrors.phone = true;
+    if (!email.trim()) nextErrors.email = true;
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+
       Swal.fire({
         icon: "warning",
         title: "입력 오류",
-        text: "모든 항목을 입력해주세요.",
+        text: "빨간색 표시된 항목을 확인해주세요.",
         confirmButtonColor: "#FF8A3D",
         showClass: {
-          popup: `
-               animate__animated
-               animate__shakeX
-               animate__faster
-             `,
+          popup: `animate__animated animate__shakeX animate__faster`,
         },
       });
       return;
     }
 
-    // 임시로 일단 성공처리 백엔드 연동하고 API 호출로 변경할거임
-    Swal.fire({
-      icon: "success",
-      title: "비밀번호 찾기 완료 🎉",
-      html: `
-                <div style="font-size:14px; margin-bottom:6px;">
-                  등록하신 이메일로 비밀번호를 발송했습니다.
-                </div>
-              `,
-      confirmButtonText: "로그인 하러가기",
-      confirmButtonColor: "#FF8A3D",
-      showClass: {
-        popup: `
-                  animate__animated
-                  animate__fadeInUp
-                  animate__faster
-                `,
-      },
-      hideClass: {
-        popup: `
-                  animate__animated
-                  animate__fadeOutDown
-                  animate__faster
-                `,
-      },
-    }).then(() => {
-      // Alert 확인 후 비밀번호 찾기 모달 닫고 로그인 모달 열거임
+    setIsSubmitting(true);
+
+    try {
+      // 백엔드는 username + email만 사용
+      const msg = await authApi.findPassword({
+        username: username.trim(),
+        email: email.trim(),
+      });
+
+      await Swal.fire({
+        icon: "success",
+        title: "비밀번호 찾기 완료 🎉",
+        html: `
+          <div style="font-size:14px; margin-bottom:6px;">
+            ${msg ?? "가입된 이메일로 임시 비밀번호를 발송했습니다."}
+          </div>
+        `,
+        confirmButtonText: "로그인 하러가기",
+        confirmButtonColor: "#FF8A3D",
+        showClass: {
+          popup: `animate__animated animate__fadeInUp animate__faster`,
+        },
+        hideClass: {
+          popup: `animate__animated animate__fadeOutDown animate__faster`,
+        },
+      });
+
       closeFindPw();
       openLogin();
-    });
+    } catch (err) {
+      const status = err?.response?.status;
+      const serverMsg = err?.response?.data?.message;
+
+      let msg =
+        serverMsg ?? "비밀번호 찾기에 실패했습니다. 잠시 후 다시 시도해주세요.";
+      if (status === 404) msg = "일치하는 회원 정보를 찾을 수 없습니다.";
+      if (status === 400) msg = "입력값을 다시 확인해주세요.";
+      if (status === 500) msg = "서버 오류가 발생했습니다.";
+
+      Swal.fire({
+        icon: "error",
+        title: "비밀번호 찾기 실패",
+        text: msg,
+        confirmButtonColor: "#FF8A3D",
+        showClass: {
+          popup: `animate__animated animate__shakeX animate__faster`,
+        },
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
-    // 배경 클릭하면 비밀번호 찾기 모달 닫기
     <div css={s.overlay}>
       {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>

@@ -32,6 +32,16 @@ export const authApi = {
     const res = await api.post("/api/auth/join", formData);
     return res.data;
   },
+
+  findId: async ({ name, email, phone }) => {
+    const res = await api.post("/api/auth/find-id", { name, email, phone });
+    return res.data;
+  },
+
+  findPassword: async ({ username, email }) => {
+    const res = await api.post("/api/auth/find-password", { username, email });
+    return res.data;
+  },
 };
 
 export const userApi = {

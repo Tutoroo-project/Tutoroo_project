@@ -47,7 +47,7 @@ function LoginModal() {
       return;
     }
 
-    // ✅ 실제 로그인 API 연동
+    // 실제 로그인 API 연동
     try {
       setIsSubmitting(true);
 

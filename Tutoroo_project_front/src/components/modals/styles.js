@@ -112,6 +112,17 @@ export const keepLogin = css`
   }
 `;
 
+export const fieldError = css`
+  border-color: #ff3b30 !important;
+  background: rgba(255, 59, 48, 0.06);
+
+  &:focus {
+    outline: none;
+    border-color: #ff3b30 !important;
+    box-shadow: 0 0 0 3px rgba(255, 59, 48, 0.12);
+  }
+`;
+
 /* ===============================
    Bottom Links
 ================================ */

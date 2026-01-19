@@ -2,6 +2,7 @@
 import Swal from "sweetalert2";
 import * as s from "./styles";
 import useModalStore from "../../stores/modalStore";
+import { authApi } from "../../apis/users/usersApi";
 import { useState } from "react";
 
 // 아이디 찾기 모달 컴포넌트
@@ -15,11 +16,9 @@ function FindIdModal() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
 
-  const handleSubmit = (e) => {
-    // 페이지 새로고침 방지
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 필수 입력값 누락 시 경고 알림
     if (!name || !phone || !email) {
       Swal.fire({
         icon: "warning",
@@ -37,43 +36,62 @@ function FindIdModal() {
       return;
     }
 
-    // 임시로 일단 성공처리 백엔드 연동하고 API 호출로 변경할거임
-    const foundId = "tutoroo_user01";
+    try {
+      const data = await authApi.findId({
+        name: name.trim(),
+        phone: phone.trim(),
+        email: email.trim(),
+      });
 
-    Swal.fire({
-      icon: "success",
-      title: "아이디 찾기 완료 🎉",
-      html: `
-      <div style="font-size:14px; margin-bottom:6px;">
-        회원님의 아이디는
-      </div>
-      <strong style="font-size:18px;">${foundId}</strong>
-    `,
-      confirmButtonText: "로그인 하러가기",
-      confirmButtonColor: "#FF8A3D",
-      showClass: {
-        popup: `
-        animate__animated
-        animate__fadeInUp
-        animate__faster
+      const foundId = data?.result;
+      const msg = data?.message ?? "아이디 찾기 완료";
+
+      Swal.fire({
+        icon: "success",
+        title: "아이디 찾기 완료 🎉",
+        html: `
+        <div style="font-size:14px; margin-bottom:6px;">
+          ${msg}
+        </div>
+        ${foundId ? `<strong style="font-size:18px;">${foundId}</strong>` : ""}
       `,
-      },
-      hideClass: {
-        popup: `
-        animate__animated
-        animate__fadeOutDown
-        animate__faster
-      `,
-      },
-    }).then(() => {
-      // Alert 확인 후 비밀번호 찾기 모달 닫고 로그인 모달 열거임
-      closeFindId();
-      openLogin();
-    });
+        confirmButtonText: "로그인 하러가기",
+        confirmButtonColor: "#FF8A3D",
+        showClass: {
+          popup: `animate__animated animate__fadeInUp animate__faster`,
+        },
+        hideClass: {
+          popup: `animate__animated animate__fadeOutDown animate__faster`,
+        },
+      }).then(() => {
+        closeFindId();
+        openLogin();
+      });
+    } catch (err) {
+      const status = err?.response?.status;
+
+      let msg = "아이디 찾기에 실패했습니다. 잠시 후 다시 시도해주세요.";
+      if (status === 404) msg = "일치하는 회원 정보를 찾을 수 없습니다.";
+      if (status === 400) msg = "입력값을 다시 확인해주세요.";
+      if (status === 500) msg = "서버 오류가 발생했습니다.";
+
+      Swal.fire({
+        icon: "error",
+        title: "아이디 찾기 실패",
+        text: msg,
+        confirmButtonColor: "#FF8A3D",
+        showClass: {
+          popup: `
+          animate__animated
+          animate__shakeX
+          animate__faster
+        `,
+        },
+      });
+    }
   };
 
   return (
-    // 배경 클릭하면 비밀번호 찾기 모달 닫기
     <div css={s.overlay}>
       {/* 모달 내부 클릭했을때 overlay 클릭 이벤트 차단*/}
       <div css={s.modal} onClick={(e) => e.stopPropagation()}>
@@ -126,7 +144,13 @@ function FindIdModal() {
         {/* 로그인 모달로 이동 */}
         <div css={s.loginRow}>
           <span css={s.loginMent}>로그인 화면으로 돌아가기</span>
-          <span css={s.loginLink} onClick={openLogin}>
+          <span
+            css={s.loginLink}
+            onClick={() => {
+              closeFindId();
+              openLogin();
+            }}
+          >
             로그인
           </span>
         </div>

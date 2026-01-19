@@ -28,7 +28,7 @@ function ChangePasswordPage() {
                         
                         <h1 css={s.cardTitle}>비밀번호 변경</h1>
                         
-                        <div css={[s.cardContent, s.centerContent]} >
+                        <div css={[s.cardContent, s.centerMain]} >
                             <div css={s.commonInputGroup}>
                                 <label>현재 비밀번호</label>
                                 <input 

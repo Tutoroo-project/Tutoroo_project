@@ -89,10 +89,12 @@ export const submitBtn = css`
 export const wrapper = css`
     display: flex;
     width: 100%;
-    height: calc(100vh - 50px);
+    min-height: calc(100vh - 72px);
+    height: auto;
     background-color: #ffffff;
-    padding-top: 50px;
-    overflow: hidden;
+    padding-top: 60px;
+    /* padding-bottom: 100px; */
+    
     box-sizing: border-box;
     justify-content: center;
 `;
@@ -104,8 +106,11 @@ export const mainContainer = css`
     justify-content: center;
     align-items: flex-start;
     padding-top: 20px;
-    padding-bottom: 100px;
 `;
+
+export const centerMain = css`
+    align-items: center;
+`
 
 
 export const commonCard = css`
@@ -119,7 +124,6 @@ export const commonCard = css`
     border-radius: 30px;
     margin-bottom: 20px;
     box-sizing: border-box;
-    overflow: hidden;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
 `;
 
@@ -132,17 +136,15 @@ export const cardTitle = css`
     font-size: 40px; 
     font-weight: 600;
     color: #333;
-    padding: 20px 0;
+    padding: 20px 0; 
     margin: 0;
 `;
 
 
 export const cardContent = css`
-    flex: 1;
     width: 100%;
     padding: 30px 40px 0;
     box-sizing: border-box;
-    overflow-y: auto;
       
     &::-webkit-scrollbar {
         width: 8px;
@@ -233,6 +235,8 @@ export const imageUploadBox = css`
     align-items: center;
     cursor: pointer;
     background-color: #fafafa;
+    margin-top: 15px;
+    overflow: hidden;
 `;
 
 export const uploadPlaceholder = css`
@@ -291,7 +295,7 @@ export const warningBox = css`
     }
 `;
 
-/* [회원탈퇴] 동의 체크박스 */
+
 export const agreementSection = css`
     display: flex;
     align-items: center;
@@ -314,12 +318,12 @@ export const agreementSection = css`
     }
 `;
 
-/* [회원탈퇴] 사유 입력 박스 (★ 수정: margin-left 제거) */
+
 export const reasonBox = css`
     width: 100%;
     margin-bottom: 20px;
     
-    /* margin-left: 27px;  <-- ★ 삭제! (가로 스크롤의 원인) */
+   
 
     label {
         display: block;

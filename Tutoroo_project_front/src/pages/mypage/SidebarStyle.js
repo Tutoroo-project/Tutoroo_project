@@ -1,10 +1,13 @@
 import { css } from "@emotion/react";
 
 export const sidebarContainer = css`
-    
+    position: sticky;
+    top: 60px;
     width: 250px;
+    height: fit-content;
     margin-right: 200px;
     flex-shrink: 0; 
+
    
 `;
 

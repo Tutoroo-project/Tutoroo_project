@@ -7,7 +7,7 @@ html, body {
     height: 100%;
     margin: 0;
     padding: 0;
-    overflow-y: hidden; /* 가로 스크롤 강제 숨김 */
+    scrollbar-gutter: stable;
   }
 
   /* 2. 모든 태그 초기화 (마진, 패딩, 박스 크기 계산) */

@@ -4,24 +4,39 @@ import Header from "../../components/layouts/Header";
 import Sidebar from "./Sidebar";
 import * as s  from "./styles";
 import { useState } from "react";
+import Swal from "sweetalert2";
+import { userApi } from "../../apis/users/usersApi";
 
 function WithdrawalPage() {
 
-    const handleWithdraw = () => {
-        if(!agree) {
-            alert("안내사항에 동의해주세요")
-            return;
-        }
+    const handleWithdraw = async () => {
+        if(!agree) 
+            Swal.fire("알림", "안내사항에 동의해주세요", "warning")
+      
+        if (!password) 
+            Swal.fire("알림", "비밀번호를 입력해주세요.", "warning");
+     
+        const confirm = await Swal.fire({
+            title: '정말 탈퇴하시겠습니까?',
+            text: "탈퇴 후 90일간 데이터가 보관되며 이후 영구 삭제됩니다.",
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#d33',
+            confirmButtonText: '탈퇴하기',
+            cancelButtonText: '취소'
+        });
 
-        if (!password) {
-            alert("비밀번호를 입력해주세요.")
-            return;
-        }
+        if (confirm.isConfirmed) {
+            try {
+                await userApi.withdraw(password, reason);
+                await Swal.fire("완료", "탈퇴 처리가 완료되었습니다.", "success");
 
-        if(window.confirm("정말 탈퇴하시겠습니까? 확인을 누르시면 되돌릴 수 없습니다.")) {
-            alert("탈퇴 처리가 완료되었습니다.")
-            console.log("탈퇴 사유: " , reason)
-        }   
+                localStorage.clear();
+                window.location.href = "/login";
+            } catch(error) {
+                Swal.fire("실패", "비밀번호가 일치하지 않거나 오류가 발생했습니다.", "error");
+            }
+        }
     }
 
     const [ agree, setAgree ] = useState(false);

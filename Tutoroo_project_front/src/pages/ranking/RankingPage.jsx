@@ -10,6 +10,7 @@ import * as s from "./styles";
 function RankingPage() {
   const [rankingList, setRankingList] = useState([]);
   const [myRanking, setMyRanking] = useState(null);
+  
   const [filterGender, setFilterGender] = useState("전체");
   const [filterAge, setFilterAge] = useState("전체");
   const [isLoading, setIsLoading] = useState(false);
@@ -18,12 +19,28 @@ function RankingPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        const listData = await rankingApi.getRankings(filterGender, filterAge);
-        setRankingList(listData);
-        const myData = await rankingApi.getMyRanking();
-        setMyRanking(myData);
+        // 1. 랭킹 리스트 조회
+        const dto = await rankingApi.getRankings(filterGender, filterAge);
+        
+        // [수정 포인트] response.data 전체가 아니라, 내부의 'allRankers' 배열을 꺼내야 함
+        if (dto && dto.allRankers) {
+            setRankingList(dto.allRankers);
+        } else {
+            setRankingList([]);
+        }
+
+        // 2. 내 랭킹 조회 (로그인 상태가 아니면 실패할 수 있으므로 분리 처리 권장)
+        try {
+            const myData = await rankingApi.getMyRanking();
+            setMyRanking(myData);
+        } catch (e) {
+            console.log("비로그인 상태이거나 내 정보 로드 실패");
+            setMyRanking(null);
+        }
+
       } catch (error) {
         console.error("랭킹 데이터 로드 실패:", error);
+        setRankingList([]);
       } finally {
         setIsLoading(false);
       }
@@ -37,8 +54,6 @@ function RankingPage() {
       <Header />
       <div css={s.pageBg}>
         <div css={s.container}>
-          
-          {/* 상단 필터 섹션 */}
           <RankingFilters
             filterGender={filterGender}
             setFilterGender={setFilterGender}
@@ -46,15 +61,11 @@ function RankingPage() {
             setFilterAge={setFilterAge}
           />
 
-          {/* 메인 컨텐츠 영역 */}
           <div css={s.contentRow}>
-            {/* 좌측 랭킹 리스트 */}
+            {/* rankingList는 이제 확실히 배열임 */}
             <RankingList rankingList={rankingList} isLoading={isLoading} />
-
-            {/* 우측 내 정보 카드 */}
             <MyRankingCard myRanking={myRanking} />
           </div>
-          
         </div>
       </div>
     </>

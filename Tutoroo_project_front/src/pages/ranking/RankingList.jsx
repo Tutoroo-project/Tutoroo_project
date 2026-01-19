@@ -6,13 +6,13 @@ function RankingList({ rankingList, isLoading }) {
     <div css={s.rankListArea}>
       {isLoading ? (
         <div css={s.loadingText}>로딩 중...</div>
-      ) : rankingList.length > 0 ? (
+      ) : rankingList && rankingList.length > 0 ? (
         rankingList.map((user, index) => {
-          const rank = user.dailyRank || index + 1;
+          // [수정 포인트] DTO 필드: rank
+          const rank = user.rank; 
 
           return (
-            <div key={user.id || index} css={s.rankCard(rank)}>
-              {/* 순위 아이콘/텍스트 */}
+            <div key={index} css={s.rankCard(rank)}>
               <div css={s.rankBadge(rank)}>
                 {rank <= 3 ? (
                   <>
@@ -28,23 +28,23 @@ function RankingList({ rankingList, isLoading }) {
                 )}
               </div>
 
-              {/* 프로필 & 이름 */}
               <div css={s.userInfo}>
                 {user.profileImage ? (
                   <img src={user.profileImage} css={s.userProfileImg} alt="profile" />
                 ) : (
                   <div css={s.userIcon} />
                 )}
-                <span css={s.userName}>{user.name || user.username}</span>
+                {/* [수정 포인트] DTO 필드: maskedName */}
+                <span css={s.userName}>{user.maskedName}</span>
               </div>
 
-              {/* 포인트 */}
+              {/* [수정 포인트] DTO 필드: totalPoint */}
               <div css={s.pointText}>{user.totalPoint?.toLocaleString()} P</div>
             </div>
           );
         })
       ) : (
-        <div css={s.rankNullText}>랭킹 데이터가 없습니다.</div>
+        <div css={s.loadingText}>랭킹 데이터가 없습니다.</div>
       )}
     </div>
   );

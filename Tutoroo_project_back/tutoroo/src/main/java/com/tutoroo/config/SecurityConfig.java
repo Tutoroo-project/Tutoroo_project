@@ -71,9 +71,6 @@ public class SecurityConfig {
                         // [공개] 인증 관련 (회원가입, 로그인, 아이디 찾기 등)
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // [공개] 랭킹 조회 (비회원도 볼 수 있음)
-                        .requestMatchers("/api/ranking/realtime", "/api/ranking/list").permitAll()
-
                         // [인증 필요] 그 외 모든 API (결제, 펫, 알림, 튜터링 등)
                         .anyRequest().authenticated()
                 )

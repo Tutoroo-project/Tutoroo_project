@@ -18,6 +18,25 @@ public class UserDTO {
             String phone            // 변경할 전화번호 (선택)
     ) {}
 
+    // [New] 1-1. 회원 정보 프로필 스냅샷 (변경 전/후 비교용)
+    @Builder
+    public record ProfileInfo(
+            String username,
+            String name,
+            String email,
+            String phone,
+            String profileImage,
+            String membershipTier
+    ) {}
+
+    // [New] 1-2. 회원 정보 수정 응답 (Before & After)
+    @Builder
+    public record UpdateResponse(
+            ProfileInfo before, // 변경 전 정보
+            ProfileInfo after,  // 변경 후 정보
+            String message
+    ) {}
+
     // 2. 대시보드 응답 DTO
     @Builder
     public record DashboardDTO(

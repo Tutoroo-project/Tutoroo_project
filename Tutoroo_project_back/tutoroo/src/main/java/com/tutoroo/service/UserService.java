@@ -36,9 +36,9 @@ public class UserService {
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper; // JSON 캐싱용
 
-    // --- [1] 회원 정보 수정 ---
+    // --- [1] 회원 정보 수정 (Before/After 반환) ---
     @Transactional
-    public void updateUserInfo(String username, UserDTO.UpdateRequest request, MultipartFile image) {
+    public UserDTO.UpdateResponse updateUserInfo(String username, UserDTO.UpdateRequest request, MultipartFile image) {
         UserEntity user = userMapper.findByUsername(username);
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
 
@@ -47,7 +47,17 @@ public class UserService {
             throw new TutorooException(ErrorCode.INVALID_PASSWORD);
         }
 
-        // 정보 업데이트
+        // 1. [Snapshot] 변경 전 정보 저장
+        UserDTO.ProfileInfo beforeInfo = UserDTO.ProfileInfo.builder()
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .profileImage(user.getProfileImage())
+                .membershipTier(user.getEffectiveTier().name())
+                .build();
+
+        // 2. 정보 업데이트
         if (request.newPassword() != null && !request.newPassword().isBlank()) {
             user.setPassword(passwordEncoder.encode(request.newPassword()));
         }
@@ -69,10 +79,28 @@ public class UserService {
             }
         }
 
+        // 3. DB 반영
         userMapper.update(user);
 
         // [캐시 무효화] 정보가 바뀌었으므로 대시보드 캐시 삭제
         deleteDashboardCache(username);
+
+        // 4. [Snapshot] 변경 후 정보 생성
+        UserDTO.ProfileInfo afterInfo = UserDTO.ProfileInfo.builder()
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .profileImage(user.getProfileImage())
+                .membershipTier(user.getEffectiveTier().name())
+                .build();
+
+        // 5. 결과 반환
+        return UserDTO.UpdateResponse.builder()
+                .before(beforeInfo)
+                .after(afterInfo)
+                .message("회원 정보가 성공적으로 변경되었습니다.")
+                .build();
     }
 
     // --- [2] 대시보드 조회 (Redis 캐싱 적용) ---

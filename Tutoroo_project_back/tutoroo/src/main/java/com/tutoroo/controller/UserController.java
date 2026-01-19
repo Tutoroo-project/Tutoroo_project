@@ -24,14 +24,15 @@ public class UserController {
     }
 
     // 2. 회원 정보 수정 (이미지 포함)
+    // 반환값 변경: 단순 String -> UpdateResponse (Before/After 정보 포함)
     @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<String> updateUserInfo(
+    public ResponseEntity<UserDTO.UpdateResponse> updateUserInfo(
             @AuthenticationPrincipal CustomUserDetails user,
             @RequestPart(value = "data") UserDTO.UpdateRequest request,
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        userService.updateUserInfo(user.getUsername(), request, image);
-        return ResponseEntity.ok("회원 정보가 성공적으로 변경되었습니다.");
+        UserDTO.UpdateResponse response = userService.updateUserInfo(user.getUsername(), request, image);
+        return ResponseEntity.ok(response);
     }
 
     // 3. 라이벌 매칭 요청

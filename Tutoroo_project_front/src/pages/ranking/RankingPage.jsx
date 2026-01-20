@@ -25,29 +25,33 @@ function RankingPage() {
         if (data) {
           setRankingList(data.allRankers || []);
 
-          // [핵심 로직 수정]
-          // Case A: 백엔드에서 내 랭킹 정보를 줬으면 -> 그대로 사용
+          // Case A: 서버가 내 랭킹 정보를 줬을 때 (순위권 내)
           if (data.myRank) {
             setMyRanking(data.myRank);
           } 
-          // Case B: 랭킹 리스트에 내가 없어서 null로 왔다면 -> 직접 조회 (Fallback)
+          // Case B: 순위권 밖이라서 내 정보가 없을 때 (직접 조회)
           else {
             try {
-              // 프로필(이미지) + 대시보드(점수) 동시에 호출
               const [profile, dashboard] = await Promise.all([
                 rankingApi.getMyProfile(),
                 rankingApi.getMyDashboard()
               ]);
+              
+              // [중요] 이름 마스킹 처리 (김철수 -> 김*수)
+              let masked = profile.name;
+              if (masked && masked.length >= 2) {
+                masked = masked.charAt(0) + "*" + masked.substring(2);
+              }
 
-              // 두 데이터를 합쳐서 'RankingDTO.RankEntry'와 같은 모양으로 만듦
+              // MyRankingCard가 기대하는 필드명(maskedName)으로 데이터 구성
               setMyRanking({
-                rank: dashboard.rank,           // 0이면 '순위 없음' 처리됨
-                maskedName: profile.name,       // 이름
-                totalPoint: dashboard.currentPoint, // 포인트
-                profileImage: profile.profileImage // 이미지
+                rank: dashboard.rank,               
+                maskedName: masked,   
+                name: profile.name,   
+                totalPoint: dashboard.currentPoint, 
+                profileImage: profile.profileImage  
               });
             } catch (e) {
-              console.log("로그인 상태가 아니거나 데이터를 불러올 수 없습니다.");
               setMyRanking(null);
             }
           }
@@ -80,8 +84,6 @@ function RankingPage() {
               rankingList={rankingList} 
               isLoading={isLoading} 
             />
-            
-            {/* 데이터가 조합된 myRanking을 전달 */}
             <MyRankingCard myRanking={myRanking} />
           </div>
         </div>

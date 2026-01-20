@@ -49,14 +49,12 @@ export const filterSelect = css`
   }
 `;
 
-// --- [메인 콘텐츠 영역 (리스트 + 내 카드)] ---
 export const contentWrap = css`
   display: flex;
   gap: 24px;
   align-items: flex-start;
 `;
 
-// --- [랭킹 리스트 스타일] ---
 export const rankListArea = css`
   flex: 1;
   display: flex;
@@ -108,27 +106,29 @@ export const userInfo = css`
   margin-left: 20px;
 `;
 
+export const profileFrame = css`
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: #E0E0E0; 
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; 
+  border: 2px solid #fff;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+`;
+
+export const profileImgContent = css`
+  width: 100%;
+  height: 100%;
+  object-fit: cover; 
+`;
+
 export const userProfileImg = css`
   width: 48px;
   height: 48px;
   border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  background-color: #eee;
-`;
-
-export const userIcon = css`
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background-color: #eee;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 20px;
-  color: #999;
-  &::before { content: '👤'; }
 `;
 
 export const userName = css`
@@ -145,7 +145,6 @@ export const pointText = css`
 
 
 // --- [내 랭킹 카드 스타일] ---
-
 export const myStatusArea = css`
   width: 320px;
   position: sticky;
@@ -159,46 +158,4 @@ export const statusCard = css`
   box-shadow: 0 4px 20px rgba(0,0,0,0.08);
   border: 1px solid #eee;
   text-align: center;
-`;
-
-export const cardTitle = css`
-  font-size: 18px;
-  font-weight: 700;
-  color: #333;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #f5f5f5;
-`;
-
-export const cardContent = css`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-`;
-
-export const cardLabel = css`
-  font-size: 14px;
-  color: #888;
-`;
-
-export const bigPoint = css`
-  font-size: 28px;
-  font-weight: 800;
-  color: #FF9F43;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 8px;
-  background: #fff8f0;
-  padding: 12px 20px;
-  border-radius: 12px;
-  width: 100%;
-`;
-
-export const isUnauthenticated = css`
-  color: #999;
-  font-size: 15px;
-  line-height: 1.6;
-  padding: 20px 0;
 `;

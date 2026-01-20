@@ -19,25 +19,39 @@ function RankingPage() {
     const fetchData = async () => {
       setIsLoading(true);
       try {
-        // 1. 랭킹 리스트 조회
-        const dto = await rankingApi.getRankings(filterGender, filterAge);
+        // 1. 전체 랭킹 리스트 호출
+        const data = await rankingApi.getRankings(filterGender, filterAge);
         
-        // [수정 포인트] response.data 전체가 아니라, 내부의 'allRankers' 배열을 꺼내야 함
-        if (dto && dto.allRankers) {
-            setRankingList(dto.allRankers);
-        } else {
-            setRankingList([]);
-        }
+        if (data) {
+          setRankingList(data.allRankers || []);
 
-        // 2. 내 랭킹 조회 (로그인 상태가 아니면 실패할 수 있으므로 분리 처리 권장)
-        try {
-            const myData = await rankingApi.getMyRanking();
-            setMyRanking(myData);
-        } catch (e) {
-            console.log("비로그인 상태이거나 내 정보 로드 실패");
-            setMyRanking(null);
-        }
+          // [핵심 로직 수정]
+          // Case A: 백엔드에서 내 랭킹 정보를 줬으면 -> 그대로 사용
+          if (data.myRank) {
+            setMyRanking(data.myRank);
+          } 
+          // Case B: 랭킹 리스트에 내가 없어서 null로 왔다면 -> 직접 조회 (Fallback)
+          else {
+            try {
+              // 프로필(이미지) + 대시보드(점수) 동시에 호출
+              const [profile, dashboard] = await Promise.all([
+                rankingApi.getMyProfile(),
+                rankingApi.getMyDashboard()
+              ]);
 
+              // 두 데이터를 합쳐서 'RankingDTO.RankEntry'와 같은 모양으로 만듦
+              setMyRanking({
+                rank: dashboard.rank,           // 0이면 '순위 없음' 처리됨
+                maskedName: profile.name,       // 이름
+                totalPoint: dashboard.currentPoint, // 포인트
+                profileImage: profile.profileImage // 이미지
+              });
+            } catch (e) {
+              console.log("로그인 상태가 아니거나 데이터를 불러올 수 없습니다.");
+              setMyRanking(null);
+            }
+          }
+        }
       } catch (error) {
         console.error("랭킹 데이터 로드 실패:", error);
         setRankingList([]);
@@ -60,10 +74,14 @@ function RankingPage() {
             filterAge={filterAge}
             setFilterAge={setFilterAge}
           />
-
-          <div css={s.contentRow}>
-            {/* rankingList는 이제 확실히 배열임 */}
-            <RankingList rankingList={rankingList} isLoading={isLoading} />
+          
+          <div css={s.contentWrap}>
+            <RankingList 
+              rankingList={rankingList} 
+              isLoading={isLoading} 
+            />
+            
+            {/* 데이터가 조합된 myRanking을 전달 */}
             <MyRankingCard myRanking={myRanking} />
           </div>
         </div>

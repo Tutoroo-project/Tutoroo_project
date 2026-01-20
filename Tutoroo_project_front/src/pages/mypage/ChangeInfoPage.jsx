@@ -28,18 +28,21 @@ import Swal from "sweetalert2";
             try {
 
                 const data = await userApi.getProfile();
+                
                 if (!data) return;
                 console.log("서버에서 온 데이터:", data)
 
                 setProfile({
-                    name: data.name,
-                    phone: data.phone,
-                    age: data.age,
-                    email: data.email,
+                    name: data.name || "",
+                    phone: data.phone || "",
+                    age: data.age || "",
+                    email: data.email || "",
                 });
 
                 if (data.profileImage) {
-                setPreviewUrl(data.profileImage);
+                    setPreviewUrl(data.profileImage);
+                } else {
+                    setPreviewUrl("");
                 }
             } catch (error) {
                 console.error("프로필 로딩 실패", error);
@@ -88,20 +91,21 @@ import Swal from "sweetalert2";
             console.log("서버 응답:", resp);
 
             
-            Swal.fire("성공", response.message || "회원 정보가 수정되었습니다.", "success");
+            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success");
             
            
             if(resp.after) {
                  setProfile({
-                    name: response.after.name,
-                    phone: response.after.phone,
-                    age: response.after.age,
-                    email: response.after.email
+                    name: resp.after.name,
+                    phone: resp.after.phone,
+                    age: resp.after.age,
+                    email: resp.after.email
                 });
                 setPreviewUrl(resp.after.profileImage);
             }
 
         } catch (error) {
+            console.error(error)
             Swal.fire ("실패", "정보 수정이 실패했습니다", "error");
         }
     }
@@ -124,26 +128,26 @@ import Swal from "sweetalert2";
                                     <div css={s.uploadPlaceholder}>
                                         <FaCamera size={30} />
                                         <p style={{fontSize:'16px'}}>이미지 드래그 또는 선택</p>
-                                        <input css={s.commonInputGroup} type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleImageChange}/>
+                                        <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleImageChange}/>
                                     </div>
                                 </div>
                             </div>
 
                             <div css={s.commonInputGroup}>
                                 <label>이름</label>
-                                <input type="text" value={profile.name} onChange={(e)=>setProfile({...profile, name:e.target.value})} />
+                                <input type="text" value={profile.name || ""} onChange={(e)=>setProfile({...profile, name:e.target.value})} />
                             </div>
                             <div css={s.commonInputGroup}>
                                 <label>전화번호</label>
-                                <input type="text" value={profile.phone} onChange={(e)=>setProfile({...profile, phone:e.target.value})} />
+                                <input type="text" value={profile.phone || ""} onChange={(e)=>setProfile({...profile, phone:e.target.value})} />
                             </div>
                             <div css={s.commonInputGroup}>
                                 <label>나이</label>
-                                <input type="text" value={profile.age} onChange={(e)=>setProfile({...profile, age:e.target.value})} />
+                                <input type="text" value={profile.age || ""} onChange={(e)=>setProfile({...profile, age:e.target.value})} />
                             </div>
                             <div css={s.commonInputGroup}>
                                 <label>이메일</label>
-                                <input type="email" value={profile.email} onChange={(e)=>setProfile({...profile, email:e.target.value})} />
+                                <input type="email" value={profile.email || ""} onChange={(e)=>setProfile({...profile, email:e.target.value})} />
                             </div>
                         </div>
 

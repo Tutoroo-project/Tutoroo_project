@@ -1,5 +1,4 @@
 import axios from "axios";
-import { reasonBox } from "../../pages/mypage/styles";
 import { api } from "../configs/axiosConfig";
 
 export const authApi = {
@@ -90,6 +89,12 @@ export const userApi = {
   },
 
   withdraw: async(password, reason) => {
-    const res = await axios.post("/api/user/withdraw", { password, reason });
+    const res = await api.post("/api/user/withdraw", { password, reason });
+    return res.data;
   },
+
+  verifyPassword: async (password) => {
+    const res = await api.post("/api/user/verify-password", { password });
+    return res.data;
+  }
 };

@@ -10,6 +10,7 @@ const AUTH_FREE_PATHS = [
   "/api/auth/reissue",
   "/api/auth/email/send-verification",
   "/api/auth/email/verify",
+  
 ];
 
 // url이 auth-free 인지 검사
@@ -30,7 +31,15 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-  (res) => res,
+  (res) => {
+    // [임시 확인용] 서버가 JSON이 아니라 HTML(로그인창)을 줬는지 검사
+    if (typeof res.data === 'string' && res.data.includes('<!DOCTYPE html>')) {
+        console.error("토큰 문제로 로그인 페이지로 리다이렉트 되었습니다.");
+        // 강제로 에러를 발생시켜서 catch 블록으로 보내거나 로그아웃 처리
+        return Promise.reject(new Error("Token Invalid - Redirected to Login"));
+    }
+    return res;
+  },
   async (error) => {
     const original = error.config;
     const url = original?.url ?? "";

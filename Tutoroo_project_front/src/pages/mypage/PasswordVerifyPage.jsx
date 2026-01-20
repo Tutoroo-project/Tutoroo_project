@@ -5,9 +5,8 @@ import { useState } from "react";
 import Header from "../../components/layouts/Header";
 import { useNavigate } from "react-router-dom";
 import logoImg from "../../assets/images/mascots/logo.jpg";
-import axios from "axios";
 import Swal from "sweetalert2";
-import { api } from "../../apis/configs/axiosConfig";
+import { userApi } from "../../apis/users/usersApi";
 
 function PasswordVerifyPage() {
     const [ password, setPassword ] = useState("");
@@ -20,9 +19,7 @@ function PasswordVerifyPage() {
         }
 
         try {
-            await api.post("/api/user/verify-password", {
-                password: password
-            });
+             await userApi.verifyPassword(password);
 
             Swal.fire({
                 icon: 'success',
@@ -37,10 +34,11 @@ function PasswordVerifyPage() {
             });
         } catch (error) {
             console.error(error);
+            const errorMessage = error.response?.data?.message || '비밀번호가 일치하지 않습니다.';
             Swal.fire({
                 icon: 'error',
                 title: '인증 실패',
-                text: '비밀번호가 일치하지 않습니다.',
+                text: errorMessage,
                 confirmButtonColor: '#d33'
             });
             setPassword("");

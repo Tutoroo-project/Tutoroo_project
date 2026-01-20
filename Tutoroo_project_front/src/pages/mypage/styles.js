@@ -264,7 +264,14 @@ export const uploadPlaceholder = css`
     }
 
     input {
-        
+        width: 100%;
+        height: 50px;
+        padding: 0 15px;
+        border: 1px solid #dbdbdb;
+        border-radius: 10px;
+        font-size: 16px;
+        outline: none;
+        box-sizing: border-box;
     }
 `;
 

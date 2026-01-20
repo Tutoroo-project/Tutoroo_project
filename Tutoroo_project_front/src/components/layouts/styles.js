@@ -96,3 +96,14 @@ export const menuItem = css`
     background: #fff1e0;
   }
 `;
+
+export const menuDivider = css`
+  height: 1px;
+  margin: 8px 0;
+  background: rgba(0, 0, 0, 0.08);
+`;
+
+export const logoutItem = css`
+  color: #e11d48;
+  font-weight: 600;
+`;

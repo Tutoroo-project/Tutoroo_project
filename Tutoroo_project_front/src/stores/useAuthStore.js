@@ -1,7 +1,7 @@
 import { create } from "zustand";
 
 /**
- * ✅ AuthStore (Zustand)
+ *  AuthStore (Zustand)
  * - 로그인/로그아웃 상태 관리
  * - accessToken / refreshToken localStorage 저장
  * - user(최소 사용자 정보) localStorage 저장

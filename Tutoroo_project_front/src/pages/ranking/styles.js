@@ -86,12 +86,12 @@ export const rankCard = (rank) => css`
 `;
 
 export const rankBadge = (rank) => css`
+  display: flex;
+  align-items: center;
   width: 70px;
   font-size: ${rank <= 3 ? '20px' : '18px'};
   font-weight: bold;
   color: ${rank <= 3 ? '#FF9F43' : '#666'};
-  display: flex;
-  align-items: center;
   gap: 4px;
   
   .medal-icon {
@@ -112,7 +112,6 @@ export const userProfileImg = (imageUrl) => css`
   height: 48px;
   border-radius: 50%;
   border: 2px solid #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
   background-color: #fff;  
   background-image: url(${imageUrl});
   background-position: center;
@@ -174,8 +173,7 @@ export const myProfileImg = (imageUrl) => css`
   height: 80px;
   border-radius: 50%;
   border: 4px solid #fff;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-  background-color: #E0E0E0;
+  background-color: #fff;
   background-image: url(${imageUrl});
   background-position: center;
   background-size: cover;

@@ -5,15 +5,16 @@ import defaultProfileImg from "../../assets/images/mascots/default_image.png";
 function MyRankingCard({ myRanking }) {
   
   const getImageUrl = (url) => {
-    if (!url) return defaultProfileImg;
-    if (url.startsWith("http")) return url;
-    
+    if (!url) {
+      return defaultProfileImg;
+    }
+    if (url.startsWith("http")) {
+      return url;
+    }
     const BASE_URL = import.meta.env.VITE_API_BASE_URL;
     return `${BASE_URL}${url}`;
   };
-
   const finalImageUrl = getImageUrl(myRanking?.profileImage);
-  
   return (
     <aside css={s.myStatusArea}>
       <div css={s.statusCard}>

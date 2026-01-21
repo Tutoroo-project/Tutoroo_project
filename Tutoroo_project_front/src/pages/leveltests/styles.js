@@ -252,16 +252,19 @@ export const sectionTitle = css`
 `;
 
 export const roadmapImageWrapper = css`
-  background-color: #f5f5f5;
-  border-radius: 16px;
-  overflow: hidden;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08);
+  width: 100%;
+  margin-top: 16px;
+  display: flex;
+  justify-content: center;
 `;
 
 export const roadmapImage = css`
   width: 100%;
+  max-width: 800px;
+  height: auto;
   display: block;
-  cursor: zoom-in;
+  object-fit: contain;
+  border-radius: 12px;
 `;
 
 export const roadmapHint = css`
@@ -291,7 +294,9 @@ export const primaryBtn = css`
   cursor: pointer;
 
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
-  transition: background-color 0.2s ease, transform 0.15s ease;
+  transition:
+    background-color 0.2s ease,
+    transform 0.15s ease;
 
   &:hover {
     background-color: ${theme.colors.accent};
@@ -301,4 +306,41 @@ export const primaryBtn = css`
   &:active {
     transform: translateY(0);
   }
+`;
+
+export const roadmapList = css`
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+export const roadmapItem = css`
+  background: #fff;
+  border: 1px solid #eee;
+  border-radius: 12px;
+  padding: 14px 16px;
+`;
+
+export const roadmapItemTitle = css`
+  font-weight: 700;
+  margin-bottom: 8px;
+`;
+
+export const roadmapItemDesc = css`
+  margin: 8px 0 0;
+  color: #666;
+  line-height: 1.5;
+`;
+
+export const topicList = css`
+  margin: 6px 0 0;
+  padding-left: 18px;
+`;
+
+export const topicItem = css`
+  color: #444;
+  line-height: 1.5;
 `;

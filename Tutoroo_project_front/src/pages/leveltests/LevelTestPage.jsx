@@ -37,7 +37,7 @@ function LevelTestPage() {
 
   // UI용 메시지(기존 유지)
   const [messages, setMessages] = useState([
-    { role: "ai", content: "수준 파악을 시작해볼게요 🙂" },
+    { role: "ai", content: "수준 파악을 시작하겠습니다." },
   ]);
   const [input, setInput] = useState("");
 
@@ -74,11 +74,6 @@ function LevelTestPage() {
           { role: "ai", content: res.aiMessage },
         ]);
         setHistory([{ role: ROLE.AI, content: res.aiMessage }]);
-
-        if (res.isFinished) {
-          // 혹시 첫 응답에서 끝나는 경우도 처리
-          await handleGenerate([{ role: ROLE.AI, content: res.aiMessage }]);
-        }
       } catch (e) {
         Swal.fire({
           icon: "error",
@@ -94,6 +89,21 @@ function LevelTestPage() {
   }, []);
 
   const handleGenerate = async (finalHistory) => {
+    const resolveRoadmapUrl = (url) => {
+      if (!url) return null;
+      // 이미 http(s)면 그대로
+      if (/^https?:\/\//i.test(url)) return url;
+
+      // 상대경로면 API base 붙이기
+      const base = import.meta.env.VITE_API_BASE_URL ?? "";
+      try {
+        return new URL(url, base).toString();
+      } catch {
+        const slashBase = base.endsWith("/") ? base.slice(0, -1) : base;
+        const slashUrl = url.startsWith("/") ? url : `/${url}`;
+        return `${slashBase}${slashUrl}`;
+      }
+    };
     setIsGenerating(true);
     try {
       const result = await generateRoadmap({
@@ -107,7 +117,7 @@ function LevelTestPage() {
         level: mapLevelToUi(result.analyzedLevel),
         summary: result.analysisReport ?? result.overview?.summary ?? null,
         roadmap: result.overview?.chapters ?? [],
-        roadmapImageUrl: null,
+        roadmapImageUrl: resolveRoadmapUrl(result.roadmapImageUrl),
       });
 
       // 안내 메시지(선택)
@@ -120,10 +130,28 @@ function LevelTestPage() {
 
       setIsCompleted(true);
     } catch (e) {
+      const status = e?.response?.status;
+      const data = e?.response?.data; // { timestamp, status, code, message, errors }
+      const code = data?.code;
+      const msg = data?.message;
+
+      // 목표 생성 제한 (BASIC 1개 제한)
+      if ((status === 400 || status === 402) && code === "L003") {
+        Swal.fire({
+          icon: "warning",
+          title: "목표 생성 제한",
+          text: msg ?? "BASIC 등급은 학습 목표를 1개만 설정할 수 있어요.",
+          confirmButtonText: "대시보드로 이동",
+          confirmButtonColor: "#FF8A3D",
+        }).then(() => navigate("/dashboard"));
+        return;
+      }
+
+      // 그 외 에러
       Swal.fire({
         icon: "error",
         title: "로드맵 생성 실패",
-        text: "로그인이 필요하거나(401), 서버 오류일 수 있어요.",
+        text: msg ?? "로그인이 필요하거나(401), 서버 오류일 수 있어요.",
         confirmButtonColor: "#FF8A3D",
       });
     } finally {
@@ -162,7 +190,8 @@ function LevelTestPage() {
       ];
       setHistory(nextHistory);
 
-      if (res.isFinished) {
+      const hasUserAnswer = nextHistory.some((m) => m.role === ROLE.USER);
+      if (res.isFinished && hasUserAnswer) {
         await handleGenerate(nextHistory);
       }
     } catch (e) {

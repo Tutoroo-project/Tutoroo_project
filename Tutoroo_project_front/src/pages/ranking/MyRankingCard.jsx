@@ -28,7 +28,7 @@ function MyRankingCard({ myRanking }) {
               </span>
             </div>
             <span css={s.cardLabel}>
-              현재 순위 및 포인트
+              현재 순위 / 포인트
             </span>
 
             <div css={s.bigPoint}>

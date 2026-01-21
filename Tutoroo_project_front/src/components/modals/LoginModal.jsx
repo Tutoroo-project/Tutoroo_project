@@ -31,6 +31,18 @@ function LoginModal() {
   const [password, setPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleNaverLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/naver`;
+  };
+
+  const handleGoogleLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/google`;
+  };
+
+  const handleKakaoLogin = () => {
+    window.location.href = `${import.meta.env.VITE_API_BASE_URL}/oauth2/authorization/kakao`;
+  };
+
   // 로그인 폼 제출 시 실행
   const handleSubmit = async (e) => {
     // 페이지 새로고침 방지
@@ -138,15 +150,15 @@ function LoginModal() {
 
         {/* 소셜 로그인 API 연동 예정 (백엔드 붙으면)*/}
         <div css={s.socialRow}>
-          <button css={[s.socialBtn]} type="button">
+          <button css={[s.socialBtn]} onClick={handleNaverLogin} type="button">
             <img src={naverIcon} css={s.naver} />
           </button>
 
-          <button css={[s.socialBtn]} type="button">
+          <button css={[s.socialBtn]} onClick={handleGoogleLogin} type="button">
             <img src={googleIcon} css={s.google} />
           </button>
 
-          <button css={[s.socialBtn]} type="button">
+          <button css={[s.socialBtn]} onClick={handleKakaoLogin} type="button">
             <img src={kakaoIcon} css={s.kakao} />
           </button>
         </div>

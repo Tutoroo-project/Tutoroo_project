@@ -12,6 +12,7 @@ import LevelTestPage from "../pages/leveltests/LevelTestPage";
 import LevelTestResultPage from "../pages/leveltests/LevelTestResultPage";
 import Payments from "../pages/payments/Payments";
 import PaymentPage from "../pages/payments/PaymentPage";
+import OAuth2RedirectPage from "../pages/auths/OAuth2RedirectPage";
 
 function Router() {
   return (
@@ -29,6 +30,7 @@ function Router() {
       <Route path="/level-test/result" element={<LevelTestResultPage />} />
       <Route path="/tutor" element={<TutorSelectionPage />} />
       <Route path="/study" element={<StudyPage />} />
+      <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
     </Routes>
   );
 }

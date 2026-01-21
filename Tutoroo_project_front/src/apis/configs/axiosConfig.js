@@ -59,7 +59,7 @@ api.interceptors.response.use(
       try {
         //  백엔드: RefreshToken 헤더로 재발급
         const reissueRes = await api.post("/api/auth/reissue", null, {
-          headers: { RefreshToken: refreshToken },
+          headers: { RefreshToken: refreshToken},
         });
 
         const newAccessToken = reissueRes.data?.accessToken;

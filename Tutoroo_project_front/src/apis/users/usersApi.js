@@ -83,8 +83,16 @@ export const userApi = {
     if (profileImage) {
       formData.append("image", profileImage);
     }
+    
+    const accessToken = localStorage.getItem("accessToken");
 
-    const res = await api.patch("/api/user/update", formData);
+    
+    const res = await api.patch("/api/user/update", formData, {
+      headers: {
+        Authorization: `Bearer ${accessToken}`, 
+       
+      },
+    });
     return res.data;
   },
 

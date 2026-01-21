@@ -21,6 +21,7 @@ import Swal from "sweetalert2";
     const [ imageFile, setImageFile] = useState(null);
     const [ previewUrl, setPreviewUrl ] = useState(""); // 기존 프로필 설정
 
+    
     const fileInputRef = useRef(null);
 
     useEffect(() => {
@@ -54,25 +55,25 @@ import Swal from "sweetalert2";
     const handleImageChange = (e) => {
         const file = e.target.files[0];
         if (file) {
-            setImageFile(File);
+            setImageFile(file);
             const reader = new FileReader();
             reader.onloadend = () => {
                 setPreviewUrl(reader.result);
             };
             reader.readAsDataURL(file);
-        }
+        } 
     }
 
     const handleSubmit = async () => {
         try {
-        //    const { value: currentPassword } = await Swal.fire({
-        //         title: '본인 확인',
-        //         input: 'password',
-        //         inputLabel: '정보를 수정하려면 현재 비밀번호를 입력하세요',
-        //         inputPlaceholder: '비밀번호 입력',
-        //         showCancelButton: true
-        //     });
-        //         if (!currentPassword) return;
+           const { value: currentPassword } = await Swal.fire({
+                title: '본인 확인',
+                input: 'password',
+                inputLabel: '정보를 수정하려면 현재 비밀번호를 입력하세요',
+                inputPlaceholder: '비밀번호 입력',
+                showCancelButton: true
+            });
+                if (!currentPassword) return;
                     
             const updateData = {
                 currentPassword: "",
@@ -101,7 +102,9 @@ import Swal from "sweetalert2";
                     age: resp.after.age,
                     email: resp.after.email
                 });
-                setPreviewUrl(resp.after.profileImage);
+                if (resp.after.profileImage) {
+                    setPreviewUrl(resp.after.profileImage);
+                }
             }
 
         } catch (error) {
@@ -124,12 +127,17 @@ import Swal from "sweetalert2";
                                     <BsPersonCircle size={40} color="#ccc"/>
                                     프로필 이미지 수정
                                 </div>
+                                {/* 이미지가 있거나 미리보기가 있으면 그것을 보여줌 (코드상 미리보기 영역이 생략되어 있어 추가 필요 가능성 있음) */}
                                 <div css={s.imageUploadBox} onClick={() => fileInputRef.current.click()}>
-                                    <div css={s.uploadPlaceholder}>
-                                        <FaCamera size={30} />
-                                        <p style={{fontSize:'16px'}}>이미지 드래그 또는 선택</p>
-                                        <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleImageChange}/>
-                                    </div>
+                                    {previewUrl ? (
+                                        <img src={previewUrl} alt="프로필 미리보기" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+                                    ) : (
+                                        <div css={s.uploadPlaceholder}>
+                                            <FaCamera size={30} />
+                                            <p style={{fontSize:'16px'}}>이미지 드래그 또는 선택</p>
+                                        </div>
+                                    )}
+                                    <input type="file" ref={fileInputRef} style={{display: 'none'}} accept="image/*" onChange={handleImageChange}/>
                                 </div>
                             </div>
 

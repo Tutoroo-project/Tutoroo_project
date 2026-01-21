@@ -3,6 +3,7 @@ import FindIdModal from "./FindIdModal";
 import FindPwModal from "./FindPwModal";
 import LoginModal from "./LoginModal";
 import SignupModal from "./SignupModal";
+import SocialSignupModal from "./SocialSignupModal";
 import StudyPlanModal from "./StudyPlanModal";
 
 function ModalRoot() {
@@ -13,6 +14,7 @@ function ModalRoot() {
   const isFindIdOpen = useModalStore((s) => s.isFindIdOpen); // 아이디 찾기 모달 열림 여부
   const isFindPwOpen = useModalStore((s) => s.isFindPwOpen); // 비밀번호 찾기 모달 열림 여부
   const isStudyPlanOpen = useModalStore((s) => s.isStudyPlanOpen); // 학습 목표 입력 모달 열림 여부
+  const isSocialSignupOpen = useModalStore((s) => s.isSocialSignupOpen); // 최초 OAuth2 정보 입력 모달 열림 여부
   return (
     <>
       {/* 로그인 모달 */}
@@ -29,6 +31,9 @@ function ModalRoot() {
 
       {/* 학습 목표 입력 모달 */}
       {isStudyPlanOpen && <StudyPlanModal />}
+
+      {/* OAuth2 최초 로그인 정보 입력 모달 */}
+      {isSocialSignupOpen && <SocialSignupModal />}
     </>
   );
 }

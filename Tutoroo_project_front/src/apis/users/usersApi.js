@@ -14,6 +14,20 @@ export const authApi = {
     return res.data;
   },
 
+  completeSocialSignup: async ({ data, profileImage }) => {
+    const formData = new FormData();
+
+    formData.append(
+      "data",
+      new Blob([JSON.stringify(data)], { type:"application/json" })
+    );
+
+    if (profileImage) formData.append("profileImage", profileImage);
+
+    const res = await api.post("/api/auth/oauth/complete", formData);
+    return res.data;
+  },
+
   //  아이디 중복 확인 추가
   checkId: async (username) => {
     const res = await api.get("/api/auth/check-id", { params: { username } });

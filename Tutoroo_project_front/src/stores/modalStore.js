@@ -10,6 +10,7 @@ const useModalStore = create((set) => ({
   isFindPwOpen: false,
   isSignUpOpen: false,
   isStudyPlanOpen: false,
+  isSocialSignupOpen: false,
 
   // 한개의 모달을 열때 나머지 모달 상태는 모두 false로 설정하여
   // "동시에 여러 모달이 열리는 상황"을 방지함
@@ -22,6 +23,7 @@ const useModalStore = create((set) => ({
       isFindPwOpen: false,
       isSignUpOpen: false,
       isStudyPlanOpen: false,
+      isSocialSignupOpen: false,
     }),
 
   // 아이디 찾기 모달 열기
@@ -32,6 +34,7 @@ const useModalStore = create((set) => ({
       isFindPwOpen: false,
       isSignUpOpen: false,
       isStudyPlanOpen: false,
+      isSocialSignupOpen: false,
     }),
 
   // 비밀번호 찾기 모달 열기
@@ -42,6 +45,7 @@ const useModalStore = create((set) => ({
       isFindPwOpen: true,
       isSignUpOpen: false,
       isStudyPlanOpen: false,
+      isSocialSignupOpen: false,
     }),
 
   // 회원가입 모달 열기
@@ -52,6 +56,7 @@ const useModalStore = create((set) => ({
       isFindPwOpen: false,
       isSignUpOpen: true,
       isStudyPlanOpen: false,
+      isSocialSignupOpen: false,
     }),
 
   // 학습 목표 입력 모달 열기
@@ -62,6 +67,17 @@ const useModalStore = create((set) => ({
       isFindPwOpen: false,
       isSignUpOpen: false,
       isStudyPlanOpen: true,
+      isSocialSignupOpen: false,
+    }),
+
+  openSocialSignup: () =>
+    set({
+      isLoginOpen: false,
+      isFindIdOpen: false,
+      isFindPwOpen: false,
+      isSignUpOpen: false,
+      isStudyPlanOpen: false,
+      isSocialSignupOpen: true,
     }),
 
   // 개별 모달 닫기용 액션
@@ -71,6 +87,7 @@ const useModalStore = create((set) => ({
   closeFindPw: () => set({ isFindPwOpen: false }),
   closeSignUp: () => set({ isSignUpOpen: false }),
   closeStudyPlan: () => set({ isStudyPlanOpen: false }),
+  closeSocialSignup: () => set({ isSocialSignupOpen: false }),
 
   // 모든 모달 닫기
   // (라우트 이동, 로그아웃, 전역 초기화 시 사용)
@@ -81,6 +98,7 @@ const useModalStore = create((set) => ({
       isFindPwOpen: false,
       isSignUpOpen: false,
       isStudyPlanOpen: false,
+      isSocialSignupOpen: false,
     }),
 }));
 

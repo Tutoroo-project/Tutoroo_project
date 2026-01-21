@@ -65,7 +65,8 @@ function DashboardPage() {
 
   // 로그인 안 되어있으면 자동으로 로그인 모달 열어줌
   useEffect(() => {
-    if (!user) openLogin();
+    const hasToken = !!localStorage.getItem("accessToken");
+    if (!user && !hasToken) openLogin();
   }, [user, openLogin]);
 
   useEffect(() => {

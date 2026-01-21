@@ -77,16 +77,16 @@ export const rankCard = (rank) => css`
   padding: 16px 24px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.05);
   transition: transform 0.2s;
-  border: ${rank <= 3 ? '1px solid #FFB703' : '1px solid transparent'};
+  border: ${rank <= 3 ? '0.1px solid #FFB703' : '0.1px solid #999'};
   
   &:hover {
-    transform: translateY(-2px);
+    transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   }
 `;
 
 export const rankBadge = (rank) => css`
-  width: 60px;
+  width: 70px;
   font-size: ${rank <= 3 ? '20px' : '18px'};
   font-weight: bold;
   color: ${rank <= 3 ? '#FF9F43' : '#666'};
@@ -95,7 +95,7 @@ export const rankBadge = (rank) => css`
   gap: 4px;
   
   .medal-icon {
-    font-size: 24px;
+    font-size: 20px;
   }
 `;
 
@@ -167,7 +167,7 @@ export const cardContent = css`
 export const cardLabel = css`
   margin-top: 10px;
   font-size: 14px;
-  color: #888;
+  color: #444;
 `;
 
 export const myProfileImg = (imageUrl) => css`

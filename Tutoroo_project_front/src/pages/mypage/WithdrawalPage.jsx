@@ -9,6 +9,11 @@ import { userApi } from "../../apis/users/usersApi";
 
 function WithdrawalPage() {
 
+    const [ agree, setAgree ] = useState(false);
+    const [ reason, setReason ] = useState("");
+    const [ password, setPassword ] = useState("");
+    const [ isLoading, setIsLoading ] = useState(false);
+
     const handleWithdraw = async () => {
         if(!agree) 
             Swal.fire("알림", "안내사항에 동의해주세요", "warning")
@@ -27,21 +32,24 @@ function WithdrawalPage() {
         });
 
         if (confirm.isConfirmed) {
+            setIsLoading(true);
             try {
                 await userApi.withdraw(password, reason);
                 await Swal.fire("완료", "탈퇴 처리가 완료되었습니다.", "success");
 
                 localStorage.clear();
                 window.location.href = "/login";
+
             } catch(error) {
-                Swal.fire("실패", "비밀번호가 일치하지 않거나 오류가 발생했습니다.", "error");
+                console.log("탈퇴 실패: ", error)
+                Swal.fire("실패", "오류가 발생했습니다.", "error");
+            } finally {
+                setIsLoading(false);
             }
         }
     }
 
-    const [ agree, setAgree ] = useState(false);
-    const [ reason, setReason ] = useState("");
-    const [ password, setPassword ] = useState("");
+ 
 
 
    return (

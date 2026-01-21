@@ -82,6 +82,8 @@ export const userApi = {
 
     if (profileImage) {
       formData.append("image", profileImage);
+    } else {
+      formData.append("image", new Blob([], { type: "application/json" }), "");
     }
     
     const accessToken = localStorage.getItem("accessToken");

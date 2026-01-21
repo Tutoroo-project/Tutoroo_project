@@ -75,6 +75,9 @@ api.interceptors.response.use(
         // refresh도 실패하면 강제 로그아웃 처리 권장
         localStorage.removeItem("accessToken");
         localStorage.removeItem("refreshToken");
+
+        // window.location.href = "/login"; // 히스토리가 남음 (뒤로가기 가능)
+        window.location.replace("/login"); // 히스토리를 지움 (권장: 뒤로가기 시 다시 원래 페이지로 안 돌아오게 함)
         return Promise.reject(error);
       }
     }

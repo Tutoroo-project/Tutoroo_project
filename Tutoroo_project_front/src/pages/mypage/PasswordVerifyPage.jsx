@@ -25,7 +25,7 @@ function PasswordVerifyPage() {
                 icon: 'success',
                 title: '인증 성공',
                 text: '비밀번호가 확인되었습니다.',
-                confirmButtonColor: '#3085d6', // 버튼 색상 (선택사항)
+                confirmButtonColor: '#3085d6', 
                 confirmButtonText: '확인'
             }).then((result) => {
                 if (result.isConfirmed) {

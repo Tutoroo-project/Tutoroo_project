@@ -5,11 +5,12 @@ import * as s  from "./styles";
 import { FaCamera } from "react-icons/fa";
 import { BsPersonCircle } from "react-icons/bs";
 import { useEffect, useRef, useState } from "react";
-import axios from "axios";
 import { userApi } from "../../apis/users/usersApi";
 import Swal from "sweetalert2";
 
  function ChangeInfoPage() {
+    const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
+
     const [ profile, setProfile ] = useState({
         name: "",
         phone: "",
@@ -19,10 +20,18 @@ import Swal from "sweetalert2";
     });
     
     const [ imageFile, setImageFile] = useState(null);
-    const [ previewUrl, setPreviewUrl ] = useState(""); // 기존 프로필 설정
+    const [ previewUrl, setPreviewUrl ] = useState(""); 
 
     
     const fileInputRef = useRef(null);
+
+    const getFullImageUrl = (path) => {
+        if (!path) return "";
+        
+        if (path.startsWith("http") || path.startsWith("blob:")) return path;
+        const replacePath = path.startsWith("/") ? path : `${path}`;
+        return `${BASE_URL}${replacePath}`
+    }
 
     useEffect(() => {
         const fetchUserData = async() => {
@@ -41,7 +50,7 @@ import Swal from "sweetalert2";
                 });
 
                 if (data.profileImage) {
-                    setPreviewUrl(data.profileImage);
+                    setPreviewUrl(getFullImageUrl(data.profileImage));
                 } else {
                     setPreviewUrl("");
                 }
@@ -76,14 +85,14 @@ import Swal from "sweetalert2";
                 if (!currentPassword) return;
                     
             const updateData = {
-                currentPassword: "",
+                currentPassword: "currentPassword",
                 name: profile.name || "",
                 age: profile.age === "" ? null : parseInt(profile.age),
                 email: profile.email || "",
                 phone: profile.phone || "" 
             };
             
-           console.log("전송 데이터:", updateData);
+            console.log("전송 데이터:", updateData);
             console.log("전송 이미지:", imageFile);
 
             
@@ -92,8 +101,11 @@ import Swal from "sweetalert2";
             console.log("서버 응답:", resp);
 
             
-            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success");
-            
+            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success")
+            .then(() => {
+               
+                window.location.reload(); 
+            });
            
             if(resp.after) {
                  setProfile({
@@ -103,7 +115,9 @@ import Swal from "sweetalert2";
                     email: resp.after.email
                 });
                 if (resp.after.profileImage) {
-                    setPreviewUrl(resp.after.profileImage);
+                    const newUrl = getFullImageUrl(resp.after.profileImage);
+                    setPreviewUrl(`${newUrl}?t=${new Date().getTime()}`);
+                    
                 }
             }
 
@@ -124,13 +138,30 @@ import Swal from "sweetalert2";
                         <div css={s.cardContent}>
                             <div css={s.profileSection}>
                                 <div style={{display:'flex', alignItems:'center', gap:'10px', fontSize:'18px', fontWeight:'600' , marginBottom: '10px' }}>
-                                    <BsPersonCircle size={40} color="#ccc"/>
+                                    {previewUrl ? (
+                                        <img 
+                                            src={previewUrl} 
+                                            alt="미니 프로필" 
+                                            style={{
+                                                width: '40px', 
+                                                height: '40px', 
+                                                borderRadius: '50%', 
+                                                objectFit: 'cover',
+                                                border: '1px solid #ddd'
+                                            }} 
+                                        />
+                                    ) : (
+                                        <BsPersonCircle size={40} color="#ccc"/>
+                                    )}
                                     프로필 이미지 수정
                                 </div>
                                 {/* 이미지가 있거나 미리보기가 있으면 그것을 보여줌 (코드상 미리보기 영역이 생략되어 있어 추가 필요 가능성 있음) */}
                                 <div css={s.imageUploadBox} onClick={() => fileInputRef.current.click()}>
                                     {previewUrl ? (
-                                        <img src={previewUrl} alt="프로필 미리보기" style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%'}} />
+                                        <img 
+                                        src={previewUrl} 
+                                        alt="프로필 미리보기" 
+                                        style={{width: '100%', height: '100%', objectFit: 'cover', borderRadius: '50%', objectPosition: 'center center'}} />
                                     ) : (
                                         <div css={s.uploadPlaceholder}>
                                             <FaCamera size={30} />

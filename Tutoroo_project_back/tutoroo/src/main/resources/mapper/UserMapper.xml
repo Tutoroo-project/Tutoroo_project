@@ -31,38 +31,42 @@
     <update id="update" parameterType="com.tutoroo.entity.UserEntity">
         UPDATE users
         SET
-            password = #{password},
-            name = #{name},
-            email = #{email},
-            phone = #{phone},
-            parent_phone = #{parentPhone},
-            profile_image = #{profileImage},
-            membership_tier = #{membershipTier},
-            total_point = #{totalPoint},
-            point_balance = #{pointBalance},
-            level = #{level},
-            exp = #{exp},
-            age = #{age},
-            current_streak = #{currentStreak},
-            last_study_date = #{lastStudyDate},
-            rival_id = #{rivalId},
-            status = #{status},
-            withdrawal_reason = #{withdrawalReason},
-            deleted_at = #{deletedAt},
-            updated_at = NOW()
+            password        = COALESCE(#{password}, password),
+            name            = COALESCE(#{name}, name),
+            email           = COALESCE(#{email}, email),
+            phone           = COALESCE(#{phone}, phone),
+            parent_phone    = COALESCE(#{parentPhone}, parent_phone),
+            profile_image   = COALESCE(#{profileImage}, profile_image),
+            membership_tier = COALESCE(#{membershipTier}, membership_tier),
+
+            total_point     = COALESCE(#{totalPoint}, total_point),
+            point_balance   = COALESCE(#{pointBalance}, point_balance),
+            level           = COALESCE(#{level}, level),
+            exp             = COALESCE(#{exp}, exp),
+            age             = COALESCE(#{age}, age),
+
+            current_streak  = COALESCE(#{currentStreak}, current_streak),
+            last_study_date = COALESCE(#{lastStudyDate}, last_study_date),
+            rival_id        = COALESCE(#{rivalId}, rival_id),
+
+            status          = COALESCE(#{status}, status),
+            withdrawal_reason = COALESCE(#{withdrawalReason}, withdrawal_reason),
+            deleted_at      = COALESCE(#{deletedAt}, deleted_at),
+
+            updated_at      = NOW()
         WHERE id = #{id}
     </update>
 
     <update id="updateUser" parameterType="com.tutoroo.entity.UserEntity">
         UPDATE users
         SET
-            password = #{password},
-            name = #{name},
-            email = #{email},
-            phone = #{phone},
-            parent_phone = #{parentPhone},
-            profile_image = #{profileImage},
-            age = #{age},
+            password = COALESCE(#{password}, password),
+            name = COALESCE(#{name}, name),
+            email = COALESCE(#{email}, email),
+            phone = COALESCE(#{phone}, phone),
+            parent_phone = COALESCE(#{parentPhone}, parent_phone),
+            profile_image = COALESCE(#{profileImage}, profile_image),
+            age = COALESCE(#{age}, age),
             updated_at = NOW()
         WHERE id = #{id}
     </update>

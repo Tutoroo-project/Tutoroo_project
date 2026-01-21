@@ -32,10 +32,10 @@ public class JwtTokenProvider {
 
     private Key key;
 
-    // 액세스 토큰 유효시간 (30분)
-    private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 30;
-    // 리프레시 토큰 유효시간 (7일)
-    private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24 * 7;
+    // 액세스 토큰 유효시간 (1일)
+    private static final long ACCESS_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24;
+    // 리프레시 토큰 유효시간 (14일)
+    private static final long REFRESH_TOKEN_EXPIRE_TIME = 1000 * 60 * 60 * 24 * 14;
 
     private static final String AUTHORITIES_KEY = "auth";
 

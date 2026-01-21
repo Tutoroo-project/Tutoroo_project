@@ -59,3 +59,11 @@ logging:
     com.tutoroo.mapper: DEBUG
     org.springframework.security: INFO
     org.springframework.web: INFO
+
+# [CORS] 프론트엔드 접근 허용 도메인 목록 (추가됨)
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:5173"      # React 로컬 개발용
+      - "http://localhost:3000"      # 예비용 포트
+      - "http://127.0.0.1:5500"      # Live Server 등

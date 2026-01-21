@@ -96,6 +96,9 @@ public class AssessmentService {
         UserEntity user = userMapper.findById(userId);
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
 
+        // [핵심 추가] 멤버십 등급별 플랜 생성 제한 강제 검증
+        checkPlanLimit(user);
+
         // 1. 레벨 분석 (상담 내역 기반)
         String analysisJson = analyzeStudentLevel(user, request.studyInfo(), request.history());
         AnalysisResult analysis;
@@ -126,8 +129,7 @@ public class AssessmentService {
                 .build();
 
         return AssessmentDTO.AssessmentResultResponse.builder()
-                .planId(null) // ID는 savePlanToDB에서 리턴받거나 쿼리 후 조회 필요 (여기선 로직 단순화를 위해 null or 수정 필요)
-                // 실제로는 savePlanToDB가 ID를 반환하도록 하거나 Entity 객체를 활용해야 함. 아래 createStudentRoadmap 참조.
+                .planId(null) // 필요 시 savePlanToDB 수정하여 ID 반환 가능
                 .analyzedLevel(analysis.level)
                 .analysisReport(analysis.report)
                 .overview(overview)
@@ -141,6 +143,9 @@ public class AssessmentService {
     public AssessmentDTO.RoadmapResponse createStudentRoadmap(Long userId, AssessmentDTO.RoadmapRequest request) {
         UserEntity user = userMapper.findById(userId);
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
+
+        // [핵심 추가] 멤버십 등급별 플랜 생성 제한 강제 검증 (간편 생성도 막아야 함)
+        checkPlanLimit(user);
 
         // 1. 입력 정보 변환 (간편 생성이라 상담 내역 없음)
         String level = request.currentLevel() != null ? request.currentLevel() : "BEGINNER";
@@ -184,10 +189,8 @@ public class AssessmentService {
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
         if (!plan.getUserId().equals(userId)) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
 
-        // 로직 재사용 (분석 -> 생성) - 여기서 DB 업데이트 로직은 analyzeAndCreateRoadmap과 달리 기존 ID update가 필요하므로 별도 구현 권장되나,
-        // 현재는 생성 로직을 재활용하되 save 대신 update가 호출되어야 함.
-        // 편의상 analyzeAndCreateRoadmap을 호출하되, 내부에서 planId 유무에 따라 분기 처리가 필요할 수 있음.
-        // 이번 코드에서는 analyzeAndCreateRoadmap을 그대로 사용하고 새로운 플랜을 생성하는 방식으로 처리합니다.
+        // 재생성은 기존 플랜을 대체하는 것이지만, 현재 로직상 새 플랜을 생성하므로 제한 체크가 필요할 수 있음
+        // 만약 '기존 플랜 업데이트'로 로직을 바꾼다면 체크를 뺄 수 있으나, 안전을 위해 analyzeAndCreateRoadmap 호출 유지
         return analyzeAndCreateRoadmap(userId, request);
     }
 
@@ -208,6 +211,20 @@ public class AssessmentService {
     }
 
     // --- Private Methods (Prompt Logic) ---
+
+    // [New] 플랜 생성 제한 검증 헬퍼
+    private void checkPlanLimit(UserEntity user) {
+        int currentActivePlans = studyMapper.countActivePlansByUserId(user.getId());
+        int allowedLimit = user.getEffectiveTier().getMaxActiveGoals();
+
+        if (currentActivePlans >= allowedLimit) {
+            throw new TutorooException(
+                    String.format("현재 등급(%s)에서는 더 이상 학습 목표를 생성할 수 없습니다. (최대 %d개)",
+                            user.getEffectiveTier().name(), allowedLimit),
+                    ErrorCode.MULTIPLE_PLANS_REQUIRED_PAYMENT
+            );
+        }
+    }
 
     // DB 저장 헬퍼
     private void savePlanToDB(Long userId, AssessmentDTO.StudyStartRequest info, String json, String level) {

@@ -62,5 +62,5 @@ public enum MembershipTier {
     private final String reportFrequency; // 리포트 주기
     private final Set<PetType> allowedPets; // 입양 가능한 펫 목록
     private final int graduationEggCount; // 졸업 시 보상 알 개수
-    private final int maxActiveGoals;     // [필수 추가] 동시 진행 가능한 최대 학습 목표 수
+    private final int maxActiveGoals;     // [필수] 동시 진행 가능한 최대 학습 목표 수
 }

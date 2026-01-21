@@ -18,10 +18,14 @@ public enum ErrorCode {
     // --- [User: 사용자 및 인증 (U)] ---
     USER_NOT_FOUND(HttpStatus.NOT_FOUND, "U001", "사용자를 찾을 수 없습니다."),
     DUPLICATE_ID(HttpStatus.CONFLICT, "U002", "이미 사용 중인 아이디(이메일)입니다."),
-    INVALID_PASSWORD(HttpStatus.UNAUTHORIZED, "U003", "비밀번호가 일치하지 않습니다."),
+
+    // [중요 수정] 401 -> 400 변경 (비밀번호 틀렸을 때 로그인창으로 튕기지 않게 함)
+    INVALID_PASSWORD(HttpStatus.BAD_REQUEST, "U003", "비밀번호가 일치하지 않습니다."),
+
     UNAUTHORIZED_ACCESS(HttpStatus.UNAUTHORIZED, "U005", "접근 권한이 없습니다. (로그인 필요)"),
     INVALID_AUTH_CODE(HttpStatus.BAD_REQUEST, "U006", "인증번호가 일치하지 않거나 만료되었습니다."),
     PARENT_PHONE_REQUIRED(HttpStatus.BAD_REQUEST, "U007", "만 19세 미만 회원은 보호자 연락처가 필수입니다."),
+    SOCIAL_LOGIN_RESTRICTION(HttpStatus.BAD_REQUEST, "U008", "소셜 로그인 유저는 비밀번호를 변경할 수 없습니다."), // [추가]
 
     // --- [Learning: 학습 및 AI (L)] ---
     AI_PROCESSING_ERROR(HttpStatus.SERVICE_UNAVAILABLE, "L001", "AI 응답 생성 중 오류가 발생했습니다."),
@@ -31,7 +35,6 @@ public enum ErrorCode {
     STT_PROCESSING_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "L005", "음성 인식(STT) 처리 중 오류가 발생했습니다."),
 
     // --- [Pet: 펫/다마고치 (P)] ---
-    // 아래 부분이 PetService에서 사용하는 핵심 에러들입니다.
     PET_NOT_FOUND(HttpStatus.NOT_FOUND, "P001", "육성 중인 펫 정보를 찾을 수 없습니다."),
     ALREADY_HAS_PET(HttpStatus.BAD_REQUEST, "P002", "이미 육성 중인 펫이 있습니다. 졸업 후 입양해주세요."),
     INVALID_PET_TYPE(HttpStatus.BAD_REQUEST, "P003", "유효하지 않은 펫 종류입니다."),
@@ -44,7 +47,8 @@ public enum ErrorCode {
     // --- [Payment: 결제 (M)] ---
     PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "M001", "결제 처리에 실패했습니다."),
     PAYMENT_CANCEL_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "M002", "결제 취소 처리에 실패했습니다."),
-    INVALID_PAYMENT_AMOUNT(HttpStatus.BAD_REQUEST, "M003", "결제 금액이 일치하지 않습니다.");
+    INVALID_PAYMENT_AMOUNT(HttpStatus.BAD_REQUEST, "M003", "결제 금액이 일치하지 않습니다."),
+    PAYMENT_VERIFICATION_FAILED(HttpStatus.BAD_REQUEST, "M004", "결제 검증에 실패했습니다."); // [추가]
 
     private final HttpStatus status;
     private final String code;

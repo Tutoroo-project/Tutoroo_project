@@ -38,7 +38,8 @@ public class UserDTO {
     public record UpdateResponse(
             ProfileInfo before,     // [Fix] 단순 id, name이 아닌 상세 비교 정보로 변경
             ProfileInfo after,      // [Fix] 상세 비교 정보
-            String message
+            String message,
+            String accessToken
     ) {}
 
     // 4. 회원 탈퇴 요청

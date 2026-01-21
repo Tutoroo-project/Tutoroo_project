@@ -42,14 +42,15 @@ public class UserController {
     // 3. 회원 정보 수정
     @PatchMapping(value = "/update", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "회원 정보 수정", description = "프로필 이미지 및 개인정보를 수정합니다.")
-    public ResponseEntity<UserDTO.UpdateResponse> updateUserInfo(
+    public ResponseEntity<UserDTO.ProfileInfo> updateUserInfo(
             @AuthenticationPrincipal CustomUserDetails user,
             @RequestPart(value = "data") UserDTO.UpdateRequest request,
             @RequestPart(value = "image", required = false) MultipartFile image
     ) {
         if (user == null) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+
         UserDTO.UpdateResponse response = userService.updateUserInfo(user.getUsername(), request, image);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(response.after());
     }
 
     // 4. 라이벌 매칭 요청

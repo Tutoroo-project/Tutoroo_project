@@ -9,12 +9,17 @@ import com.tutoroo.entity.StudyPlanEntity;
 import com.tutoroo.entity.UserEntity;
 import com.tutoroo.exception.ErrorCode;
 import com.tutoroo.exception.TutorooException;
+import com.tutoroo.jwt.JwtTokenProvider;
 import com.tutoroo.mapper.StudyMapper;
 import com.tutoroo.mapper.UserMapper;
+import com.tutoroo.security.CustomUserDetails;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,6 +27,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -37,6 +43,7 @@ public class UserService {
     private final FileStore fileStore;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final JwtTokenProvider jwtTokenProvider; // [추가] 토큰 재생성을 위해 주입
 
     // --- 0. 회원 상세 정보 조회 (수정 화면 초기 진입용) ---
     @Transactional(readOnly = true)
@@ -55,7 +62,7 @@ public class UserService {
                 .build();
     }
 
-    // --- 1. 회원 정보 수정 (Before/After 반환) ---
+    // --- 1. 회원 정보 수정 (Before/After 반환 + 토큰 재발급) ---
     @Transactional
     public UserDTO.UpdateResponse updateUserInfo(String username, UserDTO.UpdateRequest request, MultipartFile image) {
         UserEntity user = userMapper.findByUsername(username);
@@ -95,7 +102,17 @@ public class UserService {
 
         if (request.name() != null && !request.name().isBlank()) user.setName(request.name());
         if (request.age() != null) user.setAge(request.age());
-        if (request.email() != null && !request.email().isBlank()) user.setEmail(request.email());
+
+        // [중요] 이메일(아이디) 변경 처리
+        if (request.email() != null && !request.email().isBlank()) {
+            // 중복 체크
+            if (!request.email().equals(oldUsername) && userMapper.findByUsername(request.email()) != null) {
+                throw new TutorooException(ErrorCode.DUPLICATE_ID);
+            }
+            user.setEmail(request.email());
+            user.setUsername(request.email()); // 아이디와 이메일을 동일하게 유지
+        }
+
         if (request.phone() != null && !request.phone().isBlank()) user.setPhone(request.phone());
         if (request.parentPhone() != null && !request.parentPhone().isBlank()) user.setParentPhone(request.parentPhone()); // [추가] 부모님 번호 누락 방지
 
@@ -115,11 +132,27 @@ public class UserService {
             }
         }
 
-        // 3. DB 반영
+        // 3. DB 반영 (XML에서 COALESCE로 Null Safe하게 처리됨)
         userMapper.update(user);
-        deleteDashboardCache(username); // 캐시 갱신
+        deleteDashboardCache(oldUsername); // 기존 아이디 캐시 삭제
 
-        // 4. [Snapshot] 변경 후 정보 생성
+        // 4. [핵심] 아이디(이메일)가 변경되었다면 새 토큰 발급
+        String newAccessToken = null;
+        if (!oldUsername.equals(user.getUsername())) {
+            Authentication authentication = new UsernamePasswordAuthenticationToken(
+                    new CustomUserDetails(user), null, Collections.singletonList(new SimpleGrantedAuthority(user.getRole()))
+            );
+            newAccessToken = jwtTokenProvider.generateAccessToken(authentication);
+            String newRefreshToken = jwtTokenProvider.generateRefreshToken(authentication);
+
+            // 기존 리프레시 토큰 삭제 및 새 토큰 저장
+            redisTemplate.delete("RT:" + oldUsername);
+            redisTemplate.opsForValue().set("RT:" + user.getUsername(), newRefreshToken, 14, TimeUnit.DAYS);
+
+            log.info("아이디 변경 감지: {} -> {}. 새 토큰이 발급되었습니다.", oldUsername, user.getUsername());
+        }
+
+        // 5. [Snapshot] 변경 후 정보 생성
         UserDTO.ProfileInfo afterInfo = UserDTO.ProfileInfo.builder()
                 .username(user.getUsername())
                 .name(user.getName())
@@ -134,6 +167,7 @@ public class UserService {
                 .before(beforeInfo)
                 .after(afterInfo)
                 .message("회원 정보가 성공적으로 변경되었습니다.")
+                .accessToken(newAccessToken) // 새 토큰 전달 (아이디 변경 시에만 값 있음)
                 .build();
     }
 

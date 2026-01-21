@@ -1,6 +1,7 @@
 /** @jsxImportSource @emotion/react */
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { studyApi } from "../../apis/studys/studysApi";
 import Header from "../../components/layouts/Header";
 import ModalRoot from "../../components/modals/ModalRoot";
 
@@ -67,22 +68,28 @@ function DashboardPage() {
     if (!user) openLogin();
   }, [user, openLogin]);
 
-  // 학습목록이 하나라도 있으면 학습선택이 아니라 java가 뜨게됨
   useEffect(() => {
     // 학습이 하나라도 있고, 아직 선택된 값이 없을 때
     if (studyList.length > 0 && !selectedStudyId) {
       setSelectedStudyId(studyList[0].id);
-      // 또는 studyList[0].id
     }
   }, [studyList, selectedStudyId]);
 
   // 학습 목록 불러오기 (API 연동 해주면 주석 해제해서 쓸거임)
-  /*
   useEffect(() => {
     if (!user) return;
+
+    const fetchStudyList = async () => {
+      try {
+        const list = await studyApi.getStudyList();
+        setStudyList(Array.isArray(list) ? list : []);
+      } catch (e) {
+        console.error("학습 목록 조회 실패 :", e);
+        setStudyList([]);
+      }
+    };
     fetchStudyList();
   }, [user]);
-  */
 
   return (
     <>

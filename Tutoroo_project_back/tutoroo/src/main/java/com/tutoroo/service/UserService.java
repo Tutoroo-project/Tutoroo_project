@@ -69,15 +69,14 @@ public class UserService {
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
 
         String oldUsername = user.getUsername();
-        // [Fix] 소셜 로그인 유저는 비밀번호가 없으므로 검증 패스 (Local 유저만 검증)
+
+        // [보완] 소셜 로그인 유저는 비밀번호가 없으므로 검증 패스 (Local 유저만 검증)
         if (user.getProvider() == null) {
-            // 1. 현재 비밀번호 입력 여부 확인 (null 체크 추가)
-            if (request.currentPassword() == null || request.currentPassword().isBlank()) {
-                throw new TutorooException("정보를 수정하려면 현재 비밀번호를 입력해주세요.", ErrorCode.INVALID_INPUT_VALUE);
-            }
-            // 2. 비밀번호 일치 여부 확인
-            if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
-                throw new TutorooException("현재 비밀번호가 일치하지 않습니다.", ErrorCode.INVALID_PASSWORD);
+            // 정보 수정 시, 현재 비밀번호 검증이 필수인 경우 체크
+            if (request.currentPassword() != null && !request.currentPassword().isBlank()) {
+                if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+                    throw new TutorooException("현재 비밀번호가 일치하지 않습니다.", ErrorCode.INVALID_PASSWORD);
+                }
             }
         }
 
@@ -115,7 +114,6 @@ public class UserService {
         }
 
         if (request.phone() != null && !request.phone().isBlank()) user.setPhone(request.phone());
-        if (request.parentPhone() != null && !request.parentPhone().isBlank()) user.setParentPhone(request.parentPhone()); // [추가] 부모님 번호 누락 방지
 
         // 프로필 이미지 변경
         if (image != null && !image.isEmpty()) {
@@ -205,6 +203,7 @@ public class UserService {
         int rivalScore = rival.getTotalPoint();
         int gap = Math.abs(myScore - rivalScore);
         String msg;
+
         if (myScore > rivalScore) {
             msg = String.format("훌륭해요! 라이벌보다 %d점 앞서고 있습니다. 🏆", gap);
         } else if (myScore < rivalScore) {
@@ -239,6 +238,7 @@ public class UserService {
     @Transactional(readOnly = true)
     public UserDTO.DashboardDTO getAdvancedDashboard(String username) {
         String cacheKey = "dashboard:" + username;
+
         // 1. 캐시 조회
         try {
             String cachedJson = redisTemplate.opsForValue().get(cacheKey);
@@ -320,7 +320,6 @@ public class UserService {
 
         // 내 점수 기준 +- 200점 이내의 유저 검색
         UserEntity rival = userMapper.findPotentialRival(me.getId(), me.getTotalPoint());
-
         if (rival == null) return "현재 매칭 가능한 라이벌이 없습니다.";
 
         // 상호 매칭 (단방향 매칭일 수도 있으나 보통 라이벌은 쌍방향)

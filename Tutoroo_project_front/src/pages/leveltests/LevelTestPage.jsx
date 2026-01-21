@@ -1,92 +1,194 @@
 /** @jsxImportSource @emotion/react */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
+
 import Header from "../../components/layouts/Header";
 import * as s from "./styles";
-import { useRef } from "react";
 
-// 레벨 테스트 질문 목록 (임시) AI/API 연동되면 수정
-const QUESTIONS = [
-  "학습할 과목을 입력해주세요. (예: Java, Python)",
-  "이 과목을 얼마나 공부해보셨나요?",
-  "간단한 문제를 풀어볼게요.\nJava에서 변수 선언 방법은?",
-];
+import useLevelTestStore from "../../stores/useLevelTestStore";
+import {
+  consultAssessment,
+  generateRoadmap,
+} from "../../apis/assessments/assessmentApi";
 
-// 채팅 형식 LevelTestPage
+// 백엔드 프롬프트 포맷에 맞춰 history role을 "User" / "AI"로 맞추는 게 안전
+const ROLE = {
+  USER: "User",
+  AI: "AI",
+};
+
+function mapLevelToUi(level) {
+  // 백엔드: BEGINNER / INTERMEDIATE / ADVANCED
+  // 결과페이지가 Lv.{level} 형식이라 일단 숫자로 매핑 (원하면 문자열로 바꿔도 됨)
+  if (level === "BEGINNER") return 1;
+  if (level === "INTERMEDIATE") return 2;
+  if (level === "ADVANCED") return 3;
+  return level ?? null;
+}
+
 function LevelTestPage() {
-  //Navigate 호출
   const navigate = useNavigate();
 
-  // 파일 / 이미지 업로드용 ref
-  const imageInputRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const [isCompleted, setIsCompleted] = useState(false); // 테스트 완료 여부
+  const studyInfo = useLevelTestStore((st) => st.studyInfo);
+  const setResult = useLevelTestStore((st) => st.setResult);
 
-  // 채팅 메시지 목록 (AI 와 유저)
+  // UI용 메시지(기존 유지)
   const [messages, setMessages] = useState([
     { role: "ai", content: "수준 파악을 시작해볼게요 🙂" },
   ]);
-  const [step, setStep] = useState(0); // 현재 질문 단계 (수정해야할수도 있음)
-  const [input, setInput] = useState(""); // 입력창 값
+  const [input, setInput] = useState("");
 
-  // AI 질문 출력
+  //  백엔드로 보내는 history (User/AI 누적)
+  const [history, setHistory] = useState([]);
+
+  const [isCompleted, setIsCompleted] = useState(false);
+  const [isConsulting, setIsConsulting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  // 처음 진입 시: studyInfo 없으면 되돌리기 + consult 1회 시작
   useEffect(() => {
-    if (step < QUESTIONS.length) {
-      setMessages((prev) => [
-        ...prev,
-        { role: "ai", content: QUESTIONS[step] },
-      ]);
-    }
-  }, [step]);
-
-  // 파일 업로드 핸들러 (사용자가 파일 업로드해야하는 경우가 있을때를 위해)
-  const handleFileUpload = (e) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    if (file.type.startsWith("image/")) {
-      console.log("이미지 업로드:", file);
-    } else {
-      console.log("파일 업로드:", file);
-    }
-
-    // 같은 파일 다시 선택 가능하게 초기화(선택)
-    e.target.value = "";
-  };
-  // 사용자 입력 전송
-  const handleSubmit = () => {
-    if (!input.trim()) return;
-
-    // 사용자 메시지 추가
-    setMessages((prev) => [...prev, { role: "user", content: input }]);
-    setInput("");
-
-    // 마지막 질문일 경우
-    if (step === QUESTIONS.length - 1) {
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "ai",
-          content:
-            "레벨 테스트가 완료되었습니다 🎉\n결과를 확인하고 AI가 만들어준 로드맵을 확인해보세요!",
-        },
-      ]);
-      setIsCompleted(true);
+    if (!studyInfo?.goal || !studyInfo?.availableTime || !studyInfo?.deadline) {
+      Swal.fire({
+        icon: "warning",
+        title: "학습 정보가 없어요",
+        text: "먼저 '학습 추가'에서 과목/시간/기간을 입력해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      }).then(() => navigate("/"));
       return;
     }
 
-    // 다음 질문으로 이동
-    setStep((prev) => prev + 1);
+    (async () => {
+      setIsConsulting(true);
+      try {
+        const res = await consultAssessment({
+          studyInfo,
+          history: [],
+          lastUserMessage: null, // 첫 질문 유도
+        });
+
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", content: res.aiMessage },
+        ]);
+        setHistory([{ role: ROLE.AI, content: res.aiMessage }]);
+
+        if (res.isFinished) {
+          // 혹시 첫 응답에서 끝나는 경우도 처리
+          await handleGenerate([{ role: ROLE.AI, content: res.aiMessage }]);
+        }
+      } catch (e) {
+        Swal.fire({
+          icon: "error",
+          title: "AI 질문 시작 실패",
+          text: "잠시 후 다시 시도해주세요.",
+          confirmButtonColor: "#FF8A3D",
+        });
+      } finally {
+        setIsConsulting(false);
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleGenerate = async (finalHistory) => {
+    setIsGenerating(true);
+    try {
+      const result = await generateRoadmap({
+        studyInfo,
+        history: finalHistory,
+      });
+
+      //  결과 페이지가 읽는 store에 매핑
+      setResult({
+        subject: studyInfo.goal,
+        level: mapLevelToUi(result.analyzedLevel),
+        summary: result.analysisReport ?? result.overview?.summary ?? null,
+        roadmap: result.overview?.chapters ?? [],
+        roadmapImageUrl: null,
+      });
+
+      // 안내 메시지(선택)
+      if (result.message) {
+        setMessages((prev) => [
+          ...prev,
+          { role: "ai", content: result.message },
+        ]);
+      }
+
+      setIsCompleted(true);
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "로드맵 생성 실패",
+        text: "로그인이 필요하거나(401), 서버 오류일 수 있어요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // 사용자 입력 전송 -> consult 반복
+  const handleSubmit = async () => {
+    if (!input.trim()) return;
+    if (isConsulting || isGenerating || isCompleted) return;
+
+    const userMsg = input.trim();
+
+    // UI에 사용자 메시지
+    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+    setInput("");
+
+    setIsConsulting(true);
+    try {
+      //  현재 history(이전 턴들) + lastUserMessage(이번 입력)로 consult
+      const res = await consultAssessment({
+        studyInfo,
+        history,
+        lastUserMessage: userMsg,
+      });
+
+      // UI에 AI 메시지
+      setMessages((prev) => [...prev, { role: "ai", content: res.aiMessage }]);
+
+      //  history 갱신: (이번 userMsg) + (이번 aiMessage) 추가
+      const nextHistory = [
+        ...history,
+        { role: ROLE.USER, content: userMsg },
+        { role: ROLE.AI, content: res.aiMessage },
+      ];
+      setHistory(nextHistory);
+
+      if (res.isFinished) {
+        await handleGenerate(nextHistory);
+      }
+    } catch (e) {
+      Swal.fire({
+        icon: "error",
+        title: "질문 진행 실패",
+        text: "네트워크/서버 상태를 확인해주세요.",
+        confirmButtonColor: "#FF8A3D",
+      });
+    } finally {
+      setIsConsulting(false);
+    }
+  };
+
+  // 파일 업로드 (유지)
+  const handleFileUpload = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
   };
 
   return (
     <>
-      {/* 공통으로 사용하는 헤더 */}
       <Header />
 
       <div css={s.pageContainer}>
-        {/* 채팅 영역 */}
         <main css={s.chatArea}>
           {messages.map((msg, idx) => (
             <div key={idx} css={msg.role === "ai" ? s.aiBubble : s.userBubble}>
@@ -95,10 +197,8 @@ function LevelTestPage() {
           ))}
         </main>
 
-        {/* 하단 영역 OR 결과 영역 */}
         <footer css={s.bottomArea}>
           {isCompleted ? (
-            // 레벨 테스트 완료 후
             <div css={s.resultFooter}>
               <button
                 css={s.resultBtn}
@@ -108,23 +208,25 @@ function LevelTestPage() {
               </button>
             </div>
           ) : (
-            // 테스트 진행 중
             <div css={s.bottomInner}>
               <div css={s.inputWrapper}>
-                {/* + 버튼 (첨부 메뉴 토글 스위치)*/}
                 <button
                   css={s.plusBtn}
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
+                  disabled={isConsulting || isGenerating}
                 >
                   ＋
                 </button>
-                {/* 입력창 */}
+
                 <input
                   css={s.inputBox}
                   value={input}
-                  placeholder="답변을 입력하세요."
+                  placeholder={
+                    isConsulting ? "AI가 응답 중..." : "답변을 입력하세요."
+                  }
                   onChange={(e) => setInput(e.target.value)}
+                  disabled={isConsulting || isGenerating}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
@@ -133,7 +235,6 @@ function LevelTestPage() {
                   }}
                 />
 
-                {/* hidden IMAGE inputs */}
                 <input
                   type="file"
                   ref={fileInputRef}
@@ -142,9 +243,12 @@ function LevelTestPage() {
                 />
               </div>
 
-              {/* 전송 버튼 */}
-              <button css={s.sendBtn} onClick={handleSubmit}>
-                전송
+              <button
+                css={s.sendBtn}
+                onClick={handleSubmit}
+                disabled={isConsulting || isGenerating}
+              >
+                {isGenerating ? "생성중..." : "전송"}
               </button>
             </div>
           )}

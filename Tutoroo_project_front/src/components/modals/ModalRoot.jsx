@@ -3,6 +3,7 @@ import FindIdModal from "./FindIdModal";
 import FindPwModal from "./FindPwModal";
 import LoginModal from "./LoginModal";
 import SignupModal from "./SignupModal";
+import StudyPlanModal from "./StudyPlanModal";
 
 function ModalRoot() {
   // Zustand에서 설정한 각 boolean 값에 따라 해당 모달의 렌더링 여부가 결정
@@ -11,7 +12,7 @@ function ModalRoot() {
   const isSignUpOpen = useModalStore((s) => s.isSignUpOpen); // 회원가입 모달 열림 여부
   const isFindIdOpen = useModalStore((s) => s.isFindIdOpen); // 아이디 찾기 모달 열림 여부
   const isFindPwOpen = useModalStore((s) => s.isFindPwOpen); // 비밀번호 찾기 모달 열림 여부
-
+  const isStudyPlanOpen = useModalStore((s) => s.isStudyPlanOpen); // 학습 목표 입력 모달 열림 여부
   return (
     <>
       {/* 로그인 모달 */}
@@ -25,6 +26,9 @@ function ModalRoot() {
 
       {/* 비밀번호 찾기 모달 */}
       {isFindPwOpen && <FindPwModal />}
+
+      {/* 학습 목표 입력 모달 */}
+      {isStudyPlanOpen && <StudyPlanModal />}
     </>
   );
 }

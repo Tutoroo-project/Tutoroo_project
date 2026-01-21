@@ -1,11 +1,23 @@
 import { create } from "zustand";
 
 const useLevelTestStore = create((set) => ({
+
+  studyInfo: null, // { goal, availableTime, deadline }
+
   subject: null,
   level: null,
   summary: null,
   roadmap: [],
 
+  setStudyInfo: (info) => 
+    set({
+      studyInfo: {
+        goal: info.goal ?? "",
+        availableTime: info.availableTime ?? "",
+        deadline: info.deadline ?? "",
+      },
+    }),
+  
   //  AI 로드맵 이미지 URL (추가)
   roadmapImageUrl: null,
 
@@ -22,6 +34,7 @@ const useLevelTestStore = create((set) => ({
   // 초기화
   reset: () =>
     set({
+      studyInfo: null,
       subject: null,
       level: null,
       summary: null,

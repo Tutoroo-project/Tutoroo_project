@@ -398,3 +398,39 @@ export const successText = css`
   ${helperText};
   color: #2e7d32;
 `;
+
+export const header = css`
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  padding: 0px 24px 10px;
+`;
+
+export const logoWrap = css`
+  justify-self: center;
+  display: flex;
+  align-items: center;
+`;
+
+export const logoImg = css`
+  height: 120px;
+  width: auto;
+  display: block;
+  object-fit: contain;
+`;
+
+export const exitBtn = css`
+  justify-self: end;
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+
+  font-size: 14px;
+  font-weight: 600;
+  color: #9aa0a6;
+
+  &:hover {
+    text-decoration: underline;
+  }
+`;

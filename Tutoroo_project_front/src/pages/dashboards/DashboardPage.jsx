@@ -45,6 +45,7 @@ function DashboardPage() {
   // 전역 상태 (Zustand)
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
+  const openStudyPlan = useModalStore((state) => state.openStudyPlan);
 
   // 상태 저장
   const [studyList, setStudyList] = useState([]); // 학습 목록 (임시임)
@@ -115,8 +116,17 @@ function DashboardPage() {
                   </option>
                 ))}
               </select>
-              {/* 학습 추가 버튼 (클릭하면 "/level-test 페이지로 이동")) */}
-              <button css={s.studyBtn} onClick={() => navigate("/level-test")}>
+              {/* 학습 추가 버튼 (클릭하면 학습 계획 수립 모달 open, 비로그인시 로그인 modal open) */}
+              <button
+                css={s.studyBtn}
+                onClick={() => {
+                  if (!user) {
+                    openLogin();
+                    return;
+                  }
+                  openStudyPlan();
+                }}
+              >
                 학습 추가 +
               </button>
 

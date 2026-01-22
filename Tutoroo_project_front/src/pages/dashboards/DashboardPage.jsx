@@ -9,6 +9,7 @@ import useAuthStore from "../../stores/useAuthStore";
 import useModalStore from "../../stores/modalStore";
 
 import * as s from "./styles";
+import { userApi } from "../../apis/users/usersApi";
 
 // 요일 이름
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -48,11 +49,16 @@ function DashboardPage() {
   const openLogin = useModalStore((state) => state.openLogin);
   const openStudyPlan = useModalStore((state) => state.openStudyPlan);
 
+  // 대시보드 데이터 상태 관리
+  const [dashboardData, setDashboardData] = useState(null);
+
   // 상태 저장
   const [studyList, setStudyList] = useState([]); // 학습 목록 (임시임)
   const [selectedStudyId, setSelectedStudyId] = useState(""); // 선택된 학습 ID
 
-  const userName = user?.name || "OOO";
+  
+
+  const userName = dashboardData?.name || user?.name || "OOO";
   // 캘린더 관련 상태
   const [weekOffset, setWeekOffset] = useState(0); // 주 이동 offset
   const [selectedIndex, setSelectedIndex] = useState(0); // 선택된 날짜 인덱스
@@ -80,17 +86,39 @@ function DashboardPage() {
   useEffect(() => {
     if (!user) return;
 
-    const fetchStudyList = async () => {
-      try {
-        const list = await studyApi.getStudyList();
-        setStudyList(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.error("학습 목록 조회 실패 :", e);
-        setStudyList([]);
-      }
-    };
-    fetchStudyList();
-  }, [user]);
+      const fetchData = async () => {
+        try {
+          // 1. 대시보드 정보 (이름, 포인트, 랭킹, 목표 등) 가져오기
+          const dashboard = await userApi.getDashboard();
+          console.log("대시보드 데이터:", dashboard);
+          setDashboardData(dashboard);
+
+          // 2. 학습 목록 가져오기 (기존 로직 유지)
+          // (대시보드 API 안에 studyList가 있다면 그걸 써도 되지만, 일단 기존 api 호출 유지)
+          const list = await studyApi.getStudyList();
+          setStudyList(Array.isArray(list) ? list : []);
+
+        } catch (e) {
+          console.error("데이터 조회 실패 :", e);
+        }
+      };
+      fetchData();
+    }, [user]);
+
+    //   if (!user) return;
+
+  //   const fetchStudyList = async () => {
+  //     try {
+  //       const list = await studyApi.getStudyList();
+  //       setStudyList(Array.isArray(list) ? list : []);
+  //     } catch (e) {
+  //       console.error("학습 목록 조회 실패 :", e);
+  //       setStudyList([]);
+  //     }
+  //   };
+  //   fetchStudyList();
+  // }, [user]);
+  
 
   return (
     <>
@@ -157,7 +185,7 @@ function DashboardPage() {
           <section css={s.cards}>
             <div css={s.card}>
               <span>현재학습 목표</span>
-              <strong>설정된 목표가 없습니다.</strong>
+              <strong>{dashboardData?.currentGoal || "설정된 목표가 없습니다."}</strong>
             </div>
 
             <div css={s.card}>
@@ -175,7 +203,7 @@ function DashboardPage() {
             >
               <span>누적 포인트 / 랭킹</span>
               <strong css={s.pointText}>0 P</strong>
-              <p css={s.rankText}>현재 전체 -위</p>
+              <p css={s.rankText}>현재 전체 {dashboardData?.rank || "-"}위</p>
             </div>
           </section>
 

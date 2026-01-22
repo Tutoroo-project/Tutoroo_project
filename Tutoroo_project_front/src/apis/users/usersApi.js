@@ -120,5 +120,13 @@ export const userApi = {
   verifyPassword: async (password) => {
     const res = await api.post("/api/user/verify-password", { password });
     return res.data;
+  },
+
+  changePassword: async ({ currentPassword, newPassword}) => {
+    const res = await api.patch("/api/user/change-password", {
+      currentPassword,
+      newPassword
+    });
+    return res.data;
   }
 };

@@ -100,6 +100,11 @@ import useAuthStore from "../../stores/useAuthStore";
 
             
             const resp = await userApi.updateProfile({ data: updateData, profileImage: imageFile });
+
+            if (resp.accessToken) {
+                console.log("새로운 토큰 저장: ", resp.accessToken);
+                localStorage.setItem("accessToken", resp.accessToken);
+            }
             
             console.log("서버 응답:", resp);
 
@@ -119,7 +124,10 @@ import useAuthStore from "../../stores/useAuthStore";
                 });
                 setUser(resp.after);
             }
-            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success");
+            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success")
+            .then(() => {
+                window.location.reload(); 
+            });
 
         } catch (error) {
             console.error(error)

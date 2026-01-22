@@ -15,7 +15,7 @@ public class PaymentDTO {
     public record VerificationRequest(
             String impUid,      // 포트원 결제 고유번호 (필수)
             String merchantUid, // 가맹점 주문번호 (필수)
-            Long planId,        // 학습 플랜 ID (구독이면 null)
+            String planId,        // 학습 플랜 ID (구독이면 null)
             int amount,         // 결제 금액 (위변조 검증용)
             String itemName,    // [New] 상품명 (예: PREMIUM_SUBSCRIPTION) - 필수!
             String payMethod,   // 결제 수단 (card, trans 등)

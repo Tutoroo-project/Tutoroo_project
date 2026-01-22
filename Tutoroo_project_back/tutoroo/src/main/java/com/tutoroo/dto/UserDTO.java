@@ -1,6 +1,8 @@
 package com.tutoroo.dto;
 
 import lombok.Builder;
+import lombok.Data;
+
 import java.util.List;
 
 /**
@@ -66,5 +68,14 @@ public class UserDTO {
             String aiSuggestion,
             List<Integer> weeklyScores,
             List<StudyDTO.StudySimpleInfo> studyList
+    ) {}
+    // 7. 결제 페이지용 간편 유저 정보
+    @Builder
+    public record PaymentUserInfo(
+            Long id,        // 주문번호 생성용 (필수)
+            String username,// 아이디
+            String name,    // 이름
+            String email,   // 이메일
+            String phone    // 전화번호
     ) {}
 }

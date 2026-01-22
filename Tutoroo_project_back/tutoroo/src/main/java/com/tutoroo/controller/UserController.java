@@ -95,4 +95,13 @@ public class UserController {
 
         return ResponseEntity.ok("비밀번호 인증 성공");
     }
+
+    @GetMapping("/me")
+    @Operation(summary = "내 정보 간편 조회", description = "결제창 호출 시 필요한 유저 ID(PK)와 연락처 정보를 반환합니다.")
+    public ResponseEntity<UserDTO.PaymentUserInfo> getMySimpleInfo(@AuthenticationPrincipal CustomUserDetails user) {
+        if (user == null) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+
+        // CustomUserDetails에 ID가 있으므로 바로 Service 호출
+        return ResponseEntity.ok(userService.getPaymentUserInfo(user.getId()));
+    }
 }

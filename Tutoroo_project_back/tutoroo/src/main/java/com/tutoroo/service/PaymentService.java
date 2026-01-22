@@ -92,7 +92,7 @@ public class PaymentService {
             // 7. 결제 내역 저장
             PaymentEntity payment = PaymentEntity.builder()
                     .userId(user.getId())
-                    .planId(request.planId()) // 멤버십 구독인 경우 null
+                    .planId(null) // 멤버십 구독인 경우 null
                     .impUid(request.impUid())
                     .merchantUid(paidMerchantUid)
                     .itemName(itemName)

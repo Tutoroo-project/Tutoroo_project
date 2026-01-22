@@ -343,4 +343,24 @@ public class UserService {
                 .tier(user.getEffectiveTier().name())
                 .build();
     }
+
+    // [New] 결제용 유저 정보 조회
+    @Transactional(readOnly = true)
+    public UserDTO.PaymentUserInfo getPaymentUserInfo(Long userId) {
+        UserEntity user = userMapper.findById(userId); // 또는 userRepository.findById(userId)
+
+        if (user == null) {
+            throw new TutorooException(ErrorCode.USER_NOT_FOUND);
+        }
+
+        return UserDTO.PaymentUserInfo.builder()
+                .id(user.getId())
+                .username(user.getUsername())
+                .name(user.getName())
+                .email(user.getEmail())
+                .phone(user.getPhone())
+                .build();
+    }
+
+
 }

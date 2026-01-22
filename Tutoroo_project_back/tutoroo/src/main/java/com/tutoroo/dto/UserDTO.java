@@ -78,4 +78,9 @@ public class UserDTO {
             String email,   // 이메일
             String phone    // 전화번호
     ) {}
+
+    public record PasswordChangeRequest(
+            String currentPassword,
+            String newPassword
+    ) {}
 }

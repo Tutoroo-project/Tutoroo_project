@@ -94,7 +94,7 @@ public class UserService {
                 throw new TutorooException(ErrorCode.DUPLICATE_ID);
             }
             user.setEmail(request.email());
-            user.setUsername(request.email());
+
         }
 
         // [핵심] 프로필 이미지 변경 (기존 파일 삭제 로직 추가)
@@ -344,7 +344,7 @@ public class UserService {
                 .build();
     }
 
-    // [New] 결제용 유저 정보 조회
+    //  결제용 유저 정보 조회
     @Transactional(readOnly = true)
     public UserDTO.PaymentUserInfo getPaymentUserInfo(Long userId) {
         UserEntity user = userMapper.findById(userId); // 또는 userRepository.findById(userId)
@@ -360,6 +360,35 @@ public class UserService {
                 .email(user.getEmail())
                 .phone(user.getPhone())
                 .build();
+    }
+
+    // [new] 비밀번호 변경 전용 서비스 로직
+    @Transactional
+    public void changePassword(Long userId, UserDTO.PasswordChangeRequest request) {
+        // 1. 유저 조회
+        UserEntity user = userMapper.findById(userId);
+        if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
+
+        // 2. 소셜 로그인 유저인지 확인 (소셜 유저는 비밀번호 변경 불가)
+        if (user.getProvider() != null) {
+            throw new TutorooException("소셜 로그인 사용자는 비밀번호를 변경할 수 없습니다.", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // 3. 현재 비밀번호 검증
+        if (!passwordEncoder.matches(request.currentPassword(), user.getPassword())) {
+            throw new TutorooException("현재 비밀번호가 일치하지 않습니다.", ErrorCode.INVALID_PASSWORD);
+        }
+
+        // 4. 새 비밀번호가 현재 비밀번호와 같은지 체크 (선택사항)
+        if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
+            throw new TutorooException("새로운 비밀번호는 현재 비밀번호와 다르게 설정해야 합니다.", ErrorCode.INVALID_INPUT_VALUE);
+        }
+
+        // 5. 비밀번호 암호화 및 DB 업데이트
+        user.setPassword(passwordEncoder.encode(request.newPassword()));
+        userMapper.update(user); // 비밀번호만 변경된 상태로 업데이트
+
+        log.info("비밀번호 변경 완료: User ID {}", userId);
     }
 
 

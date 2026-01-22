@@ -104,4 +104,16 @@ public class UserController {
         // CustomUserDetails에 ID가 있으므로 바로 Service 호출
         return ResponseEntity.ok(userService.getPaymentUserInfo(user.getId()));
     }
+
+    @PatchMapping("/change-password")
+    @Operation(summary = "비밀번호 변경", description = "현재 비밀번호 확인 후 새 비밀번호로 변경합니다.")
+    public ResponseEntity<String> changePassword(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @RequestBody UserDTO.PasswordChangeRequest request
+    ) {
+        if (user == null) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+
+        userService.changePassword(user.getId(), request);
+        return ResponseEntity.ok("비밀번호가 성공적으로 변경되었습니다.");
+    }
 }

@@ -7,9 +7,12 @@ import { BsPersonCircle } from "react-icons/bs";
 import { useEffect, useRef, useState } from "react";
 import { userApi } from "../../apis/users/usersApi";
 import Swal from "sweetalert2";
+import useAuthStore from "../../stores/useAuthStore";
 
  function ChangeInfoPage() {
     const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
+
+    const setUser = useAuthStore((state) => state.setUser);
 
     const [ profile, setProfile ] = useState({
         name: "",
@@ -85,7 +88,7 @@ import Swal from "sweetalert2";
                 if (!currentPassword) return;
                     
             const updateData = {
-                currentPassword: "currentPassword",
+                currentPassword: currentPassword,
                 name: profile.name || "",
                 age: profile.age === "" ? null : parseInt(profile.age),
                 email: profile.email || "",
@@ -114,12 +117,9 @@ import Swal from "sweetalert2";
                     age: resp.after.age,
                     email: resp.after.email
                 });
-                if (resp.after.profileImage) {
-                    const newUrl = getFullImageUrl(resp.after.profileImage);
-                    setPreviewUrl(`${newUrl}?t=${new Date().getTime()}`);
-                    
-                }
+                setUser(resp.after);
             }
+            Swal.fire("성공", resp.message || "회원 정보가 수정되었습니다.", "success");
 
         } catch (error) {
             console.error(error)

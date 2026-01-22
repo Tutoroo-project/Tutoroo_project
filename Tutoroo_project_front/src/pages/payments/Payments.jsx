@@ -39,6 +39,14 @@ function Payments() {
         }
     ]
 
+    const handlePaymentClick = () => {
+        const planData = plans.find(plan => plan.id === selectedPlan);
+
+        console.log("보내는 데이터:", planData);
+
+        navigate("/subscribe/payment", { state: { plan: planData}});
+    }
+
     return <>
         <Header />
         <div css={s.container}>
@@ -93,7 +101,7 @@ function Payments() {
                 })}
             </div>
             <div css={s.footSection}>
-                <button css={s.paymentBtn} onClick={() => navigate("/subscribe/payment")}>결제 페이지로 이동</button>
+                <button css={s.paymentBtn} onClick={handlePaymentClick}>결제 페이지로 이동</button>
             </div>
         </div>
     </>

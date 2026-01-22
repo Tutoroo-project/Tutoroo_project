@@ -16,10 +16,10 @@ function WithdrawalPage() {
 
     const handleWithdraw = async () => {
         if(!agree) 
-            Swal.fire("알림", "안내사항에 동의해주세요", "warning")
+           return Swal.fire("알림", "안내사항에 동의해주세요", "warning")
       
         if (!password) 
-            Swal.fire("알림", "비밀번호를 입력해주세요.", "warning");
+           return Swal.fire("알림", "비밀번호를 입력해주세요.", "warning");
      
         const confirm = await Swal.fire({
             title: '정말 탈퇴하시겠습니까?',
@@ -42,7 +42,9 @@ function WithdrawalPage() {
 
             } catch(error) {
                 console.log("탈퇴 실패: ", error)
-                Swal.fire("실패", "오류가 발생했습니다.", "error");
+                const errorMessage = error.response?.data?.message || "알 수 없는 오류가 발생했습니다.";
+
+                Swal.fire("실패", errorMessage, "error");
             } finally {
                 setIsLoading(false);
             }
@@ -100,7 +102,12 @@ function WithdrawalPage() {
                             </div>
                         </div>
 
-                        <button css={s.actionBtn} onClick={handleWithdraw}>탈퇴하기</button>
+                        <button css={s.actionBtn} onClick={handleWithdraw} disabled={isLoading} 
+                            style={{
+                                opacity: isLoading ? 0.7 : 1, 
+                                cursor: isLoading ? 'not-allowed' : 'pointer'
+                            }}
+                        >{isLoading ? "처리 중..." : "탈퇴하기"}</button>
                     </div>
 
                 </main>

@@ -1,15 +1,149 @@
 /** @jsxImportSource @emotion/react */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import * as s  from "./styles";
 import Header from "../../components/layouts/Header";
 import { RiKakaoTalkFill } from "react-icons/ri";
 import { SiNaver } from "react-icons/si";
 import { FaCheck, FaCreditCard } from "react-icons/fa";
-import { useNavigate } from "react-router-dom";
+import { useLocation, useNavigate } from "react-router-dom";
+import axios from "axios";
 
 function PaymentPage() {
     const [ payMethod, setPayMethod ] = useState("KAKAO");
     const navigate = useNavigate();
+    const location = useLocation();
+
+    const [ userInfo, setUserInfo ] = useState({
+        id: null,
+        name: "",
+        email: "",
+        phone: ""
+    })
+
+    const plan = location.state?.plan;
+
+    useEffect(() => {
+        if (!plan) {
+            alert("잘못된 접근입니다. 플랜을 먼저 선택해주세요.");
+            navigate("/subscribe")
+        }
+
+        // 포트원 초기화 (가맹점 식별코드 입력)
+        // 나중에 포트원 관리자 페이지 -> [내 정보] -> [가맹점 식별코드]를 확인해서 넣으세요.
+        // 예: "imp00000000" 
+        const { IMP } = window; 
+        if(IMP) {
+            IMP.init("imp37560047"); // ★ 여기에 본인 가맹점 식별코드 넣기
+        }
+
+        const fetchMe = async() => {
+            try {
+                const token = localStorage.getItem("accessToken");
+
+                if (!token) return;
+                const response = await axios.get("http://localhost:8080/api/user/me", {
+                    headers: { Authorization: `Bearer ${token}`}
+                })
+
+                setUserInfo({
+                    id: response.data.id,
+                    name: response.data.name,
+                    email: response.data.email,
+                    phone: response.data.phone
+                })
+            } catch (error) {
+                console.log("유저 정보 로드 실패", error);
+                // 로그인 안 된 상태면 로그인 페이지로 튕겨내기 로직 필요
+            }
+        }
+
+        fetchMe();
+    },[plan, navigate]);
+
+    if (!plan) return<>플랜을 다시 선택해주세요</>
+
+    const parsePrice = (priceString) => {
+        if (priceString === "무료") return 0;
+        return parseInt(priceString.replace(/[^0-9]/g, ""), 10);
+    };
+
+    const getPgCode = (method) => {
+        switch(method) {
+            case "KAKAO": return "kakaopay";
+            case "NAVER": return "naverpay";
+            case "CARD" : return "html5_inicis";
+            default: return "kakaopay";
+        }
+    }
+
+    const handlePayment = () => {
+        const amount = parsePrice(plan.price);
+        if (amount === 0) {
+
+            // 무료 구독 처리 로직(API 호출 등) 추가
+           alert("무료 플랜은 결제 과정 없이 바로 구독됩니다.")
+           return;
+        }
+
+        if (!userInfo.id) {
+            alert("유저 정보를 불러오는 중입니다. 잠시 후 다시 시도해주세요");
+            return;
+        }
+
+        const merchantUid = `order_${userInfo.id}_${new Date().getTime()}`;
+
+        const { IMP } = window;
+
+        IMP.request_pay({
+            pg: getPgCode(payMethod),
+            pay_method: 'card',
+            merchant_uid: merchantUid,   
+            name: plan.title,            
+            amount: amount,              
+            buyer_email: userInfo.email, 
+            buyer_name: userInfo.name,   
+            buyer_tel: userInfo.tel,     
+        }, async (resp) => {
+            if (resp.success) {
+                try {
+                    const token = localStorage.getItem("accessToken");
+
+                    const verifyData = {
+                        impUid: resp.imp_uid,
+                        merchantUid: resp.merchant_uid,
+                        planId: plan.id || null,      
+                        amount: resp.paid_amount,
+                        itemName: plan.title, 
+                        payMethod: resp.pay_method,
+                        pgProvider: resp.pg_provider
+                    };
+
+                    const response = await axios.post(
+                        "http://localhost:8080/api/payment/verify",
+                        verifyData,
+                        { headers: { Authorization: `Bearer ${token}`}}
+                    );
+
+                    if (response.data.success) {
+                        alert(`결제 성공! ${response.data.message}`);
+                        navigate("/subscribe/payment/success");
+                    } else {
+                        alert("결제는 되었으나 서버 검증에 실패했습니다. 고객센터에 문의하세요.");
+                    }
+                } catch (error) {
+                    console.error("검증 API 호출 에러", error);
+                    alert("서버 통신 중 오류가 발생했습니다.");
+                }
+            } else {
+               console.error("결제 실패", resp);
+                alert(`결제에 실패하였습니다. 내용: ${resp.error_msg}`);
+            }
+        })
+
+    };
+
+    
+    
 
    const method = {
         KAKAO: {
@@ -77,7 +211,8 @@ function PaymentPage() {
 
                 <div css={s.priceInfo}>
                     <div css={s.priceRow}>
-                        <span>구독 요금</span>
+                        <span>구독 요금({plan.title})</span>
+                        <span>{plan.price}</span>
                         {/* =============================== */}
                     </div>
                     <div css={s.paymentDivider}></div>
@@ -91,14 +226,14 @@ function PaymentPage() {
 
                     <div css={s.totalRow}>
                         <span>총 결제 금액</span>
-                        <strong className="total">9,900원 / 월</strong>
+                        <strong className="total">{plan.price}</strong>
                     </div>
                 </div>
             </div>
 
             <div css={s.footer}>
                 <button css={s.backBtn} onClick={() => navigate(-1)}> ← 뒤로 가기 </button>
-                <button css={s.payBtn}>
+                <button css={s.payBtn} onClick={handlePayment}>
                     결제하기 <FaCheck style={{marginLeft: '8px'}}/>
                 </button>
             </div>

@@ -80,11 +80,11 @@ function SocialSignupModal() {
       return;
     }
 
-    if (!age || Number.isNaN(ageNum) || ageNum < 8) {
+    if (!age || Number.isNaN(ageNum)) {
       Swal.fire({
         icon: "warning",
         title: "나이 확인",
-        text: "나이는 8세 이상으로 입력해주세요.",
+        text: "나이를 입력해주세요.",
         confirmButtonColor: "#FF8A3D",
       });
       return;
@@ -184,7 +184,7 @@ function SocialSignupModal() {
 
           <input
             type="number"
-            placeholder="나이 (8세 이상)"
+            placeholder="나이"
             min={8}
             value={age}
             onChange={(e) => setAge(e.target.value)}

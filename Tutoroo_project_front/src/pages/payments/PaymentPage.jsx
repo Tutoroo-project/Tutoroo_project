@@ -70,7 +70,7 @@ function PaymentPage() {
     const getPgCode = (method) => {
         switch(method) {
             case "KAKAO": return "kakaopay";
-            case "NAVER": return "naverpay";
+            case "NAVER": return "html5_inicis";
             case "CARD" : return "html5_inicis";
             default: return "kakaopay";
         }
@@ -126,7 +126,7 @@ function PaymentPage() {
 
                     if (response.data.success) {
                         alert(`결제 성공! ${response.data.message}`);
-                        navigate("/subscribe/payment/success");
+                        navigate("/");
                     } else {
                         alert("결제는 되었으나 서버 검증에 실패했습니다. 고객센터에 문의하세요.");
                     }

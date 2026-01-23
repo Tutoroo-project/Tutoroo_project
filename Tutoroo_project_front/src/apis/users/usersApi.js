@@ -122,10 +122,11 @@ export const userApi = {
     return res.data;
   },
 
-  changePassword: async ({ currentPassword, newPassword}) => {
+  changePassword: async ({ currentPassword, newPassword, confirmPassword}) => {
     const res = await api.patch("/api/user/change-password", {
       currentPassword,
-      newPassword
+      newPassword,
+      confirmPassword
     });
     return res.data;
   }

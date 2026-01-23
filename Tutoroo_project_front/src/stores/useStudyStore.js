@@ -1,11 +1,14 @@
 import { create } from "zustand";
 import { studyApi } from "../apis/studys/studysApi";
 
+// [수정] 모드 확장 및 시간 설정
 export const SESSION_MODES = {
-  CLASS: { label: "수업", defaultTime: 50 * 60 },
-  BREAK: { label: "휴식", defaultTime: 10 * 60 },   
-  TEST: { label: "테스트", defaultTime: 30 * 60}, 
-  FEEDBACK: { label: "피드백", defaultTime: 0 },
+  CLASS: { label: "수업", defaultTime: 50 * 60, hasTimer: true },
+  BREAK: { label: "쉬는 시간", defaultTime: 10 * 60, hasTimer: true },   
+  TEST: { label: "테스트", defaultTime: 0, hasTimer: false }, // 시간 제한 없음
+  GRADING: { label: "채점 중", defaultTime: 0, hasTimer: false },
+  FEEDBACK: { label: "피드백", defaultTime: 0, hasTimer: false },
+  REVIEW: { label: "복습", defaultTime: 0, hasTimer: false },
 };
 
 const useStudyStore = create((set, get) => ({
@@ -13,11 +16,14 @@ const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,     
   isLoading: false,
-  selectedTutorId: "tiger", // [중요] 기본값 설정
+  selectedTutorId: "tiger",
   
   // 채팅 관련
   messages: [],
   isChatLoading: false,
+
+  // [New] TTS/STT 제어
+  isSpeakerOn: true, // 기본값: 켜짐
 
   // 타이머 관련
   currentMode: "CLASS",
@@ -26,15 +32,12 @@ const useStudyStore = create((set, get) => ({
 
   // --- 액션 ---
 
-  // 1. 초기 상태 로드 (대시보드/페이지 진입 시)
+  // 1. 초기 상태 로드
   loadUserStatus: async () => {
     set({ isLoading: true });
     try {
       const data = await studyApi.getStudyStatus();
-      
-      // [수정] 백엔드 데이터(예: "TIGER")를 소문자로 변환해 스토어에 저장
       const tutorId = data.personaName ? data.personaName.toLowerCase() : "tiger";
-
       set({ 
         studyDay: data.currentDay || 1, 
         planId: data.planId,
@@ -48,13 +51,13 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 2. 수업 시작 (튜터 선택 페이지에서 호출)
+  // 2. 수업 시작
   startClassSession: async (tutorInfo, navigate) => {
     set({ isLoading: true });
     const { planId, studyDay } = get();
 
     if (!planId) {
-        alert("학습 정보를 불러오는 중입니다. 잠시만 기다려주세요.");
+        alert("학습 정보를 불러오는 중입니다.");
         await get().loadUserStatus();
         set({ isLoading: false });
         return;
@@ -69,7 +72,6 @@ const useStudyStore = create((set, get) => ({
       });
 
       set({ 
-        // [중요] 선택한 튜터 ID 저장 (이미지 표시용)
         selectedTutorId: tutorInfo.id,
         messages: [{
           type: 'AI',
@@ -80,13 +82,11 @@ const useStudyStore = create((set, get) => ({
         timeLeft: SESSION_MODES.CLASS.defaultTime,
         isTimerRunning: true
       });
-
-      console.log("Navigating to /study...");
-      navigate("/study"); // [수정] 올바른 경로로 이동
+      navigate("/study");
 
     } catch (error) {
       console.error("수업 시작 실패:", error);
-      alert("수업을 시작할 수 없습니다. 다시 시도해주세요.");
+      alert("오류가 발생했습니다.");
     } finally {
       set({ isLoading: false });
     }
@@ -118,17 +118,30 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  setSessionMode: (modeKey) => {
+  // [New] 모드 변경 및 시간 수동 설정
+  setSessionMode: (modeKey, customTime = null) => {
     const config = SESSION_MODES[modeKey];
     set({ 
       currentMode: modeKey, 
-      timeLeft: config.defaultTime,
-      isTimerRunning: true 
+      timeLeft: customTime !== null ? customTime : config.defaultTime,
+      isTimerRunning: config.hasTimer 
     });
   },
 
+  // [New] 타이머 시간 강제 조정 (유저가 설정 변경 시)
+  updateTimeLeft: (newTime) => {
+    set({ timeLeft: newTime });
+  },
+
+  // [New] 스피커 토글
+  toggleSpeaker: () => {
+    set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
+  },
+
   tick: () => {
-    const { timeLeft, currentMode } = get();
+    const { timeLeft, currentMode, isTimerRunning } = get();
+    if (!isTimerRunning) return;
+
     if (timeLeft > 0) {
       set({ timeLeft: timeLeft - 1 });
     } else {
@@ -137,11 +150,17 @@ const useStudyStore = create((set, get) => ({
   },
 
   handleSessionEnd: (mode) => {
+    // 수업 종료 -> 쉬는 시간 전환 자동 제안
     if (mode === "CLASS") {
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "수업 시간이 끝났어요! 잠시 쉬었다 할까요?" }]
+        messages: [...state.messages, { type: 'AI', content: "수업 시간이 끝났어요! 10분간 쉬는 시간을 가질까요?" }]
       }));
       get().setSessionMode("BREAK");
+    } else if (mode === "BREAK") {
+        set((state) => ({
+            messages: [...state.messages, { type: 'AI', content: "쉬는 시간이 끝났습니다. 다음 학습을 시작해볼까요?" }]
+        }));
+        set({ isTimerRunning: false });
     }
   },
 }));

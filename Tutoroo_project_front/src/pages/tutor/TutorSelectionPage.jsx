@@ -3,8 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useStudyStore from "../../stores/useStudyStore";
 import * as s from "./styles";
-
-// 이미지 Assets
 import tigerImg from "../../assets/images/mascots/logo_tiger.png";
 import turtleImg from "../../assets/images/mascots/logo_turtle.png";
 import rabbitImg from "../../assets/images/mascots/logo_rabbit.png";
@@ -12,11 +10,11 @@ import kangarooImg from "../../assets/images/mascots/logo_icon.png";
 import dragonImg from "../../assets/images/mascots/logo_dragon.png";
 
 const TUTORS = [
-  { id: "tiger", name: "호랑이 선생님", image: tigerImg, desc: <>엄격하고 카리스마 있는 스파르타 스타일!<br/> 딴짓은 용납 못해요.</> },
-  { id: "turtle", name: "거북이 선생님", image: turtleImg, desc: <>천천히, 하지만 확실하게!<br/> 이해할 때까지 친절하게 반복해줘요.</> },
-  { id: "rabbit", name: "토끼 선생님", image: rabbitImg, desc: <>빠르고 효율적인 핵심 요약!<br/> 급한 시험 대비에 딱이에요.</> },
-  { id: "kangaroo", name: "캥거루 선생님", image: kangarooImg, desc: <>주머니에서 꿀팁이 쏟아져요!<br/> 실전 예제 위주의 수업.</> },
-  { id: "eastern_dragon", name: "동양용 선생님", image: dragonImg, desc: <>깊은 깨달음을 주는 현자 스타일.<br/> 하오체를 사용해요.</> },
+  { id: "TIGER", name: "호랑이 선생님", image: tigerImg, desc: <>엄격하고 카리스마 있는 스파르타 스타일!<br/> 딴짓은 용납 못해요.</> },
+  { id: "TURTLE", name: "거북이 선생님", image: turtleImg, desc: <>천천히, 하지만 확실하게!<br/> 이해할 때까지 친절하게 반복해줘요.</> },
+  { id: "RABBIT", name: "토끼 선생님", image: rabbitImg, desc: <>빠르고 효율적인 핵심 요약!<br/> 급한 시험 대비에 딱이에요.</> },
+  { id: "KANGAROO", name: "캥거루 선생님", image: kangarooImg, desc: <>주머니에서 꿀팁이 쏟아져요!<br/> 실전 예제 위주의 수업.</> },
+  { id: "DRAGON", name: "용 선생님", image: dragonImg, desc: <>깊은 깨달음을 주는 현자 스타일.<br/> 하오체를 사용해요.</> },
 ];
 
 const TutorSelectionPage = () => {
@@ -25,7 +23,7 @@ const TutorSelectionPage = () => {
   // Store에서 상태 및 함수 가져오기
   const { studyDay, loadUserStatus, startClassSession, isLoading } = useStudyStore();
   
-  const [activeTutorId, setActiveTutorId] = useState("tiger");
+  const [activeTutorId, setActiveTutorId] = useState("TIGER");
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInput, setCustomInput] = useState("");
 
@@ -95,7 +93,7 @@ const TutorSelectionPage = () => {
             onClick={handleToggleCustom}
           >
             <div className="name">
-              {isDayOne ? "🔒 커스텀 설정 (2일차부터 가능)" : "✨ 커스텀 설정으로 변경"}
+              {isDayOne ? " 커스텀 설정 (2일차부터 가능)" : " 커스텀 설정으로 변경"}
             </div>
           </div>
         </div>

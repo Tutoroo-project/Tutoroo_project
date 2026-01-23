@@ -359,6 +359,7 @@ public class UserService {
                 .name(user.getName())
                 .email(user.getEmail())
                 .phone(user.getPhone())
+                .plan(user.getEffectiveTier() != null ? user.getEffectiveTier().name() : "BASIC")
                 .build();
     }
 

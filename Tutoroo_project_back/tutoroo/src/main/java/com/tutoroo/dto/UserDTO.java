@@ -76,7 +76,8 @@ public class UserDTO {
             String username,// 아이디
             String name,    // 이름
             String email,   // 이메일
-            String phone    // 전화번호
+            String phone,    // 전화번호
+            String plan
     ) {}
 
     public record PasswordChangeRequest(

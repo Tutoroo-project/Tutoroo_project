@@ -129,10 +129,17 @@ function DashboardPage() {
           {/* 인삿말 영역 */}
           <section css={s.greeting}>
             <div css={s.greetingText}>
-              <h2>반가워요 {userName}님!</h2>
+              <div css={s.titleRow}>
+                <h2>반가워요 {userName}님!</h2>
+                <button 
+                  css={s.petBtn} 
+                  onClick={() => navigate("/pet")} 
+                >
+                  🐶 마이 펫
+                </button>
+              </div>
               <p>오늘의 목표를 달성하고 포인트를 획득해보세요</p>
             </div>
-
             {/* 학습 액션 버튼 영역 */}
             <div css={s.actionWrap}>
               {/* 학습 선택 */}

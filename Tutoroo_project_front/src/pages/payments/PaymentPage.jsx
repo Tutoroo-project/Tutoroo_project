@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import * as s  from "./styles";
 import Header from "../../components/layouts/Header";
 import { RiKakaoTalkFill } from "react-icons/ri";
-import { SiNaver } from "react-icons/si";
 import { FaCheck, FaCreditCard } from "react-icons/fa";
 import { useLocation, useNavigate } from "react-router-dom";
 import axios from "axios";
@@ -68,7 +67,7 @@ function PaymentPage() {
     const getPgCode = (method) => {
         switch(method) {
             case "KAKAO": return "kakaopay";
-            case "NAVER": return "html5_inicis";
+            case "TOSS": return "tosspay";
             case "CARD" : return "html5_inicis";
             default: return "kakaopay";
         }
@@ -149,10 +148,10 @@ function PaymentPage() {
             desc: "카카오페이로 빠르고 간편하게 결제하세요",
             color: "#3A1D1E" 
         },
-        NAVER: {
-            title: "N pay",
-            desc: "네이버페이로 포인트 혜택을 받으세요",
-            color: "#fff"
+        TOSS: {
+            title: "Toss Pay",
+            desc: "토스로 쉽고 안전하게 결제하세요",
+            color: "#0064FF"
         },
         CARD: {
             title: "카드 결제",
@@ -176,11 +175,19 @@ function PaymentPage() {
                 </button>
 
                  <button 
-                    css={[s.naverBtn, payMethod === "NAVER" && s.activeMethod]} 
-                    onClick={() => setPayMethod("NAVER")}>
-
-                        <SiNaver size={18} style={{marginRight: '5px'}}/>
-                        pay 결제
+                    css={[s.tossBtn, payMethod === "TOSS" && s.activeMethod]} 
+                    onClick={() => setPayMethod("TOSS")}
+                    style={{ 
+                        color: payMethod === "TOSS" ? "#0064FF" : "#aaa", 
+                        borderColor: payMethod === "TOSS" ? "#0064FF" : "#ddd" 
+                    }} 
+                >
+                    <img 
+                        src="https://static.toss.im/icons/png/4x/icon-toss-logo.png" 
+                        alt="Toss Logo" 
+                        style={{ width: "36px", height: "36px", marginRight: "8px" }} 
+                    />
+                        Toss Pay
                 </button>
 
                  <button 
@@ -196,7 +203,11 @@ function PaymentPage() {
                 <div css={s.methodInfo}>
                     <h3 css={s.methodTitle(payMethod)}>
                         {payMethod === "KAKAO" && <RiKakaoTalkFill />}    
-                        {payMethod === "NAVER" && <SiNaver />}    
+                        {payMethod === "TOSS" && <img 
+                                                    src="https://static.toss.im/icons/png/4x/icon-toss-logo.png" 
+                                                    alt="Toss" 
+                                                    style={{ width: "30px", height: "30px", marginRight: "5px" }} 
+        />}    
                         {payMethod === "CARD" && <FaCreditCard />}  
 
                         <span style={{marginLeft: "5px"}}>{method[payMethod].title}</span> 

@@ -48,9 +48,49 @@ export const card = css`
     }
 `;
 
+export const disabledCard = css`
+    opacity: 0.5;
+    border: 1px solid #ddd;
+    background-color: #f9f9f9;
+    box-shadow:  none;
+    cursor: not-allowed;
+
+    &:hover {
+        transform: none;
+    }
+
+`;
+
+export const disabledOverlay = css`
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    color: #999;
+    font-size: 14px;
+    font-weight: 600;
+    z-index: 10;
+`;
+
+
 export const selectedCard = css`
     border: 2px solid #FF8A3D;
     box-shadow: 0 8px 20px rgba(255, 138, 61, 0.2);
+`;
+
+export const currentPlanbtn = css`
+    width: 100%;
+    height: 45px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 500;
+    background-color: #333;
+    color: #fff;
+    border: none;
+    cursor: default;
+
 `;
 
 
@@ -238,9 +278,9 @@ export const kakaoBtn = css`
     color: #3A1D1E;
 `;
 
-export const naverBtn = css`
+export const tossBtn = css`
     ${baseBtn}
-    background-color: #03C75A ;
+    background-color: #fff ;
     color: white;
 `;
 
@@ -282,7 +322,7 @@ export const methodTitle = (method) => css`
     font-weight: 700;
     margin: 0 0 20px 10px;
     
-    color: ${method === "KAKAO" ? '#3A1D1E' : method === "NAVER" ? '#03C75A' : '#333'};
+    color: ${method === "KAKAO" ? '#3A1D1E' : method === "TOSS" ? '#0064FF' : '#333'};
 `;   
 
 export const methodDesc = css`

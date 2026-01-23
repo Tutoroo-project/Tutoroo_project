@@ -35,6 +35,37 @@ export const greetingText = css`
   p {
     font-size: 14px;
     color: #666;
+    margin-top: 4px;
+  }
+`;
+
+export const titleRow = css`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  h2 {
+    font-size: 28px;
+    font-weight: 600;
+    margin: 0;
+  }
+`;
+
+export const petBtn = css`
+  padding: 6px 14px;
+  border-radius: 20px; 
+  border: 1px solid #FF8A3D;
+  background-color: #FFF3E6; 
+  color: #FF8A3D;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background-color: #FF8A3D;
+    color: #fff;
+    transform: translateY(-2px); 
   }
 `;
 

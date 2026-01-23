@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef } from "react";
 import Header from "../../components/layouts/Header";
 import SessionStatus from "../../components/studys/SessionStatus"; 
-import useStudyStore from "../../stores/useStudyStore"; // SESSION_MODES는 store 내부에서 처리
+import useStudyStore from "../../stores/useStudyStore";
 import { studyApi } from "../../apis/studys/studysApi"; 
 import * as s from "./styles";
 
@@ -32,7 +32,7 @@ function StudyPage() {
     currentMode,
     planId,
     studyDay,
-    setSessionMode // 테스트용으로 모드 변경이 필요할 수 있어 가져옴
+    initializeStudySession // [New] 초기화 액션
   } = useStudyStore();
 
   const [inputText, setInputText] = useState("");
@@ -43,6 +43,13 @@ function StudyPage() {
   const audioChunksRef = useRef([]);
 
   const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || tigerImg;
+
+  // --- [핵심 변경] 페이지 진입 시 내 정보로 수업 자동 초기화 ---
+  useEffect(() => {
+    // 메시지가 비어있거나, 플랜 정보가 없으면 초기화 실행
+    initializeStudySession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
 
   // --- 1. 스크롤 자동 이동 ---
   useEffect(() => {
@@ -146,7 +153,8 @@ function StudyPage() {
         <main css={s.chatArea} ref={scrollRef}>
           {messages.length === 0 ? (
             <div css={s.placeholder}>
-              <p>수업 준비 중입니다...</p>
+              {/* 로딩 중일 때 표시할 텍스트 */}
+              <p>내 학습 정보를 불러오는 중입니다...</p>
             </div>
           ) : (
             messages.map((msg, index) => {
@@ -208,7 +216,7 @@ function StudyPage() {
                         {isRecording ? "🔴" : "🎤"}
                     </button>
 
-                    {/* 3. 복습 자료 다운로드 (조건부 렌더링: REVIEW 모드일 때만 표시) */}
+                    {/* 3. 복습 자료 다운로드 */}
                     {currentMode === 'REVIEW' && (
                         <button 
                             css={s.textBtn} 
@@ -218,9 +226,6 @@ function StudyPage() {
                             📄 자료 다운
                         </button>
                     )}
-                    
-                    {/* [개발용 임시 버튼] 테스트를 위해 강제로 REVIEW 모드로 전환하려면 주석 해제하세요 */}
-                    {/* <button onClick={() => setSessionMode('REVIEW')} style={{fontSize: 10}}>복습모드(Dev)</button> */}
                 </div>
 
                 <div css={s.inputWrapper}>

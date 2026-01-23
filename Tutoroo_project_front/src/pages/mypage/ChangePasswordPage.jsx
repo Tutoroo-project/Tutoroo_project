@@ -3,19 +3,27 @@ import { useState } from "react";
 import Header from "../../components/layouts/Header";
 import Sidebar from "./Sidebar";
 import * as s  from "./styles";
+import { useNavigate } from "react-router-dom";
 
 function ChangePasswordPage() {
-   const [ passwords, setPasswords ] = useState({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: ""
-   });
+    const navigate = useNavigate();
+    const [ passwords, setPasswords ] = useState({
+            currentPassword: "",
+            newPassword: "",
+            confirmPassword: ""
+    });
 
-   const handleInputChange = (e) => {
-        const {name, value} = e.target; //사건이 일어난 주인공 태그를 말함
-        setPasswords({...passwords, [name]: value});
-   }
-    
+    const handleInputChange = (e) => {
+            const {name, value} = e.target; 
+            setPasswords({...passwords, [name]: value});
+    }
+
+    const handlePasswordChange = () => {
+        if (!passwords.currentPassword || !passwords.newPassword || !passwords.confirmPassword) {
+            alert("모든 창을 입력해주세요")
+        }
+    }
+        
     return (
         <>
             <Header />

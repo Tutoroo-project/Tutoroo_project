@@ -28,12 +28,10 @@ function PaymentPage() {
             navigate("/subscribe")
         }
 
-        // 포트원 초기화 (가맹점 식별코드 입력)
-        // 나중에 포트원 관리자 페이지 -> [내 정보] -> [가맹점 식별코드]를 확인해서 넣으세요.
-        // 예: "imp00000000" 
+       
         const { IMP } = window; 
         if(IMP) {
-            IMP.init("imp37560047"); // ★ 여기에 본인 가맹점 식별코드 넣기
+            IMP.init("imp37560047"); 
         }
 
         const fetchMe = async() => {
@@ -149,7 +147,7 @@ function PaymentPage() {
         KAKAO: {
             title: "kakaopay",
             desc: "카카오페이로 빠르고 간편하게 결제하세요",
-            color: "#3A1D1E" // 카카오 글자색
+            color: "#3A1D1E" 
         },
         NAVER: {
             title: "N pay",

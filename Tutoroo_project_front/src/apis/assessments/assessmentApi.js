@@ -14,7 +14,7 @@ export const consultAssessment = async ({
 };
 
 export const generateRoadmap = async ({ studyInfo, history }) => {
-  const res = await api.post("/api/assessment/generate", {
+  const res = await api.post("/api/assessment/submit", {
     studyInfo,
     history,
   });

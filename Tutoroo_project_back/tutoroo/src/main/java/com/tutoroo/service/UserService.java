@@ -379,7 +379,13 @@ public class UserService {
             throw new TutorooException("현재 비밀번호가 일치하지 않습니다.", ErrorCode.INVALID_PASSWORD);
         }
 
-        // 4. 새 비밀번호가 현재 비밀번호와 같은지 체크 (선택사항)
+        // 새로운 비밀번호랑 비밀번호 확인이랑 일치하는지 체크
+        if (!request.newPassword().equals((request.confirmPassword()))) {
+            throw new TutorooException("새로운 비밀번호가 일치하지 않습니다.", ErrorCode.INVALID_INPUT_VALUE);
+
+        }
+
+        // . 새 비밀번호가 현재 비밀번호와 같은지 체크 (선택사항)
         if (passwordEncoder.matches(request.newPassword(), user.getPassword())) {
             throw new TutorooException("새로운 비밀번호는 현재 비밀번호와 다르게 설정해야 합니다.", ErrorCode.INVALID_INPUT_VALUE);
         }

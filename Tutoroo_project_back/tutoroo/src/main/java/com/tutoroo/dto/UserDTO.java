@@ -81,6 +81,7 @@ public class UserDTO {
 
     public record PasswordChangeRequest(
             String currentPassword,
-            String newPassword
+            String newPassword,
+            String confirmPassword
     ) {}
 }

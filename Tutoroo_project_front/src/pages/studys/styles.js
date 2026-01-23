@@ -1,7 +1,6 @@
 import { css } from "@emotion/react";
 import { theme } from "../../styles/theme"; 
 
-// 전체 페이지 컨테이너
 export const pageContainer = css`
   display: flex;
   flex-direction: column;
@@ -10,7 +9,6 @@ export const pageContainer = css`
   position: relative;
 `;
 
-// 채팅 로그 영역
 export const chatArea = css`
   flex: 1;
   padding: 40px 20px 120px; 
@@ -21,7 +19,6 @@ export const chatArea = css`
   width: ${theme.layout.contentWidth};
   margin: 0 auto;
 
-  /* 스크롤바 커스텀 */
   &::-webkit-scrollbar {
     width: 8px;
   }
@@ -31,7 +28,6 @@ export const chatArea = css`
   }
 `;
 
-// 메시지 한 줄 (좌/우 배치)
 export const messageRow = (isUser) => css`
   display: flex;
   justify-content: ${isUser ? "flex-end" : "flex-start"};
@@ -40,19 +36,28 @@ export const messageRow = (isUser) => css`
   width: 100%;
 `;
 
-// AI 프로필 아이콘
+/* [수정] AI 프로필 아이콘: 이미지 태그를 감싸도록 변경 */
 export const aiProfileIcon = css`
-  width: 48px;
-  height: 48px;
+  width: 54px;
+  height: 54px;
   border-radius: 50%;
-  background-color: #eee;
+  background-color: #fff;
   border: 1px solid #ddd;
-  background-image: url('/path/to/ai-icon.png'); 
-  background-size: cover;
   flex-shrink: 0;
+  
+  /* 내부 이미지 중앙 정렬 및 둥글게 처리 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden; 
+
+  img {
+    width: 85%;
+    height: 85%;
+    object-fit: contain;
+  }
 `;
 
-// 말풍선 스타일
 export const bubble = (isUser) => css`
   max-width: 60%;
   padding: 16px 22px;
@@ -83,7 +88,6 @@ export const placeholder = css`
   font-size: 16px;
 `;
 
-/* 하단 고정 영역 (입력창 + 타이머) */
 export const bottomArea = css`
   position: fixed;
   bottom: 0;

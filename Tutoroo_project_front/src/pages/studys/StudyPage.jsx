@@ -5,19 +5,40 @@ import SessionStatus from "../../components/studys/SessionStatus";
 import useStudyStore from "../../stores/useStudyStore";
 import * as s from "./styles";
 
+// [추가] 튜터 이미지 Import
+import tigerImg from "../../assets/images/mascots/logo_tiger.png";
+import turtleImg from "../../assets/images/mascots/logo_turtle.png";
+import rabbitImg from "../../assets/images/mascots/logo_rabbit.png";
+import kangarooImg from "../../assets/images/mascots/logo_icon.png";
+import dragonImg from "../../assets/images/mascots/logo_dragon.png";
+
+// [추가] ID와 이미지 매핑
+const TUTOR_IMAGES = {
+  tiger: tigerImg,
+  turtle: turtleImg,
+  rabbit: rabbitImg,
+  kangaroo: kangarooImg,
+  eastern_dragon: dragonImg,
+  dragon: dragonImg // 예외 처리
+};
+
 function StudyPage() {
-  const { messages, sendMessage, isChatLoading } = useStudyStore();
+  // [수정] selectedTutorId 가져오기
+  const { messages, sendMessage, isChatLoading, selectedTutorId } = useStudyStore();
   const [inputText, setInputText] = useState("");
   const scrollRef = useRef(null);
   const audioRef = useRef(new Audio());
 
-  // 스크롤 자동 이동 (메시지 추가 시)
+  // 현재 튜터 이미지 결정
+  const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || tigerImg;
+
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages, isChatLoading]);
 
+  // 오디오 자동 재생
   useEffect(() => {
     if (messages.length > 0) {
       const lastMsg = messages[messages.length - 1];
@@ -45,7 +66,6 @@ function StudyPage() {
     <>
       <Header />
       <div css={s.pageContainer}>
-        {/* 채팅 로그 영역 */}
         <main css={s.chatArea} ref={scrollRef}>
           {messages.length === 0 ? (
             <div css={s.placeholder}>
@@ -56,8 +76,12 @@ function StudyPage() {
               const isUser = msg.type === "USER";
               return (
                 <div key={index} css={s.messageRow(isUser)}>
-                  {/* AI 프로필 아이콘 (AI일 때만 표시) */}
-                  {!isUser && <div css={s.aiProfileIcon} />} 
+                  {/* [수정] AI 메시지일 때 튜터 이미지 표시 */}
+                  {!isUser && (
+                    <div css={s.aiProfileIcon}>
+                      <img src={currentTutorImage} alt="tutor" />
+                    </div>
+                  )} 
                   
                   <div css={s.bubble(isUser)}>
                     {msg.content}
@@ -67,10 +91,11 @@ function StudyPage() {
             })
           )}
           
-          {/* AI가 생각 중일 때 표시 */}
           {isChatLoading && (
             <div css={s.messageRow(false)}>
-              <div css={s.aiProfileIcon} />
+              <div css={s.aiProfileIcon}>
+                <img src={currentTutorImage} alt="tutor" />
+              </div>
               <div css={s.bubble(false)}>
                 <span className="dot-flashing">...</span>
               </div>
@@ -78,13 +103,9 @@ function StudyPage() {
           )}
         </main>
 
-        {/* 하단 입력 영역 */}
         <footer css={s.bottomArea}>
             <div css={s.bottomInner}>
-                {/* [왼쪽 하단] 타이머 및 세션 상태 */}
                 <SessionStatus />
-
-                {/* 채팅 입력창 */}
                 <div css={s.inputWrapper}>
                     <input 
                       type="text" 
@@ -97,7 +118,6 @@ function StudyPage() {
                       autoFocus
                     />
                 </div>
-                
                 <button 
                   css={s.sendBtn} 
                   onClick={handleSend}

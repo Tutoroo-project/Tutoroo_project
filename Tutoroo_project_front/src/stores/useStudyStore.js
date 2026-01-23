@@ -9,24 +9,36 @@ export const SESSION_MODES = {
 };
 
 const useStudyStore = create((set, get) => ({
+  // --- 상태 변수 ---
   studyDay: 1,      
   planId: null,     
   isLoading: false,
+  selectedTutorId: "tiger", // [중요] 기본값 설정
   
+  // 채팅 관련
   messages: [],
   isChatLoading: false,
 
+  // 타이머 관련
   currentMode: "CLASS",
   timeLeft: SESSION_MODES.CLASS.defaultTime,
   isTimerRunning: false,
 
+  // --- 액션 ---
+
+  // 1. 초기 상태 로드 (대시보드/페이지 진입 시)
   loadUserStatus: async () => {
     set({ isLoading: true });
     try {
       const data = await studyApi.getStudyStatus();
+      
+      // [수정] 백엔드 데이터(예: "TIGER")를 소문자로 변환해 스토어에 저장
+      const tutorId = data.personaName ? data.personaName.toLowerCase() : "tiger";
+
       set({ 
         studyDay: data.currentDay || 1, 
-        planId: data.planId, 
+        planId: data.planId,
+        selectedTutorId: tutorId 
       }); 
     } catch (error) {
       console.error("로드 실패:", error);
@@ -36,6 +48,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // 2. 수업 시작 (튜터 선택 페이지에서 호출)
   startClassSession: async (tutorInfo, navigate) => {
     set({ isLoading: true });
     const { planId, studyDay } = get();
@@ -56,6 +69,8 @@ const useStudyStore = create((set, get) => ({
       });
 
       set({ 
+        // [중요] 선택한 튜터 ID 저장 (이미지 표시용)
+        selectedTutorId: tutorInfo.id,
         messages: [{
           type: 'AI',
           content: res.aiMessage,
@@ -67,7 +82,7 @@ const useStudyStore = create((set, get) => ({
       });
 
       console.log("Navigating to /study...");
-      navigate("/study"); 
+      navigate("/study"); // [수정] 올바른 경로로 이동
 
     } catch (error) {
       console.error("수업 시작 실패:", error);
@@ -77,6 +92,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // 3. 채팅 메시지 전송
   sendMessage: async (text) => {
     set((state) => ({
       messages: [...state.messages, { type: 'USER', content: text }],

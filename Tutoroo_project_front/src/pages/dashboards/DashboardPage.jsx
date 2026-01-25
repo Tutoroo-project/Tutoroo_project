@@ -41,6 +41,9 @@ function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
   const openStudyPlan = useModalStore((state) => state.openStudyPlan);
+  
+  // [New] 학습 정보 설정을 위한 액션 가져오기
+  const setPlanInfo = useStudyStore((state) => state.setPlanInfo);
 
   // 대시보드 데이터 상태 관리
   const [dashboardData, setDashboardData] = useState(null);
@@ -92,13 +95,17 @@ function DashboardPage() {
     fetchData();
   }, [user]);
 
-  // [수정] 학습 시작 핸들러
+  // 학습 시작 핸들러
   const handleStartStudy = () => {
     if (!selectedStudyId) {
       alert("학습을 선택해주세요");
       return;
     }
-    useStudyStore.setState({ planId: Number(selectedStudyId) });
+
+    const selectedStudy = studyList.find(s => String(s.id) === String(selectedStudyId));
+    const studyName = selectedStudy ? selectedStudy.name : "학습";
+
+    setPlanInfo(Number(selectedStudyId), studyName);
 
     navigate(`/tutor`);
   };
@@ -159,7 +166,7 @@ function DashboardPage() {
               {/* 학습 시작 버튼 */}
               <button
                 css={s.studyBtn}
-                onClick={handleStartStudy} // 핸들러 연결
+                onClick={handleStartStudy}
               >
                 학습하러 가기
               </button>

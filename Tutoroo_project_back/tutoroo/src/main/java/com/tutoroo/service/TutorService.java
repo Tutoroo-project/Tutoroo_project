@@ -38,6 +38,7 @@ import java.io.File;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
@@ -60,48 +61,74 @@ public class TutorService {
     private final FileStore fileStore;
     private final RedisTemplate<String, String> redisTemplate;
 
-    // --- [1] 수업 시작 (Step 16: 하이브리드 페르소나 적용) ---
+    // --- [1] 수업 시작 (수정됨: 튜터/커스텀 저장 + JSON 파싱 강화) ---
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
-        // 1. 기본 시스템 프롬프트 가져오기 (DB Prompts 테이블)
-        // 예: TEACHER_TIGER -> "너는 호랑이 선생님이야..."
+        // 1. 튜터 변경 감지 및 DB 저장 (기본값 Tiger 문제 해결)
+        String requestedPersona = request.personaName().toUpperCase();
+        String currentPersona = plan.getPersona() != null ? plan.getPersona().toUpperCase() : "";
+
+        if (!requestedPersona.equals(currentPersona)) {
+            log.info("🔄 튜터 변경 감지: {} -> {}", currentPersona, requestedPersona);
+            plan.setPersona(requestedPersona);
+            studyMapper.updatePlan(plan); // DB 업데이트
+        }
+
+        // 2. 기본 시스템 프롬프트 로드
         String basePersonaKey = "TEACHER_" + request.personaName();
         String baseSystemContent = commonMapper.findPromptContentByKey(basePersonaKey);
         if (baseSystemContent == null) baseSystemContent = "너는 열정적인 AI 과외 선생님이야.";
 
-        // 2. [핵심 로직] 페르소나 믹싱 (Custom Name + Selected Style)
-        String finalSystemPrompt = baseSystemContent;
+        // 3. 페르소나 및 커스텀 옵션 적용 (프롬프트 조립)
         String customName = plan.getCustomTutorName();
+        String customReq = request.customOption(); // 프론트에서 받은 커스텀 요구사항
 
+        StringBuilder promptBuilder = new StringBuilder();
+
+        // (1) 기본 역할 부여
+        promptBuilder.append(baseSystemContent);
+
+        // (2) 커스텀 이름(본캐/부캐) 설정
         if (StringUtils.hasText(customName)) {
-            // 커스텀 이름이 있다면 "본캐(Custom)" + "부캐(Selected)" 믹스
-            finalSystemPrompt = String.format("""
+            promptBuilder.append(String.format("""
+                    
                     [System Roleplay Instruction]
-                    1. 너의 진짜 정체(본캐)는 '%s'라는 이름의 나만의 전담 튜터야.
-                    2. 하지만 오늘 수업에서는 '%s' 스타일(부캐)로 연기를 해야 해.
-                    3. 지시사항:
-                       - '%s'의 기본 프롬프트 설정: "%s"
-                       - 위 설정을 따르되, 호칭은 '%s'라고 스스로를 소개해.
-                       - 본래의 따뜻함과 오늘의 연기 톤을 자연스럽게 섞어서 말해줘.
-                    """,
-                    customName,
-                    request.personaName(),
-                    request.personaName(),
-                    baseSystemContent,
-                    customName
-            );
+                    1. 너의 진짜 정체(본캐)는 '%s'라는 이름의 튜터야.
+                    2. 하지만 오늘 수업에서는 위에서 설정된 기본 페르소나(부캐)로 연기해야 해.
+                    3. 호칭은 '%s'라고 스스로를 소개해.
+                    """, customName, customName));
         }
 
-        // 3. AI 오프닝 멘트 생성 요청
+        // (3) [New] 사용자 커스텀 요구사항 반영
+        if (StringUtils.hasText(customReq)) {
+            promptBuilder.append(String.format("""
+                    
+                    [⭐️ 학생의 특별 요청 사항]
+                    수업 진행 시 다음 요청을 반드시 반영해줘: "%s"
+                    """, customReq));
+        }
+
+        String finalSystemPrompt = promptBuilder.toString();
+
+        // 4. AI 오프닝 멘트 및 유동적 스케줄 요청
         String userPrompt = String.format("""
-                상황: %d일차 수업 시작.
-                학생 기분: %s
-                오늘 배울 주제(roadmapJson 참고)를 흥미롭게 소개하고, 위 페르소나 설정에 맞춰 오프닝 멘트를 해줘.
-                형식: "주제 | 멘트" (멘트는 2문장 이내)
-                """, request.dayCount(), request.dailyMood());
+                상황: %d일차 수업 시작. 주제: %s. 학생 기분: %s.
+                
+                [지시사항]
+                1. 오프닝 멘트를 작성하세요.
+                2. 오늘 수업의 **세션별 시간(초 단위)**을 JSON 형식으로 제안하세요.
+                   (필수 키: CLASS, BREAK, TEST, GRADING, EXPLANATION, AI_FEEDBACK, STUDENT_FEEDBACK)
+                
+                [매우 중요 - 응답 형식]
+                반드시 아래 형식을 정확히 지키세요. JSON 데이터는 반드시 맨 마지막에 위치해야 합니다.
+                주제 | 오프닝 멘트 | JSON_DATA
+                
+                예시:
+                자바 기초 | 안녕하세요! 수업 시작합니다. | {"CLASS": 3000, "BREAK": 600}
+                """, request.dayCount(), plan.getGoal(), request.dailyMood());
 
         String response = chatClientBuilder.build()
                 .prompt(new Prompt(List.of(
@@ -111,29 +138,70 @@ public class TutorService {
                 .call()
                 .content();
 
-        // 4. 응답 파싱
-        String[] parts = response.split("\\|");
-        String topic = parts.length > 0 ? parts[0].trim() : "오늘의 학습";
-        String aiMessage = parts.length > 1 ? parts[1].trim() : response;
+        // 5. 응답 파싱 로직 (JSON 분리 강화 - 채팅창 노출 방지)
+        String topic = "오늘의 학습";
+        String aiMessage = response;
+        String scheduleJson = "{}";
 
-        // 5. TTS 생성 (목소리는 선택한 스타일의 목소리를 따라감)
+        try {
+            // 1단계: 맨 뒤에 있는 JSON 덩어리를 먼저 찾아서 잘라냄
+            int jsonStartIndex = response.lastIndexOf("{");
+            int jsonEndIndex = response.lastIndexOf("}");
+
+            if (jsonStartIndex != -1 && jsonEndIndex != -1 && jsonStartIndex < jsonEndIndex) {
+                // JSON 부분 추출
+                scheduleJson = response.substring(jsonStartIndex, jsonEndIndex + 1);
+
+                // 원본 텍스트에서 JSON 부분 제거
+                String textPart = response.substring(0, jsonStartIndex).trim();
+
+                // 2단계: 파이프(|)로 주제와 멘트 분리
+                // 끝에 남은 파이프(|) 제거
+                if (textPart.endsWith("|")) {
+                    textPart = textPart.substring(0, textPart.length() - 1).trim();
+                }
+
+                String[] parts = textPart.split("\\|");
+                if (parts.length >= 2) {
+                    topic = parts[0].trim();
+                    aiMessage = parts[1].trim();
+                } else {
+                    aiMessage = textPart;
+                }
+            } else {
+                // JSON을 못 찾은 경우 (기존 방식 시도)
+                String[] parts = response.split("\\|");
+                if (parts.length > 0) topic = parts[0].trim();
+                if (parts.length > 1) aiMessage = parts[1].trim();
+            }
+        } catch (Exception e) {
+            log.error("Response Parsing Error", e);
+        }
+
+        // 6. JSON 파싱 (문자열 -> Map)
+        Map<String, Integer> scheduleMap = new HashMap<>();
+        try {
+            scheduleMap = objectMapper.readValue(scheduleJson, Map.class);
+        } catch (Exception e) {
+            log.warn("⚠️ AI 스케줄 파싱 실패, 기본값 사용. JSON: {}", scheduleJson);
+        }
+
+        // 7. TTS 생성
         String audioUrl = generateTtsAudio(aiMessage, request.personaName());
 
-        // 6. 리소스 매핑
+        // 8. 리소스 매핑
         String imageUrl = "/images/tutors/" + request.personaName().toLowerCase() + ".png";
-        String bgmUrl = "/audio/bgm/calm.mp3"; // 테마별 BGM 변경 가능
+        String bgmUrl = "/audio/bgm/calm.mp3";
 
         return new TutorDTO.ClassStartResponse(
                 topic, aiMessage, audioUrl, imageUrl, bgmUrl,
-                10, 5 // 획득 경험치, 스트릭 (임시)
+                10, 5, scheduleMap
         );
     }
 
     // --- [2] 데일리 테스트 생성 ---
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
-        // 실제 구현 시: StudyLogEntity나 RoadmapJSON을 파싱하여 문제 생성
-        // 여기서는 Mock 데이터 유지 (기존 코드 존중)
         String question = "Java의 Garbage Collection이 주로 발생하는 메모리 영역은?";
         String voiceUrl = generateTtsAudio(question, "TIGER");
 
@@ -151,7 +219,6 @@ public class TutorService {
     public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
 
-        // 1. AI 채점 로직
         String feedbackPrompt = String.format(
                 "문제: Java GC 영역. 답안: %s. 채점하고 피드백해줘. 형식: 점수:XX | 피드백(한 문장)",
                 textAnswer
@@ -164,10 +231,9 @@ public class TutorService {
                 aiResponse.split("\\|")[1].trim() : aiResponse;
         boolean isPassed = score >= 60;
 
-        // 2. 학습 로그 저장
         StudyLogEntity logEntity = StudyLogEntity.builder()
                 .planId(planId)
-                .dayCount(1) // 실제로는 request.dayCount() 사용 필요
+                .dayCount(1)
                 .testScore(score)
                 .aiFeedback(feedbackMsg)
                 .isCompleted(isPassed)
@@ -175,12 +241,10 @@ public class TutorService {
                 .build();
         studyMapper.saveLog(logEntity);
 
-        // 3. 이벤트 발행 (포인트/펫 경험치 지급)
         if (isPassed) {
             eventPublisher.publishEvent(new StudyCompletedEvent(userId, score));
         }
 
-        // 4. TTS 생성
         String audioUrl = generateTtsAudio(feedbackMsg, plan.getPersona());
 
         return new TutorDTO.TestFeedbackResponse(
@@ -194,7 +258,7 @@ public class TutorService {
         );
     }
 
-    // --- [4] 커리큘럼 조정 채팅 (Context & Persona Mix 적용) ---
+    // --- [4] 커리큘럼 조정 채팅 ---
     @Transactional
     public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -203,27 +267,27 @@ public class TutorService {
         String historyKey = "chat:history:" + planId;
         List<Message> messages = new ArrayList<>();
 
-        // 1. 시스템 프롬프트 구성 (startClass와 동일한 믹스 로직 적용)
         String personaName = plan.getPersona() != null ? plan.getPersona() : "TIGER";
         String baseSystemContent = commonMapper.findPromptContentByKey("TEACHER_" + personaName);
         if (baseSystemContent == null) baseSystemContent = "친절한 AI 선생님입니다.";
 
-        String finalSystemPrompt = baseSystemContent;
+        // 커스텀 이름 적용
         String customName = plan.getCustomTutorName();
+        StringBuilder systemPrompt = new StringBuilder(baseSystemContent);
 
         if (StringUtils.hasText(customName)) {
-            finalSystemPrompt = String.format("""
+            systemPrompt.append(String.format("""
+                
                 [Identity Override]
                 Name: %s
                 Style: %s
                 Instruction: You are %s but acting in the style of %s. 
                 Keep the conversation flowing naturally based on previous context.
-                """, customName, personaName, customName, personaName);
+                """, customName, personaName, customName, personaName));
         }
 
-        messages.add(new SystemMessage(finalSystemPrompt));
+        messages.add(new SystemMessage(systemPrompt.toString()));
 
-        // 2. Redis 대화 내역 로드
         try {
             List<String> historyJson = redisTemplate.opsForList().range(historyKey, 0, -1);
             if (historyJson != null) {
@@ -239,12 +303,10 @@ public class TutorService {
             log.error("History Load Error", e);
         }
 
-        // 3. 현재 메시지 추가 및 AI 호출
         messages.add(new UserMessage(message));
         Prompt prompt = new Prompt(messages);
         String aiResponse = chatClientBuilder.build().prompt(prompt).call().content();
 
-        // 4. Redis 저장 (TTL 24시간)
         try {
             String userJson = objectMapper.writeValueAsString(Map.of("role", "user", "content", message));
             String aiJson = objectMapper.writeValueAsString(Map.of("role", "assistant", "content", aiResponse));
@@ -259,7 +321,6 @@ public class TutorService {
             log.error("History Save Error", e);
         }
 
-        // 5. TTS
         String audioUrl = generateTtsAudio(aiResponse, personaName);
 
         return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
@@ -298,9 +359,8 @@ public class TutorService {
     // --- [8] 시험 제출 ---
     @Transactional
     public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
-        int totalScore = 90;
         return new TutorDTO.ExamResultResponse(
-                totalScore, 1, "훌륭해요! 만점에 가까운 점수입니다.", List.of(), true
+                90, 1, "훌륭해요! 만점에 가까운 점수입니다.", List.of(), true
         );
     }
 
@@ -317,12 +377,10 @@ public class TutorService {
     // --- [Private] TTS 생성 및 파일 저장 ---
     private String generateTtsAudio(String text, String personaName) {
         try {
-            // 캐시 확인
             String textHash = generateHash(text + (personaName != null ? personaName : "DEFAULT"));
             TtsCacheEntity cached = commonMapper.findTtsCacheByHash(textHash);
             if (cached != null) return cached.getAudioPath();
 
-            // 목소리 매핑
             OpenAiAudioApi.SpeechRequest.Voice voice = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
             if (personaName != null) {
                 String pUpper = personaName.toUpperCase();
@@ -333,7 +391,6 @@ public class TutorService {
                 else if (pUpper.contains("TURTLE") || pUpper.contains("거북이")) voice = OpenAiAudioApi.SpeechRequest.Voice.ALLOY;
             }
 
-            // OpenAI TTS 호출
             SpeechResponse res = speechModel.call(
                     new SpeechPrompt(text, OpenAiAudioSpeechOptions.builder()
                             .model("tts-1")
@@ -342,7 +399,6 @@ public class TutorService {
             );
             byte[] audioData = res.getResult().getOutput();
 
-            // 저장 및 캐싱
             String fileUrl = fileStore.storeFile(audioData, ".mp3");
             commonMapper.saveTtsCache(TtsCacheEntity.builder().textHash(textHash).audioPath(fileUrl).build());
 

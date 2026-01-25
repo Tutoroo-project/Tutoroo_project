@@ -1,6 +1,7 @@
 package com.tutoroo.dto;
 
 import java.util.List;
+import java.util.Map;
 
 public class TutorDTO {
 
@@ -9,7 +10,8 @@ public class TutorDTO {
             Long planId,
             int dayCount,
             String dailyMood,
-            String personaName // [필수] 프론트에서 선택한 선생님 스타일
+            String personaName, // [필수] 선택한 선생님 (예: TURTLE)
+            String customOption // [New] 커스텀 요구사항 (예: "사투리로 설명해줘")
     ) {}
 
     // 2. 수업 시작 응답
@@ -20,7 +22,8 @@ public class TutorDTO {
             String imageUrl,
             String backgroundMusicUrl,
             int gainedExp,
-            int currentStreak
+            int currentStreak,
+            Map<String, Integer> schedule // [New] AI가 제안하는 세션별 시간표 (초 단위)
     ) {}
 
     // 3. 데일리 테스트 생성 응답
@@ -28,7 +31,7 @@ public class TutorDTO {
             String type,     // QUIZ, MISSION 등
             String question,
             String imageUrl,
-            String voiceUrl, // [확인] 이미 URL 네이밍을 사용 중이므로 유지 (내부 데이터는 파일 경로로 변경됨)
+            String voiceUrl, // TTS 오디오 경로
             int timeLimitSeconds
     ) {}
 
@@ -43,7 +46,7 @@ public class TutorDTO {
             int score,
             String aiFeedback,
             String summary,
-            String audioUrl, // [최적화] Base64 -> URL
+            String audioUrl,
             String explanationImageUrl,
             String nextMission,
             boolean isPassed
@@ -58,7 +61,7 @@ public class TutorDTO {
     // 7. 커리큘럼 조정 채팅 응답
     public record FeedbackChatResponse(
             String aiResponse,
-            String audioUrl // [최적화] Base64 -> URL
+            String audioUrl
     ) {}
 
     // 8. 선생님 평가 요청

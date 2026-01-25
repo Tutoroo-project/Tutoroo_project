@@ -33,12 +33,13 @@ export const studyApi = {
   },
 
   // 수업 시작하기
-  startClass: async ({ planId, dayCount, personaName, dailyMood }) => {
+  startClass: async ({ planId, dayCount, personaName, dailyMood, customOption }) => {
     const response = await api.post("/api/tutor/class/start", {
       planId,
       dayCount,
       personaName,
-      dailyMood,   
+      dailyMood,
+      customOption, // [New] 커스텀 요구사항 전송
     });
     return response.data;
   },

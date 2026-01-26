@@ -508,13 +508,13 @@ function SignUpModal() {
                   clearError("gender");
                 }}
               >
-                <option css={s.option} value="">
+                <option value="">
                   성별 선택
                 </option>
-                <option css={s.option} value="Male">
+                <option value="Male">
                   남성
                 </option>
-                <option css={s.option} value="Female">
+                <option value="Female">
                   여성
                 </option>
               </select>

@@ -9,7 +9,6 @@ import com.tutoroo.exception.ErrorCode;
 import com.tutoroo.exception.TutorooException;
 import com.tutoroo.mapper.CommonMapper;
 import com.tutoroo.mapper.StudyMapper;
-import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -51,7 +50,6 @@ import java.util.regex.Pattern;
 public class TutorService {
 
     private final StudyMapper studyMapper;
-    private final UserMapper userMapper;
     private final CommonMapper commonMapper;
     private final ChatClient.Builder chatClientBuilder;
     private final OpenAiAudioSpeechModel speechModel;
@@ -61,7 +59,7 @@ public class TutorService {
     private final FileStore fileStore;
     private final RedisTemplate<String, String> redisTemplate;
 
-    // --- [1] 수업 시작 (수정됨: TTS 생성 조건 처리) ---
+    // --- [1] 수업 시작 (Class Start) ---
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
@@ -109,21 +107,22 @@ public class TutorService {
 
         String finalSystemPrompt = promptBuilder.toString();
 
-        // 4. AI 오프닝 멘트 및 유동적 스케줄 요청
+        // 4. AI 오프닝 멘트 및 유동적 스케줄 요청 (즉시 질문 시작)
         String userPrompt = String.format("""
                 상황: %d일차 수업 시작. 주제: %s. 학생 기분: %s.
                 
                 [지시사항]
-                1. 오프닝 멘트를 작성하세요.
-                2. 오늘 수업의 **세션별 시간(초 단위)**을 JSON 형식으로 제안하세요.
+                1. 오프닝 멘트 후, **즉시 오늘의 핵심 개념을 설명하거나 흥미로운 질문을 던져서 수업을 시작해.**
+                2. 학생이 바로 대답하거나 생각할 거리를 줘야 해.
+                3. 오늘 수업의 **세션별 시간(초 단위)**을 JSON 형식으로 제안해.
                    (필수 키: CLASS, BREAK, TEST, GRADING, EXPLANATION, AI_FEEDBACK, STUDENT_FEEDBACK)
                 
                 [매우 중요 - 응답 형식]
                 반드시 아래 형식을 정확히 지키세요. JSON 데이터는 반드시 맨 마지막에 위치해야 합니다.
-                주제 | 오프닝 멘트 | JSON_DATA
+                주제 | 수업 시작 멘트(질문 포함) | JSON_DATA
                 
                 예시:
-                자바 기초 | 안녕하세요! 수업 시작합니다. | {"CLASS": 3000, "BREAK": 600}
+                자바 기초 | 자바의 꽃은 객체지향이죠! 그럼 객체란 무엇일까요? | {"CLASS": 3000, "BREAK": 600}
                 """, request.dayCount(), plan.getGoal(), request.dailyMood());
 
         String response = chatClientBuilder.build()
@@ -175,27 +174,91 @@ public class TutorService {
             log.warn("⚠️ AI 스케줄 파싱 실패, 기본값 사용. JSON: {}", scheduleJson);
         }
 
-        // 7. TTS 생성 (수정: needsTts가 true일 때만 생성)
+        // 7. TTS 생성 (needsTts가 true일 때만)
         String audioUrl = null;
         if (request.needsTts()) {
             audioUrl = generateTtsAudio(aiMessage, request.personaName());
         }
 
-        // 8. 리소스 매핑
-        String imageUrl = "/images/tutors/" + request.personaName().toLowerCase() + ".png";
+        // 8. 이미지 설정 (수업 시작은 튜터 이미지)
+        String tutorImageUrl = "/images/tutors/" + request.personaName().toLowerCase() + ".png";
         String bgmUrl = "/audio/bgm/calm.mp3";
 
         return new TutorDTO.ClassStartResponse(
-                topic, aiMessage, audioUrl, imageUrl, bgmUrl,
+                topic, aiMessage, audioUrl, tutorImageUrl, bgmUrl,
                 10, 5, scheduleMap
         );
     }
 
-    // --- [2] 데일리 테스트 생성 ---
+    // --- [2] 세션(모드) 변경 시 AI 멘트 및 이미지 생성 (NEW) ---
+    @Transactional
+    public TutorDTO.SessionStartResponse startSession(Long userId, TutorDTO.SessionStartRequest request) {
+        String mode = request.sessionMode();
+        String personaName = request.personaName();
+
+        // 1. 모드별 상황 및 이미지 설정
+        String situationPrompt;
+        String imageUrl = null; // 기본값 null (프론트에서 처리)
+
+        switch (mode) {
+            case "BREAK" -> {
+                situationPrompt = "상황: 수업이 끝나고 쉬는 시간(Break Time)이 시작되었어. 학생에게 '수고했어, 잠시 머리 좀 식히고 와'라는 뉘앙스로 격려해줘.";
+                imageUrl = "/images/break_time.png"; // 쉬는 시간 이미지
+            }
+            case "TEST" -> {
+                situationPrompt = "상황: 이제 데일리 테스트(Test) 시간이야. '오늘 배운 내용을 확인해볼까? 준비되면 시작하자'라고 긴장감을 줘.";
+                imageUrl = "/images/quiz_bg.png"; // 테스트 배경 이미지
+            }
+            case "GRADING" -> {
+                situationPrompt = "상황: 학생이 테스트를 제출했고, AI인 네가 채점(Grading)을 진행하는 중이야. '잠시만 기다려, 꼼꼼히 확인해볼게'라고 말해줘.";
+            }
+            case "EXPLANATION" -> {
+                situationPrompt = "상황: 채점이 끝났고 해설 강의(Explanation)를 시작할 차례야. '자, 틀린 문제랑 중요한 내용 다시 한번 짚어줄게'라고 리드해줘.";
+            }
+            case "AI_FEEDBACK" -> {
+                situationPrompt = "상황: 오늘의 모든 학습이 끝나고 피드백(Feedback) 시간이야. 오늘 하루 고생했다고 마무리 인사를 해줘.";
+            }
+            case "STUDENT_FEEDBACK" -> {
+                situationPrompt = "상황: 학생이 수업에 대해 평가하는 시간이야. '오늘 수업 어땠어? 솔직하게 말해줘'라고 물어봐.";
+            }
+            default -> situationPrompt = "상황: 다음 학습 단계로 넘어갔어. 자연스럽게 다음 진행을 유도해줘.";
+        }
+
+        // 2. 페르소나 적용
+        String basePersonaKey = "TEACHER_" + personaName;
+        String baseSystemContent = commonMapper.findPromptContentByKey(basePersonaKey);
+        if (baseSystemContent == null) baseSystemContent = "너는 친절한 AI 선생님이야.";
+
+        String systemPrompt = baseSystemContent + "\n\n[Instruction]\n" + situationPrompt + "\n한 두 문장으로 짧고 자연스럽게 말해.";
+
+        // 3. AI 응답 생성
+        String aiMessage = chatClientBuilder.build()
+                .prompt(new Prompt(List.of(
+                        new SystemMessage(systemPrompt),
+                        new UserMessage("현재 모드: " + mode + ". 멘트 시작해줘.")
+                )))
+                .call()
+                .content();
+
+        // 4. TTS 생성 (요청 시에만)
+        String audioUrl = null;
+        if (request.needsTts()) {
+            audioUrl = generateTtsAudio(aiMessage, personaName);
+        }
+
+        // 5. 이미지가 지정되지 않은 경우 튜터 이미지 사용
+        if (imageUrl == null) {
+            imageUrl = "/images/tutors/" + personaName.toLowerCase() + ".png";
+        }
+
+        return new TutorDTO.SessionStartResponse(aiMessage, audioUrl, imageUrl);
+    }
+
+    // --- [3] 데일리 테스트 생성 ---
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
         String question = "Java의 Garbage Collection이 주로 발생하는 메모리 영역은?";
-        // 테스트 문제는 보통 TTS가 필요하므로 유지하거나, 필요 시 DTO 변경 후 적용 가능
+        // 테스트 문제는 보통 TTS가 필요하므로 생성
         String voiceUrl = generateTtsAudio(question, "TIGER");
 
         return new TutorDTO.DailyTestResponse(
@@ -207,7 +270,7 @@ public class TutorService {
         );
     }
 
-    // --- [3] 테스트 제출 및 피드백 ---
+    // --- [4] 테스트 제출 및 피드백 ---
     @Transactional
     public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -238,7 +301,7 @@ public class TutorService {
             eventPublisher.publishEvent(new StudyCompletedEvent(userId, score));
         }
 
-        // 피드백 오디오는 기본적으로 생성 (필요 시 여기도 플래그 추가 가능)
+        // 피드백 오디오 생성 (기본 활성화)
         String audioUrl = generateTtsAudio(feedbackMsg, plan.getPersona());
 
         return new TutorDTO.TestFeedbackResponse(
@@ -252,7 +315,7 @@ public class TutorService {
         );
     }
 
-    // --- [4] 커리큘럼 조정 채팅 (수정됨: needsTts 파라미터 추가) ---
+    // --- [5] 커리큘럼 조정 채팅 (needsTts 지원) ---
     @Transactional
     public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -315,7 +378,7 @@ public class TutorService {
             log.error("History Save Error", e);
         }
 
-        // [수정 포인트] TTS 생성 (needsTts가 true일 때만 생성)
+        // TTS 생성 (조건부)
         String audioUrl = null;
         if (needsTts) {
             audioUrl = generateTtsAudio(aiResponse, personaName);
@@ -324,10 +387,17 @@ public class TutorService {
         return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
     }
 
-    // --- [5] 음성 인식 (STT) ---
+    // --- [6] 음성 인식 (STT) ---
     public String convertSpeechToText(MultipartFile audio) {
         try {
-            File tempFile = File.createTempFile("stt_", ".mp3");
+            // [Fix] 프론트엔드에서 audio/webm으로 보내므로 확장자 처리
+            String originalFilename = audio.getOriginalFilename();
+            String extension = ".webm"; // 기본값 (브라우저 표준)
+            if (originalFilename != null && originalFilename.contains(".")) {
+                extension = originalFilename.substring(originalFilename.lastIndexOf("."));
+            }
+
+            File tempFile = File.createTempFile("stt_", extension);
             audio.transferTo(tempFile);
 
             String text = transcriptionModel.call(new AudioTranscriptionPrompt(new FileSystemResource(tempFile))).getResult().getOutput();
@@ -340,13 +410,13 @@ public class TutorService {
         }
     }
 
-    // --- [6] 학생 피드백 저장 ---
+    // --- [7] 학생 피드백 저장 ---
     @Transactional
     public void saveStudentFeedback(TutorDTO.TutorReviewRequest request) {
         studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
     }
 
-    // --- [7] 시험 생성 ---
+    // --- [8] 시험 생성 ---
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId, int startDay, int endDay) {
         List<TutorDTO.ExamGenerateResponse.ExamQuestion> questions = new ArrayList<>();
@@ -354,7 +424,7 @@ public class TutorService {
         return new TutorDTO.ExamGenerateResponse("주간 평가", questions);
     }
 
-    // --- [8] 시험 제출 ---
+    // --- [9] 시험 제출 ---
     @Transactional
     public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
         return new TutorDTO.ExamResultResponse(
@@ -362,7 +432,7 @@ public class TutorService {
         );
     }
 
-    // --- [9] 커스텀 튜터 이름 변경 ---
+    // --- [10] 커스텀 튜터 이름 변경 ---
     @Transactional
     public void renameCustomTutor(Long planId, String newName) {
         StudyPlanEntity plan = studyMapper.findById(planId);

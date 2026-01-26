@@ -12,7 +12,7 @@ public class TutorDTO {
             String dailyMood,
             String personaName, // [필수] 선택한 선생님 (예: TURTLE)
             String customOption, // [New] 커스텀 요구사항 (예: "사투리로 설명해줘")
-            boolean needsTts     // [New] TTS 생성 여부 플래그 (수정됨)
+            boolean needsTts     // [New] TTS 생성 여부 플래그
     ) {}
 
     // 2. 수업 시작 응답
@@ -57,7 +57,7 @@ public class TutorDTO {
     public record FeedbackChatRequest(
             Long planId,
             String message,
-            boolean needsTts // [New] TTS 생성 여부 플래그 (수정됨)
+            boolean needsTts // [New] TTS 생성 여부 플래그
     ) {}
 
     // 7. 커리큘럼 조정 채팅 응답
@@ -99,5 +99,21 @@ public class TutorDTO {
             String aiComment,
             List<String> wrongAnswerNotes,
             boolean isPassed
+    ) {}
+
+    // --- [New] 세션(모드) 변경 알림 요청 ---
+    public record SessionStartRequest(
+            Long planId,
+            String sessionMode, // CLASS, BREAK, TEST, etc.
+            String personaName,
+            int dayCount,
+            boolean needsTts
+    ) {}
+
+    // --- [New] 세션(모드) 변경 알림 응답 (수정됨) ---
+    public record SessionStartResponse(
+            String aiMessage,
+            String audioUrl,
+            String imageUrl // [New] 세션별 상황 이미지 (예: 쉬는시간 이미지)
     ) {}
 }

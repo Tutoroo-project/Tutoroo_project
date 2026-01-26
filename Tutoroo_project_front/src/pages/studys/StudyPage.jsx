@@ -41,9 +41,11 @@ function StudyPage() {
   const mediaRecorderRef = useRef(null); 
   const audioChunksRef = useRef([]);
 
-  const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || tigerImg;
+  // [수정] 기본 이미지를 캥거루로 변경 (선택된 ID가 없을 경우 대비)
+  const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
 
   useEffect(() => {
+    // startClassSession을 통해 이미 메시지가 로드된 상태라면 중복 호출 방지 로직이 Store 내부에 있음
     initializeStudySession();
   }, []); 
 

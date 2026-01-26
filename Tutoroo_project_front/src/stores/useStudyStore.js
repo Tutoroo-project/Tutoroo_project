@@ -13,7 +13,7 @@ const SESSION_SEQUENCE = [
   "REVIEW"            
 ];
 
-//  모드별 라벨 및 기본 시간 (AI가 시간을 안 줬을 때 사용)
+//  모드별 라벨 및 기본 시간
 export const SESSION_MODES = {
   CLASS: { label: "수업", defaultTime: 50 * 60 },
   BREAK: { label: "쉬는 시간", defaultTime: 10 * 60 },
@@ -30,7 +30,9 @@ const useStudyStore = create((set, get) => ({
   planId: null,     
   studyGoal: "",   
   isLoading: false,
-  selectedTutorId: "tiger",
+  
+  // [수정] 기본 튜터를 'kangaroo'로 변경
+  selectedTutorId: "kangaroo",
   
   messages: [],
   isChatLoading: false,
@@ -45,7 +47,7 @@ const useStudyStore = create((set, get) => ({
   currentStepIndex: 0,
   sessionSchedule: {},
 
-  //대시보드에서 플랜 정보(이름 포함) 설정
+  // 대시보드에서 플랜 정보(이름 포함) 설정
   setPlanInfo: (planId, goal) => {
     set({ planId, studyGoal: goal });
   },
@@ -64,7 +66,8 @@ const useStudyStore = create((set, get) => ({
         studyDay: data.currentDay || 1, 
         planId: data.planId, 
         studyGoal: data.goal, 
-        selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "tiger" 
+        // [수정] 서버 데이터가 없으면 기본값 'kangaroo' 사용
+        selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo" 
       }); 
     } catch (error) {
       console.error("로드 실패:", error);
@@ -74,11 +77,17 @@ const useStudyStore = create((set, get) => ({
   },
 
   initializeStudySession: async () => {
+    // [최적화] 이미 startClassSession을 통해 메시지가 로드되었다면 API 중복 호출 방지
+    const currentMessages = get().messages;
+    if (currentMessages.length > 0 && get().currentMode === "CLASS") {
+        return; 
+    }
+
     set({ isLoading: true, isChatLoading: true });
     try {
         const { planId, studyDay, selectedTutorId } = get();
 
-        // 수업 시작 요청 (studyGoal은 이미 setPlanInfo로 설정됨)
+        // 수업 시작 요청
         const classRes = await studyApi.startClass({
             planId: planId, 
             dayCount: studyDay,
@@ -120,7 +129,6 @@ const useStudyStore = create((set, get) => ({
       isTimerRunning: duration > 0 
     });
     
-    // 모드 변경 시스템 메시지 (선택사항)
     set((state) => ({
         messages: [...state.messages, { type: 'SYSTEM', content: `[${config.label}] 세션이 시작되었습니다.` }]
     }));
@@ -129,7 +137,6 @@ const useStudyStore = create((set, get) => ({
   updateTimeLeft: (newTime) => set({ timeLeft: newTime }),
   toggleSpeaker: () => set((state) => ({ isSpeakerOn: !state.isSpeakerOn })),
 
-  // 타이머 및 자동 단계 이동
   tick: () => {
     const { timeLeft, isTimerRunning } = get();
     if (!isTimerRunning) return;
@@ -137,7 +144,6 @@ const useStudyStore = create((set, get) => ({
     if (timeLeft > 0) {
       set({ timeLeft: timeLeft - 1 });
     } else {
-      // 시간이 다 되면 다음 단계로
       get().nextSessionStep();
     }
   },
@@ -150,11 +156,9 @@ const useStudyStore = create((set, get) => ({
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
       
-      // 다음 모드 시작
       get().setupMode(nextMode, sessionSchedule);
 
     } else {
-      // 모든 시퀀스 종료
       set({ isTimerRunning: false });
       set((state) => ({
         messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인해보세요." }]
@@ -162,7 +166,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
   
-  // 수동 수업 시작 
+  // 수동 수업 시작 (튜터 선택 페이지에서 호출)
   startClassSession: async (tutorInfo, navigate) => {
     set({ isLoading: true });
     const { planId, studyDay } = get();
@@ -178,7 +182,7 @@ const useStudyStore = create((set, get) => ({
       const res = await studyApi.startClass({
         planId: planId, 
         dayCount: studyDay,
-        personaName: tutorInfo.id.toUpperCase(), 
+        personaName: tutorInfo.id.toUpperCase(), // API에는 대문자로 전송
         dailyMood: "HAPPY",
         customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null 
       });
@@ -186,7 +190,8 @@ const useStudyStore = create((set, get) => ({
       const aiSchedule = res.schedule || {};
 
       set({ 
-        selectedTutorId: tutorInfo.id,
+        // [핵심 수정] Store에는 소문자로 저장해야 StudyPage에서 이미지를 제대로 찾습니다.
+        selectedTutorId: tutorInfo.id.toLowerCase(), 
         messages: [{
           type: 'AI',
           content: res.aiMessage,

@@ -151,15 +151,15 @@ function LoginModal() {
         {/* 소셜 로그인 API 연동 예정 (백엔드 붙으면)*/}
         <div css={s.socialRow}>
           <button css={[s.socialBtn]} onClick={handleNaverLogin} type="button">
-            <img src={naverIcon} css={s.naver} />
+            <img src={naverIcon}/>
           </button>
 
           <button css={[s.socialBtn]} onClick={handleGoogleLogin} type="button">
-            <img src={googleIcon} css={s.google} />
+            <img src={googleIcon} />
           </button>
 
           <button css={[s.socialBtn]} onClick={handleKakaoLogin} type="button">
-            <img src={kakaoIcon} css={s.kakao} />
+            <img src={kakaoIcon}/>
           </button>
         </div>
       </div>

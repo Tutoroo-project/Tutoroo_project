@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import Header from "../../components/layouts/Header";
 import * as s from "./styles";
 import { api } from "../../apis/configs/axiosConfig";
+import { adoptPet, getAdoptablePets, getPetStatus, interactWithPet } from "../../apis/pet/petApi";
 
 function Pet() {
   // ... (기존 State, API 로직 그대로 유지) ...
@@ -13,6 +14,62 @@ function Pet() {
   const [petStatus, setPetStatus] = useState(null);
   const [isNoPet, setIsNoPet] = useState(false);
   const [adoptableList, setAdoptableList] = useState([]);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    try {
+      const status = await getPetStatus();
+
+      if (status) {
+        setPetStatus(status);
+        setIsNoPet(false);
+      } else {
+        setIsNoPet(true);
+        setPetStatus(null);
+
+        const listResponse = await getAdoptablePets();
+        setAdoptableList(listResponse.availablePets || []);
+      }
+    } catch (error) {
+      console.error("데이터 로딩 실패: ", error) ;
+      alert("데이터를 불러오는 중 문제가 발생했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData])
+
+  const handleAdopt = async (petType) => { 
+    if (!window.confirm("이 친구로 입양하시겠습니까?")) return;
+    try {
+      await adoptPet(petType);
+      alert("입양 성공! 새로운 친구가 생겼어요.");
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      alert("입양 중 오류가 발생했습니다.")
+    }
+  };
+
+  const handleInteract = async (actionType) => {
+    try {
+      const updateStatus = await interactWithPet(actionType);
+      setPetStatus(updateStatus);
+    } catch (error) {
+      console.log(error);
+
+      if (error.response && error.response.data && error.response.data.data.message) {
+        alert(error.response.data.message);
+      } else {
+        alert ("적용 실패!!")
+      }
+    }
+  };
+
+  
 
   // (fetchStatus, handleAdopt, handleInteract 등 위쪽 코드는 기존과 동일하므로 생략)
   // 아래 헬퍼 함수부터 수정합니다.

@@ -13,6 +13,9 @@ export const getPetStatus = async () => {
         return response.data;
     } catch (error) {
         // 404는 펫이 없는 경우이므로 에러가 아닌 null 처리를 위해 throw
+        if (error.response && error.response.status === 404) {
+            return null;
+        }
         throw error;
     }
 };

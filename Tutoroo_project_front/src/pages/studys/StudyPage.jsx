@@ -20,6 +20,9 @@ const TUTOR_IMAGES = {
   dragon: dragonImg 
 };
 
+// [New] API 기본 URL 설정 (환경변수 없으면 로컬호스트 기본값)
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080";
+
 function StudyPage() {
   const { 
     messages, 
@@ -41,7 +44,7 @@ function StudyPage() {
   const mediaRecorderRef = useRef(null); 
   const audioChunksRef = useRef([]);
 
-  // [수정] 기본 이미지를 캥거루로 변경 (선택된 ID가 없을 경우 대비)
+  // 기본 이미지를 캥거루로 변경 (선택된 ID가 없을 경우 대비)
   const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
 
   useEffect(() => {
@@ -49,19 +52,34 @@ function StudyPage() {
     initializeStudySession();
   }, []); 
 
+  // 스크롤 자동 이동
   useEffect(() => {
     if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
   }, [messages, isChatLoading, isRecording]);
 
+  // [수정] TTS 자동 재생 로직 (경로 문제 해결)
   useEffect(() => {
     if (messages.length > 0 && isSpeakerOn) {
       const lastMsg = messages[messages.length - 1];
+      
+      // AI 메시지이고 오디오 URL이 있는 경우
       if (lastMsg.type === 'AI' && lastMsg.audioUrl) {
         audioRef.current.pause();
-        audioRef.current.src = lastMsg.audioUrl;
-        audioRef.current.play().catch(e => console.log("Audio play blocked:", e));
+        
+        // [핵심] URL이 http로 시작하지 않으면(상대경로면) 백엔드 주소를 붙여줌
+        const fullUrl = lastMsg.audioUrl.startsWith("http") 
+          ? lastMsg.audioUrl 
+          : `${API_BASE_URL}${lastMsg.audioUrl}`;
+
+        audioRef.current.src = fullUrl;
+        
+        // 브라우저 정책상 사용자 인터랙션 없이는 자동 재생이 막힐 수 있음 (예외처리)
+        audioRef.current.play().catch(e => {
+            console.log("Audio play blocked (user interaction needed):", e);
+        });
       }
     } else {
+        // 스피커가 꺼져있으면 재생 중단
         audioRef.current.pause(); 
     }
   }, [messages, isSpeakerOn]);
@@ -76,16 +94,24 @@ function StudyPage() {
     if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSend();
   };
 
+  // [수정] STT 녹음 시작 (webm 포맷 적용)
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      mediaRecorderRef.current = new MediaRecorder(stream);
+      
+      // 브라우저 호환성을 위해 webm 선호 (없으면 빈 문자열로 기본값 사용)
+      const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
+      mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
+      
       audioChunksRef.current = [];
+      
       mediaRecorderRef.current.ondataavailable = (event) => {
         if (event.data.size > 0) audioChunksRef.current.push(event.data);
       };
+      
       mediaRecorderRef.current.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/mp3" });
+        // [핵심] mp3 -> webm으로 변경 (OpenAI Whisper 호환성 및 브라우저 지원 최적화)
+        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
         setIsRecording(false);
         try {
           const text = await studyApi.uploadAudio(audioBlob);
@@ -94,11 +120,14 @@ function StudyPage() {
             console.error("STT Error", e);
             alert("음성 인식에 실패했습니다.");
         }
+        // 녹음 종료 후 스트림 트랙 정지 (마이크 아이콘 꺼짐 처리)
         stream.getTracks().forEach(track => track.stop());
       };
+      
       mediaRecorderRef.current.start();
       setIsRecording(true);
     } catch (e) {
+      console.error("Mic access error:", e);
       alert("마이크 접근 권한이 필요합니다.");
     }
   };

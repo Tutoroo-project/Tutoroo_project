@@ -11,7 +11,8 @@ public class TutorDTO {
             int dayCount,
             String dailyMood,
             String personaName, // [필수] 선택한 선생님 (예: TURTLE)
-            String customOption // [New] 커스텀 요구사항 (예: "사투리로 설명해줘")
+            String customOption, // [New] 커스텀 요구사항 (예: "사투리로 설명해줘")
+            Boolean needsTts    // [추가] TTS 생성 여부 (true일 때만 오디오 생성)
     ) {}
 
     // 2. 수업 시작 응답
@@ -38,7 +39,8 @@ public class TutorDTO {
     // 4. 테스트 제출 요청
     public record TestSubmitRequest(
             Long planId,
-            String textAnswer
+            String textAnswer,
+            Boolean needsTts // [추가] TTS 생성 여부
     ) {}
 
     // 5. 테스트 피드백 응답
@@ -55,7 +57,8 @@ public class TutorDTO {
     // 6. 커리큘럼 조정 채팅 요청
     public record FeedbackChatRequest(
             Long planId,
-            String message
+            String message,
+            Boolean needsTts // [추가] TTS 생성 여부
     ) {}
 
     // 7. 커리큘럼 조정 채팅 응답

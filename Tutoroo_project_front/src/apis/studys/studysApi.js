@@ -20,9 +20,15 @@ export const studyApi = {
     return response.data;
   },
 
-  // 메시지 전송
-  sendChatMessage: async (message) => {
-    const response = await api.post("/api/study/chat/simple", { message });
+  // 메시지 전송 (채팅) - [수정] needsTts 지원을 위해 TutorController 엔드포인트 사용
+  sendChatMessage: async ({ planId, message, needsTts }) => {
+    // 기존 /api/study/chat/simple 은 needsTts를 받지 못하므로
+    // DTO 구조가 변경된 /api/tutor/feedback/chat 을 사용합니다.
+    const response = await api.post("/api/tutor/feedback/chat", { 
+      planId, 
+      message, 
+      needsTts 
+    });
     return response.data;
   },
 
@@ -32,19 +38,20 @@ export const studyApi = {
     return response.data;
   },
 
-  // 수업 시작하기
-  startClass: async ({ planId, dayCount, personaName, dailyMood, customOption }) => {
+  // 수업 시작하기 - [수정] needsTts 파라미터 추가
+  startClass: async ({ planId, dayCount, personaName, dailyMood, customOption, needsTts }) => {
     const response = await api.post("/api/tutor/class/start", {
       planId,
       dayCount,
       personaName,
       dailyMood,
-      customOption, // [New] 커스텀 요구사항 전송
+      customOption, // 커스텀 요구사항
+      needsTts,     // [추가] TTS 생성 여부 (true/false)
     });
     return response.data;
   },
 
-  //음성 인식 (STT) - 오디오 파일 전송
+  // 음성 인식 (STT) - 오디오 파일 전송
   uploadAudio: async (audioBlob) => {
     const formData = new FormData();
     formData.append("audio", audioBlob, "speech.mp3");
@@ -53,6 +60,7 @@ export const studyApi = {
     return response.data; 
   },
 
+  // 복습 자료 PDF 다운로드
   downloadReviewPdf: async (planId, dayCount) => {
     const response = await api.get(`/api/study/review/download`, {
         params: { planId, dayCount },

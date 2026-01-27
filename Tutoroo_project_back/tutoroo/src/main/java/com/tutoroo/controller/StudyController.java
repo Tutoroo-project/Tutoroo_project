@@ -51,6 +51,17 @@ public class StudyController {
         return ResponseEntity.ok(assessmentService.createStudentRoadmap(user.getId(), request));
     }
 
+    @GetMapping("/plans/{planId}")
+    @Operation(summary = "특정 플랜 상세 조회", description = "선택한 학습 플랜의 상세/로드맵 정보를 조회합니다.")
+    public ResponseEntity<StudyDTO.PlanDetailResponse> getPlanDetail(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @PathVariable Long planId
+    ) {
+        if (user == null) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+        return ResponseEntity.ok(studyService.getPlanDetail(user.getId(), planId));
+    }
+
+
     @DeleteMapping("/plans/{planId}")
     @Operation(summary = "학습 플랜 삭제", description = "진행 중인 학습 플랜을 삭제합니다.")
     public ResponseEntity<Void> deleteStudyPlan(

@@ -63,8 +63,41 @@ public class StudyService {
                 .persona(currentPlan.getPersona())
                 .customTutorName(currentPlan.getCustomTutorName())
                 .progressRate(currentPlan.getProgressRate())
+                .startDate(currentPlan.getStartDate())
+                .endDate(currentPlan.getEndDate())
                 .roadmap(roadmapData)
                 .daysRemaining(currentPlan.getDaysRemaining())
+                .build();
+    }
+
+    @Transactional(readOnly = true)
+    public StudyDTO.PlanDetailResponse getPlanDetail(Long userId, Long planId) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+
+        if (!plan.getUserId().equals(userId)) {
+            throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+        }
+
+        AssessmentDTO.RoadmapData roadmapData = null;
+        try {
+            if (StringUtils.hasText(plan.getRoadmapJson())) {
+                roadmapData = objectMapper.readValue(plan.getRoadmapJson(), AssessmentDTO.RoadmapData.class);
+            }
+        } catch (JsonProcessingException e) {
+            log.error("⚠️ 로드맵 JSON 파싱 실패 (PlanId: {}): {}", plan.getId(), e.getMessage());
+        }
+
+        return StudyDTO.PlanDetailResponse.builder()
+                .planId(plan.getId())
+                .goal(plan.getGoal())
+                .persona(plan.getPersona())
+                .customTutorName(plan.getCustomTutorName())
+                .progressRate(plan.getProgressRate())
+                .startDate(plan.getStartDate())
+                .endDate(plan.getEndDate())
+                .roadmap(roadmapData)
+                .daysRemaining(plan.getDaysRemaining())
                 .build();
     }
 

@@ -2,6 +2,7 @@ package com.tutoroo.dto;
 
 import lombok.Builder;
 import java.util.List;
+import java.time.LocalDate;
 
 public class StudyDTO {
 
@@ -23,6 +24,8 @@ public class StudyDTO {
             String persona,
             String customTutorName,
             double progressRate,
+            LocalDate startDate,
+            LocalDate endDate,
 
             // [진짜 빙산] 상세 로드맵 데이터 (RoadmapData 구조 그대로 반환)
             AssessmentDTO.RoadmapData roadmap,

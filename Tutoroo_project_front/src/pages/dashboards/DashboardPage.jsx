@@ -15,11 +15,19 @@ import * as s from "./styles";
 // 요일 이름
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
 
+function toYmd(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 // 기준 날짜를 기준으로 한 주 7일 날짜 정보 생성
 function getWeekDates(offset = 0) {
   const today = new Date();
   const day = today.getDay();
   const start = new Date(today);
+  start.setHours(0, 0, 0, 0);
   start.setDate(today.getDate() - day + offset * 7);
 
   return Array.from({ length: 7 }, (_, i) => {
@@ -28,6 +36,8 @@ function getWeekDates(offset = 0) {
 
     return {
       label: `${date.getDate()}일 (${DAY_NAMES[date.getDay()]})`,
+      iso: toYmd(date),
+      dateObj: date,
     };
   });
 }
@@ -41,7 +51,7 @@ function DashboardPage() {
   const user = useAuthStore((state) => state.user);
   const openLogin = useModalStore((state) => state.openLogin);
   const openStudyPlan = useModalStore((state) => state.openStudyPlan);
-  
+
   // [New] 학습 정보 설정을 위한 액션 가져오기
   const setPlanInfo = useStudyStore((state) => state.setPlanInfo);
 
@@ -49,17 +59,91 @@ function DashboardPage() {
   const [dashboardData, setDashboardData] = useState(null);
 
   // 학습 목록 및 선택 상태
-  const [studyList, setStudyList] = useState([]); 
-  const [selectedStudyId, setSelectedStudyId] = useState(""); 
+  const [studyList, setStudyList] = useState([]);
+  const [selectedStudyId, setSelectedStudyId] = useState("");
 
   const userName = dashboardData?.name || user?.name || "OOO";
 
   // 캘린더 관련 상태
-  const [weekOffset, setWeekOffset] = useState(0); 
-  const [selectedIndex, setSelectedIndex] = useState(0); 
+  const [weekOffset, setWeekOffset] = useState(0);
+  const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
 
   const dates = getWeekDates(weekOffset);
+
+  useEffect(() => {
+    const todayIso = toYmd(new Date());
+    const idx = dates.findIndex((d) => d.iso === todayIso);
+    setSelectedIndex(idx >= 0 ? idx : 0);
+  }, [weekOffset]);
+
+  const [planDetail, setPlanDetail] = useState(null);
+  const [curriculumByDate, setCurriculumByDate] = useState({});
+  const [doneByIso, setDoneByIso] = useState({});
+
+  function parseYmdToDate(ymd) {
+    if (!ymd) return null;
+    const [y, m, d] = ymd.split("-").map(Number);
+    return new Date(y, m - 1, d);
+  }
+
+  function getDayNo(dayStr) {
+    const m = String(dayStr ?? "").match(/(\d+)/);
+    return m ? Number(m[1]) : null;
+  }
+
+  function flattenCurriculum(detailedCurriculum) {
+    const list = [];
+    if (!detailedCurriculum) return list;
+    Object.entries(detailedCurriculum).forEach(([week, days]) => {
+      (days ?? []).forEach((d) => {
+        const dayNo = getDayNo(d.day);
+        if (!dayNo) return;
+        list.push({ ...d, dayNo, week });
+      });
+    });
+
+    return list.sort((a, b) => a.dayNo - b.dayNo);
+  }
+
+  //  선택된 학습(planId) 바뀔 때마다 로드맵 불러오기
+  useEffect(() => {
+    if (!user || !selectedStudyId) return;
+
+    const fetchPlan = async () => {
+      try {
+        const detail = await studyApi.getPlanDetail(selectedStudyId);
+        setPlanDetail(detail);
+      } catch (e) {
+        console.error("플랜 상세 조회 실패:", e);
+        setPlanDetail(null);
+      }
+    };
+
+    fetchPlan();
+  }, [user, selectedStudyId]);
+
+  useEffect(() => {
+    const detailed = planDetail?.roadmap?.detailedCurriculum;
+    const startYmd = planDetail?.startDate;
+
+    if (!detailed || !startYmd) {
+      setCurriculumByDate({});
+      return;
+    }
+
+    const start = parseYmdToDate(startYmd);
+    const flat = flattenCurriculum(detailed);
+
+    const map = {};
+    flat.forEach((item) => {
+      const d = new Date(start);
+      d.setDate(start.getDate() + (item.dayNo - 1));
+      map[toYmd(d)] = item;
+    });
+
+    setCurriculumByDate(map);
+  }, [planDetail]);
 
   // 로그인 체크
   useEffect(() => {
@@ -70,7 +154,7 @@ function DashboardPage() {
   // 학습 목록이 로드되면 첫 번째 항목 자동 선택
   useEffect(() => {
     if (studyList.length > 0 && !selectedStudyId) {
-      setSelectedStudyId(studyList[0].id);
+      setSelectedStudyId(String(studyList[0].id));
     }
   }, [studyList, selectedStudyId]);
 
@@ -87,7 +171,6 @@ function DashboardPage() {
         // 2. 학습 목록
         const list = await studyApi.getStudyList();
         setStudyList(Array.isArray(list) ? list : []);
-
       } catch (e) {
         console.error("데이터 조회 실패 :", e);
       }
@@ -102,7 +185,9 @@ function DashboardPage() {
       return;
     }
 
-    const selectedStudy = studyList.find(s => String(s.id) === String(selectedStudyId));
+    const selectedStudy = studyList.find(
+      (s) => String(s.id) === String(selectedStudyId),
+    );
     const studyName = selectedStudy ? selectedStudy.name : "학습";
 
     setPlanInfo(Number(selectedStudyId), studyName);
@@ -120,10 +205,7 @@ function DashboardPage() {
             <div css={s.greetingText}>
               <div css={s.titleRow}>
                 <h2>반가워요 {userName}님!</h2>
-                <button 
-                  css={s.petBtn} 
-                  onClick={() => navigate("/pet")} 
-                >
+                <button css={s.petBtn} onClick={() => navigate("/pet")}>
                   🐶 마이 펫
                 </button>
               </div>
@@ -143,7 +225,7 @@ function DashboardPage() {
                   {studyList.length === 0 ? "학습이 없습니다" : "학습 선택"}
                 </option>
                 {studyList.map((study) => (
-                  <option key={study.id} value={study.id}>
+                  <option key={study.id} value={String(study.id)}>
                     {study.name}
                   </option>
                 ))}
@@ -164,10 +246,7 @@ function DashboardPage() {
               </button>
 
               {/* 학습 시작 버튼 */}
-              <button
-                css={s.studyBtn}
-                onClick={handleStartStudy}
-              >
+              <button css={s.studyBtn} onClick={handleStartStudy}>
                 학습하러 가기
               </button>
             </div>
@@ -177,7 +256,9 @@ function DashboardPage() {
           <section css={s.cards}>
             <div css={s.card}>
               <span>현재학습 목표</span>
-              <strong>{dashboardData?.currentGoal || "설정된 목표가 없습니다."}</strong>
+              <strong>
+                {dashboardData?.currentGoal || "설정된 목표가 없습니다."}
+              </strong>
             </div>
 
             <div css={s.card}>
@@ -194,7 +275,9 @@ function DashboardPage() {
               style={{ cursor: "pointer" }}
             >
               <span>누적 포인트 / 랭킹</span>
-              <strong css={s.pointText}>{dashboardData?.totalPoints || 0} P</strong>
+              <strong css={s.pointText}>
+                {dashboardData?.totalPoints || 0} P
+              </strong>
               <p css={s.rankText}>현재 전체 {dashboardData?.rank || "-"}위</p>
             </div>
           </section>
@@ -212,16 +295,48 @@ function DashboardPage() {
             </button>
 
             <div css={s.calendarRow}>
-              {dates.map((date, i) => (
-                <div
-                  key={i}
-                  css={s.calendarCard(i === selectedIndex)}
-                  onClick={() => setSelectedIndex(i)}
-                >
-                  <div css={s.calendarHeader}>{date.label}</div>
-                  <div css={s.calendarBody} />
-                </div>
-              ))}
+              {dates.map((date, i) => {
+                const isToday = date.iso === toYmd(new Date());
+                const done = doneByIso[date.iso]; // { isDone, maxScore, topic }
+
+                return (
+                  <div
+                    key={date.iso ?? i}
+                    css={s.calendarCard(i === selectedIndex, isToday)}
+                    onClick={() => setSelectedIndex(i)}
+                  >
+                    <div css={s.calendarHeader}>
+                      <span css={s.headerLabel}>{date.label}</span>
+
+                      <div css={s.headerBadges}>
+                        {isToday && <span css={s.todayBadge}>오늘</span>}
+                        {done?.isDone && <span css={s.doneBadge}>✔</span>}
+                      </div>
+                    </div>
+
+                    <div css={s.calendarBody}>
+                      {!curriculumByDate?.[date.iso] ? (
+                        <div css={s.emptyCurriculum}>일정 없음</div>
+                      ) : (
+                        <>
+                          <div css={s.dayBadge}>
+                            Day {curriculumByDate[date.iso].dayNo}
+                          </div>
+                          <div css={s.topicText}>
+                            {curriculumByDate[date.iso].topic}
+                          </div>
+                          <div css={s.metaText}>
+                            {curriculumByDate[date.iso].method}
+                          </div>
+                          <div css={s.metaText}>
+                            {curriculumByDate[date.iso].material}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
 
             <button

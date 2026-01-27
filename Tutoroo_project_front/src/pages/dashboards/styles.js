@@ -140,10 +140,22 @@ export const progressRow = css`
 `;
 
 export const progressBar = css`
-  height: 16px;
+  height: 20px;
   background: #eee;
   border-radius: 8px;
+  overflow: hidden;
 `;
+
+export const progressFill = (percent = 0) => {
+  const safe = Math.min(100, Math.max(0, Number(percent) || 0));
+  return css`
+    height: 100%;
+    width: ${safe}%;
+    background: #ff8a3d;
+    border-radius: 8px;
+    transition: width 0.25s ease;
+  `;
+};
 
 export const progressText = css`
   position: absolute;

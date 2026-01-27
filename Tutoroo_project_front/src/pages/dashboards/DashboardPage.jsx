@@ -1,8 +1,9 @@
 /** @jsxImportSource @emotion/react */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { studyApi } from "../../apis/studys/studysApi";
 import { userApi } from "../../apis/users/usersApi";
+import { rankingApi } from "../../apis/ranking/rankingApi";
 import Header from "../../components/layouts/Header";
 import ModalRoot from "../../components/modals/ModalRoot";
 import StudyChart from "../../components/charts/StudyChart";
@@ -73,11 +74,17 @@ function DashboardPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
 
-  const dates = getWeekDates(weekOffset);
+  const dates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
 
   // 차트 관련 상태
   const [chartData, setChartData] = useState([]);
   const [weeklyRate, setWeeklyRate] = useState(0);
+
+  const [myDash, setMyDash] = useState(null);
+
+  const progressRate = Number.isFinite(weeklyRate)
+    ? Math.min(100, Math.max(0, weeklyRate))
+    : 0;
 
   useEffect(() => {
     const todayIso = toYmd(new Date());
@@ -113,6 +120,34 @@ function DashboardPage() {
 
     return list.sort((a, b) => a.dayNo - b.dayNo);
   }
+
+  const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+  function getWeekStartSunday(d) {
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    x.setDate(x.getDate() - x.getDay());
+    return x;
+  }
+
+  function calcWeekNo(startYmd, weekStartDate) {
+    if (!startYmd || !weekStartDate) return null;
+
+    const start = parseYmdToDate(startYmd);
+    if (!start) return null;
+
+    const baseSunday = getWeekStartSunday(start);
+    const currentSunday = getWeekStartSunday(weekStartDate);
+
+    const diffWeeks = Math.floor((currentSunday - baseSunday) / MS_WEEK);
+    return Math.max(1, diffWeeks + 1);
+  }
+
+  const weekNo = useMemo(() => {
+    const startYmd = planDetail?.startDate;
+    const weekStart = dates?.[0]?.dateObj;
+    return calcWeekNo(startYmd, weekStart);
+  }, [planDetail?.startDate, dates]);
 
   //  선택된 학습(planId) 바뀔 때마다 로드맵 불러오기
   useEffect(() => {
@@ -169,19 +204,25 @@ function DashboardPage() {
   // 데이터 조회 (대시보드 + 학습 목록)
   useEffect(() => {
     if (!user) return;
-    if (!showDetail) return;
+    if (!selectedStudyId) return;
+
+    let alive = true;
 
     const fetchChart = async () => {
       try {
         const ymSet = new Set(dates.map((d) => `${d.year}-${d.month}`));
         const ymList = Array.from(ymSet).map((k) => {
           const [year, month] = k.split("-").map(Number);
-          return { year: year, month: month };
+          return { year, month };
         });
 
         const results = await Promise.all(
           ymList.map(({ year, month }) =>
-            studyApi.getMonthlyCalendar({ year, month }),
+            studyApi.getMonthlyCalendar({
+              year,
+              month,
+              planId: Number(selectedStudyId),
+            }),
           ),
         );
 
@@ -200,8 +241,6 @@ function DashboardPage() {
           });
         });
 
-        setDoneByIso(mapByIso);
-
         const nextChart = dates.map((d) => {
           const log = mapByIso[d.iso];
           return {
@@ -212,31 +251,42 @@ function DashboardPage() {
         });
 
         const doneCount = nextChart.filter((x) => x.completed).length;
-        setWeeklyRate(Math.round((doneCount / nextChart.length) * 100));
+        const rate = nextChart.length
+          ? Math.round((doneCount / nextChart.length) * 100)
+          : 0;
+        if (!alive) return;
+        setDoneByIso(mapByIso);
         setChartData(nextChart);
+        setWeeklyRate(rate);
       } catch (e) {
         console.error("차트/캘린더 데이터 조회 실패:", e);
+        if (!alive) return;
         setChartData([]);
         setWeeklyRate(0);
       }
     };
     fetchChart();
-  }, [user, showDetail, weekOffset, selectedStudyId]);
+    return () => {
+      alive = false;
+    };
+  }, [user, weekOffset, selectedStudyId]);
 
   useEffect(() => {
     if (!user) return;
-    const fetchData = async () => {
-      try {
-        // 1. 대시보드 정보
-        const dashboard = await userApi.getDashboard();
-        setDashboardData(dashboard);
 
-        // 2. 학습 목록
-        const list = await studyApi.getStudyList();
+    const fetchData = async () => {
+      const [dashRes, listRes, myRes] = await Promise.allSettled([
+        userApi.getDashboard(),
+        studyApi.getStudyList(),
+        rankingApi.getRankings(),
+      ]);
+
+      if (dashRes.status === "fulfilled") setDashboardData(dashRes.value);
+      if (listRes.status === "fulfilled") {
+        const list = listRes.value;
         setStudyList(Array.isArray(list) ? list : []);
-      } catch (e) {
-        console.error("데이터 조회 실패 :", e);
       }
+      if (myRes.status === "fulfilled") setMyDash(myRes.value?.myRank ?? null);
     };
     fetchData();
   }, [user]);
@@ -257,6 +307,9 @@ function DashboardPage() {
 
     navigate(`/tutor`);
   };
+
+  const point = myDash?.totalPoint ?? dashboardData?.currentPoint ?? 0;
+  const rankNo = myDash?.rank ?? dashboardData?.rank ?? "-";
 
   return (
     <>
@@ -325,10 +378,14 @@ function DashboardPage() {
             </div>
 
             <div css={s.card}>
-              <span>학습 진도율</span>
+              <span>
+                {weekNo ? `${weekNo}주차 학습 진도율` : "학습 진도율"}
+              </span>
               <div css={s.progressRow}>
-                <div css={s.progressBar} />
-                <span css={s.progressText}>0%</span>
+                <div css={s.progressBar}>
+                  <div css={s.progressFill(progressRate)} />
+                </div>
+                <span css={s.progressText}>{progressRate}%</span>
               </div>
             </div>
 
@@ -338,10 +395,8 @@ function DashboardPage() {
               style={{ cursor: "pointer" }}
             >
               <span>누적 포인트 / 랭킹</span>
-              <strong css={s.pointText}>
-                {dashboardData?.totalPoints || 0} P
-              </strong>
-              <p css={s.rankText}>현재 전체 {dashboardData?.rank || "-"}위</p>
+              <strong css={s.pointText}>{point} P</strong>
+              <p css={s.rankText}>현재 전체 {rankNo}위</p>
             </div>
           </section>
 

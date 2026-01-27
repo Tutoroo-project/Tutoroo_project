@@ -15,8 +15,8 @@ const SESSION_SEQUENCE = [
 
 // 모드별 라벨 및 기본 시간 설정
 export const SESSION_MODES = {
-  CLASS: { label: "수업", defaultTime: 50 * 60 },
-  BREAK: { label: "쉬는 시간", defaultTime: 10 * 60 },
+  CLASS: { label: "수업", defaultTime: 5 * 60 },
+  BREAK: { label: "쉬는 시간", defaultTime: 1 * 60 },
   TEST: { label: "테스트", defaultTime: 15 * 60 },
   GRADING: { label: "채점 중", defaultTime: 10 },
   EXPLANATION: { label: "해설 강의", defaultTime: 10 * 60 },

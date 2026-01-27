@@ -1,5 +1,6 @@
 package com.tutoroo.service;
 
+import com.tutoroo.entity.MembershipTier;
 import com.tutoroo.entity.UserEntity;
 import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.security.CustomUserDetails;
@@ -52,6 +53,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                     .profileImage(userInfo.getProfileImage())
                     .role("ROLE_GUEST") // GUEST 권한 설정
                     .provider(userInfo.getProvider())
+                    .providerId(userInfo.getProviderId())
+                    .membershipTier(MembershipTier.BASIC)
                     .totalPoint(0)
                     .createdAt(LocalDateTime.now())
                     .build();

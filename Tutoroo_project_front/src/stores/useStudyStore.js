@@ -30,11 +30,11 @@ const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
-  selectedTutorId: "kangaroo", // 기본값 (소문자 유지)
+  selectedTutorId: "kangaroo", 
   
   messages: [],
-  isLoading: false,     // 전체 페이지 로딩
-  isChatLoading: false, // 채팅/AI 응답 로딩
+  isLoading: false,     
+  isChatLoading: false, 
 
   // 세션 상태
   currentMode: "CLASS",  
@@ -43,23 +43,22 @@ const useStudyStore = create((set, get) => ({
   sessionSchedule: {},   
   currentStepIndex: 0,   
 
-  // 설정 상태
-  isSpeakerOn: true,     
+  // [수정] 설정 상태 (기본값: false로 변경하여 꺼진 상태로 시작)
+  isSpeakerOn: false,     
 
   // --- [Actions] 동작 함수들 ---
 
-  // 1. [복구됨] 플랜 기본 정보 설정
+  // 1. 플랜 기본 정보 설정
   setPlanInfo: (planId, goal) => {
     set({ planId, studyGoal: goal });
   },
 
-  // 2. [복구됨] 사용자 학습 상태 로드 (대시보드/튜터선택 페이지용)
+  // 2. 사용자 학습 상태 로드
   loadUserStatus: async (specificPlanId = null) => {
     set({ isLoading: true });
     try {
       const targetPlanId = specificPlanId || get().planId;
       
-      // planId가 없으면 로드 중단
       if (!targetPlanId) {
           set({ isLoading: false });
           return;
@@ -72,7 +71,6 @@ const useStudyStore = create((set, get) => ({
             planId: data.planId, 
             studyDay: data.currentDay || 1, 
             studyGoal: data.goal,
-            // 튜터 ID 소문자로 변환하여 프론트 이미지 매핑 오류 방지
             selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo"
         });
       }
@@ -88,18 +86,16 @@ const useStudyStore = create((set, get) => ({
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
-  // 4. 초기 세션 데이터 로드 (StudyPage 진입 시 안전장치)
+  // 4. 초기 세션 데이터 로드
   initializeStudySession: async () => {
-     // 이미 메시지가 있고 수업 중이라면 중복 호출 방지
      if (get().messages.length > 0 && get().currentMode === "CLASS") return;
      
-     // 튜터 선택 페이지를 거치지 않고 바로 들어왔을 경우 상태 로드 시도
      if (!get().planId) {
          await get().loadUserStatus();
      }
   },
 
-  // 5. 수업 시작 (TutorSelectionPage에서 호출)
+  // 5. 수업 시작
   startClassSession: async (tutorInfo, navigate) => {
     set({ isLoading: true, messages: [] });
     const { planId, studyDay, isSpeakerOn } = get();
@@ -111,34 +107,31 @@ const useStudyStore = create((set, get) => ({
     }
 
     try {
-      // 수업 시작 API 호출 (오프닝 멘트 + 스케줄 + 이미지 수신)
+      // 수업 시작 API 호출 (needsTts가 false면 오디오 생성 안 함)
       const res = await studyApi.startClass({
         planId,
         dayCount: studyDay,
-        personaName: tutorInfo.id.toUpperCase(), // API는 대문자 요구
+        personaName: tutorInfo.id.toUpperCase(),
         dailyMood: "NORMAL",
         customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null,
-        needsTts: isSpeakerOn
+        needsTts: isSpeakerOn 
       });
 
-      // 스토어 상태 업데이트
       set({ 
-        selectedTutorId: tutorInfo.id.toLowerCase(), // 프론트는 소문자 사용
+        selectedTutorId: tutorInfo.id.toLowerCase(),
         messages: [{ 
             type: 'AI', 
             content: res.aiMessage, 
             audioUrl: res.audioUrl,
-            imageUrl: res.imageUrl // [New] 이미지 URL 저장
+            imageUrl: res.imageUrl 
         }],
         currentMode: "CLASS",
         currentStepIndex: 0,
         sessionSchedule: res.schedule || {} 
       });
 
-      // 모드 설정 (API 중복 호출 방지를 위해 fetchMessage=false)
       get().setupMode("CLASS", res.schedule || {}, false);
       
-      // 페이지 이동
       navigate("/study");
 
     } catch (error) {
@@ -149,40 +142,36 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 6. 모드 설정 및 AI 멘트/이미지 요청 (핵심 로직)
+  // 6. 모드 설정 및 AI 멘트/이미지 요청
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
-    // 스케줄에 설정된 시간이 있으면 사용, 없으면 기본값
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
 
     set({ 
       currentMode: mode, 
       timeLeft: duration,
       isTimerRunning: duration > 0,
-      isChatLoading: shouldFetchMessage // 메시지를 가져와야 하면 로딩 시작
+      isChatLoading: shouldFetchMessage 
     });
 
-    // 멘트 생성이 필요한 경우 (단계 전환 시)
     if (shouldFetchMessage) {
         try {
             const { planId, selectedTutorId, studyDay, isSpeakerOn } = get();
 
-            // 세션 시작 API 호출
             const res = await studyApi.startSessionMode({
                 planId,
                 sessionMode: mode,
                 personaName: selectedTutorId.toUpperCase(),
                 dayCount: studyDay,
-                needsTts: isSpeakerOn
+                needsTts: isSpeakerOn // 현재 스피커 상태(false) 전달 -> 오디오 생성 X
             });
 
-            // AI 메시지 추가 (이미지 포함)
             set((state) => ({
                 messages: [...state.messages, { 
                     type: 'AI', 
                     content: res.aiMessage, 
                     audioUrl: res.audioUrl,
-                    imageUrl: res.imageUrl // [New] 세션별 이미지 URL 저장
+                    imageUrl: res.imageUrl 
                 }],
                 isChatLoading: false
             }));
@@ -194,13 +183,12 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 7. 타이머 틱 (1초 감소)
+  // 7. 타이머 틱
   tick: () => {
     const { timeLeft, nextSessionStep } = get();
     if (timeLeft > 0) {
       set({ timeLeft: timeLeft - 1 });
     } else {
-      // 시간이 다 되면 다음 단계로
       nextSessionStep();
     }
   },
@@ -213,12 +201,8 @@ const useStudyStore = create((set, get) => ({
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
-      
-      // 다음 모드 설정 (이때 AI 멘트를 요청하도록 true 전달)
       get().setupMode(nextMode, sessionSchedule, true);
-
     } else {
-      // 모든 시퀀스 종료
       set({ isTimerRunning: false });
       set((state) => ({
         messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인해보세요." }]

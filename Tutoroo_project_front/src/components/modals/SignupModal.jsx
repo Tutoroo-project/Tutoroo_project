@@ -579,7 +579,6 @@ function SignUpModal() {
                   });
                   return;
                 }
-                console.log(file);
                 setProfileImage(file);
               }}
             />

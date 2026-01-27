@@ -38,7 +38,6 @@ function OAuth2RedirectPage() {
       }
 
       // 3) 모달 정리
-      closeLogin();
       closeAll();
 
       // 4) 신규유저면 추가정보 모달

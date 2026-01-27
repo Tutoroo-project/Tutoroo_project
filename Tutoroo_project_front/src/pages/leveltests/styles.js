@@ -120,39 +120,6 @@ export const plusBtn = css`
   }
 `;
 
-export const plusMenu = css`
-  position: absolute;
-  bottom: 44px;
-  left: 8px;
-
-  background-color: #fff;
-  border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-
-  padding: 6px;
-  z-index: 20;
-`;
-
-export const menuItem = css`
-  width: 160px;
-  padding: 8px 12px;
-
-  background: none;
-  border: none;
-  border-radius: 8px;
-
-  display: flex;
-  align-items: center;
-  gap: 8px;
-
-  font-size: 14px;
-  cursor: pointer;
-
-  &:hover {
-    background-color: #f5f5f5;
-  }
-`;
-
 export const resultFooter = css`
   width: 100%;
   height: 96px;
@@ -249,22 +216,6 @@ export const sectionTitle = css`
   font-size: 18px;
   font-weight: 600;
   margin-bottom: 16px;
-`;
-
-export const roadmapImageWrapper = css`
-  width: 100%;
-  margin-top: 16px;
-  display: flex;
-  justify-content: center;
-`;
-
-export const roadmapImage = css`
-  width: 100%;
-  max-width: 800px;
-  height: auto;
-  display: block;
-  object-fit: contain;
-  border-radius: 12px;
 `;
 
 export const roadmapHint = css`

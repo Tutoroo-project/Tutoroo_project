@@ -155,13 +155,6 @@ export const cardContent = css`
     }
 `;
 
-export const centerContent = css`
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-`
-
-
 export const actionBtn = css`
     width: 90%;
     height: 55px;

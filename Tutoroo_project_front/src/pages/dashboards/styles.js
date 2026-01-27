@@ -289,13 +289,6 @@ export const doneBadge = css`
   font-weight: 900;
 `;
 
-export const doneInfo = css`
-  margin-top: auto;
-  font-size: 11px;
-  color: #ff8a3d;
-  display: flex;
-  gap: 8px;
-`;
 
 export const dayBadge = css`
   width: fit-content;
@@ -411,9 +404,3 @@ export const feedbackList = css`
   }
 `;
 
-export const chartBox = css`
-  height: 200px;
-  border-radius: 8px;
-  background: #f5f5f5;
-  padding: 12px;
-`;

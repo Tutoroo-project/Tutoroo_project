@@ -95,14 +95,17 @@ CREATE TABLE IF NOT EXISTS `study_logs` (
                                             `content_summary`   TEXT COMMENT '학습 내용 요약',
                                             `daily_summary`     TEXT COMMENT '복습용 상세 요약',
 
+                                            `ai_feedback`        TEXT COLLATE utf8mb4_unicode_ci COMMENT 'AI 강의 피드백',
+                                            `ai_feedback_status` VARCHAR(20) COLLATE utf8mb4_unicode_ci NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/READY/FAILED',
+                                            `ai_feedback_at`     DATETIME NULL COMMENT '피드백 생성 시각',
+
                                             `test_score`        INT DEFAULT 0,
-                                            `ai_feedback`       TEXT COMMENT 'AI 선생님의 피드백',
                                             `student_feedback`  TEXT COMMENT '학생이 남긴 수업 후기 (누락 방지)',
 
                                             `point_change`      INT DEFAULT 0,
                                             `is_completed`      BOOLEAN DEFAULT FALSE,
 
-                                            FOREIGN KEY (`plan_id`) REFERENCES `study_plans`(`id`) ON DELETE CASCADE,
+    FOREIGN KEY (`plan_id`) REFERENCES `study_plans`(`id`) ON DELETE CASCADE,
     INDEX `idx_study_logs_plan_day` (`plan_id`, `day_count`)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

@@ -15,6 +15,7 @@ import com.tutoroo.mapper.StudyMapper;
 import com.tutoroo.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.ai.openai.OpenAiChatModel;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,6 +39,7 @@ public class StudyService {
     private final TutorService tutorService;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
+    private final OpenAiChatModel chatModel;
 
     // --- [1] 현재 학습 플랜 상세 조회 (Step 5: 대시보드/로드맵) ---
     @Transactional(readOnly = true)
@@ -285,6 +287,71 @@ public class StudyService {
         int percent = (int) ((double) currentDay / totalDays * 100);
         return Math.min(100, Math.max(0, percent));
     }
+
+    @Transactional
+    public String generateAiFeedbackByPlanId(Long planId) {
+        StudyLogEntity log = studyMapper.findLatestLogByPlanId(planId);
+        if (log == null) {
+            throw new IllegalArgumentException("해당 플랜에 학습 로그가 없습니다. planId=" + planId);
+        }
+
+        Long logId = log.getId();
+        studyMapper.updateAiFeedbackPending(logId);
+
+        try {
+            String feedback = openAiMakeFeedback(log);
+            studyMapper.updateAiFeedbackSuccess(logId, feedback);
+            return feedback; //
+        } catch (Exception e) {
+            studyMapper.updateAiFeedbackFailed(logId);
+            throw e;
+        }
+    }
+    private String openAiMakeFeedback(StudyLogEntity log) {
+        String prompt = String.format("""
+            너는 Tutoroo의 친절하지만 정확한 학습 코치야.
+            아래 학습 로그를 바탕으로 한국어로 피드백을 작성해줘.
+
+            규칙:
+            - 5~7줄
+            - 잘한 점 2개
+            - 개선할 점 2개
+            - 다음 학습 액션 1~2개
+            - 피드백 텍스트만 출력(코드블록/JSON 금지)
+
+            [학습 로그]
+            planId: %s
+            dayCount: %s
+            contentSummary: %s
+            dailySummary: %s
+            testScore: %s
+            studentFeedback: %s
+            """,
+                String.valueOf(log.getPlanId()),
+                String.valueOf(log.getDayCount()),
+                String.valueOf(log.getContentSummary()),
+                String.valueOf(log.getDailySummary()),
+                String.valueOf(log.getTestScore()),
+                String.valueOf(log.getStudentFeedback())
+        );
+
+        String res = chatModel.call(prompt);
+        return cleanText(res);
+    }
+
+    private String cleanText(String text) {
+        if (text == null) return "";
+        String cleaned = text.trim();
+        // 가끔 ``` 로 감싸서 오면 제거
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.replaceFirst("^```[a-zA-Z]*\\s*", "");
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
+        return cleaned.trim();
+    }
+
 
     // --- Redis 세션 관리 ---
     public void saveSessionState(Long planId, String stateJson) {

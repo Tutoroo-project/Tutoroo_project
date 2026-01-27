@@ -131,4 +131,16 @@ public class StudyController {
         if (user == null) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
         return ResponseEntity.ok(studyService.getMonthlyCalendar(user.getId(), year, month));
     }
+
+    @PostMapping("/plans/{planId}/ai-feedback")
+    public ResponseEntity<String> generateAiFeedback(
+            @AuthenticationPrincipal CustomUserDetails user,
+            @PathVariable Long planId
+    ) {
+        Long userId = user.getId();
+        studyService.getPlanDetail(userId, planId);
+
+        String feedback = studyService.generateAiFeedbackByPlanId(planId);
+        return ResponseEntity.ok(feedback);
+    }
 }

@@ -24,6 +24,8 @@ public class StudyLogEntity {
 
     private Integer testScore;      // 테스트 점수
     private String aiFeedback;      // AI -> 학생 피드백 (채점 결과)
+    private String aiFeedbackStatus;
+    private LocalDateTime aiFeedbackAt;
 
     private String studentFeedback; // [추가] 학생 -> AI 선생님 피드백 (Step 15)
 

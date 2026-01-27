@@ -110,4 +110,33 @@
         ORDER BY l.study_date ASC
     </select>
 
+    <update id="updateAiFeedbackPending">
+        UPDATE study_logs
+        SET ai_feedback_status = 'PENDING',
+            ai_feedback_at = NULL
+        WHERE id = #{logId}
+    </update>
+
+    <update id="updateAiFeedbackSuccess">
+        UPDATE study_logs
+        SET ai_feedback = #{aiFeedback},
+            ai_feedback_status = 'READY',
+            ai_feedback_at = NOW()
+        WHERE id = #{logId}
+    </update>
+
+    <update id="updateAiFeedbackFailed">
+        UPDATE study_logs
+        SET ai_feedback_status = 'FAILED',
+            ai_feedback_at = NOW()
+        WHERE id = #{logId}
+    </update>
+
+    <select id="findLatestLogByPlanId" resultType="com.tutoroo.entity.StudyLogEntity">
+        SELECT *
+        FROM study_logs
+        WHERE plan_id = #{planId}
+        ORDER BY study_date DESC, id DESC
+        LIMIT 1
+    </select>
 </mapper>

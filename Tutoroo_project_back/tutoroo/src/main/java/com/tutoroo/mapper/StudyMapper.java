@@ -30,6 +30,14 @@ public interface StudyMapper {
     List<StudyLogEntity> findLogsBetweenDays(@Param("planId") Long planId,
                                              @Param("startDay") int startDay,
                                              @Param("endDay") int endDay);
+
+    void updateAiFeedbackPending(@Param("logId") Long logId);
+
+    void updateAiFeedbackSuccess(@Param("logId") Long logId,
+                                 @Param("aiFeedback") String aiFeedback);
+
+    void updateAiFeedbackFailed(@Param("logId") Long logId);
+    StudyLogEntity findLatestLogByPlanId(@Param("planId") Long planId);
     // --- [3. 펫 다마고치 연동] ---
     List<StudyLogEntity> findLogsByUserIdAndDate(@Param("userId") Long userId,
                                                  @Param("date") LocalDate date);

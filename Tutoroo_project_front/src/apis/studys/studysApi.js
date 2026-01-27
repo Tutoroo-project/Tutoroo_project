@@ -150,4 +150,7 @@ export const studyApi = {
     const response = await api.get("/api/study/calendar", { params });
     return response.data;
   },
+
+  generateAiFeedback: (planId) =>
+    instance.post(`/api/study/plans/${planId}/ai-feedback`).then(res => res.data),
 };

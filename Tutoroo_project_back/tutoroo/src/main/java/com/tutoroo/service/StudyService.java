@@ -309,24 +309,36 @@ public class StudyService {
     }
     private String openAiMakeFeedback(StudyLogEntity log) {
         String prompt = String.format("""
-            너는 Tutoroo의 친절하지만 정확한 학습 코치야.
-            아래 학습 로그를 바탕으로 한국어로 피드백을 작성해줘.
+        너는 Tutoroo의 '학습 리포트 작성' 전문 코치다.
+        아래 학습 로그만 근거로 한국어 피드백을 작성한다. (추측 금지)
 
-            규칙:
-            - 5~7줄
-            - 잘한 점 2개
-            - 개선할 점 2개
-            - 다음 학습 액션 1~2개
-            - 피드백 텍스트만 출력(코드블록/JSON 금지)
+        [출력 형식 - 반드시 그대로]
+        1) 한 줄 요약: (학습 상태를 점수/내용 기반으로 요약, 1문장)
+        2) ✔️ 잘한 점 1: (contentSummary/dailySummary에서 근거 포함, 1문장)
+        3) ✔️ 잘한 점 2: (근거 포함, 1문장)
+        4) ⚠️ 개선 포인트 1: (구체적 실수/약점 가정 금지, 대신 "다음에 점검할 항목"으로 제안, 1문장)
+        5) ⚠️ 개선 포인트 2: (구체적 점검 항목, 1문장)
+        6) 🎯 다음 액션 1: (오늘 내용 기준 10~15분짜리 실천 과제, 1문장)
+        7) 🎯 다음 액션 2: (문제풀이/복습/코드작성 중 하나로, 1문장)
 
-            [학습 로그]
-            planId: %s
-            dayCount: %s
-            contentSummary: %s
-            dailySummary: %s
-            testScore: %s
-            studentFeedback: %s
-            """,
+        [작성 규칙]
+        - 총 7줄 고정, 각 줄은 35~70자 정도로 '구체적으로' 작성 (너무 짧게 금지)
+        - "좋습니다/열심히" 같은 뭉뚱그린 칭찬만으로 끝내지 말 것
+        - testScore가 있으면 점수에 따라 톤 조절:
+          * 90점 이상: 응용/예외케이스/리팩토링 같은 고급 제안 포함
+          * 70~89점: 개념+응용 균형, 실수 줄이는 체크리스트 제안
+          * 69점 이하: 핵심 개념 1~2개 재정리 + 짧은 반복 연습 제안
+        - studentFeedback이 null/빈값이면 "학생 소감 없음"으로 간주하고 그걸 억지로 해석하지 말 것
+        - 코드블록/JSON/마크다운 제목 금지, 텍스트만 출력
+
+        [학습 로그]
+        planId: %s
+        dayCount: %s
+        contentSummary: %s
+        dailySummary: %s
+        testScore: %s
+        studentFeedback: %s
+        """,
                 String.valueOf(log.getPlanId()),
                 String.valueOf(log.getDayCount()),
                 String.valueOf(log.getContentSummary()),

@@ -1,4 +1,5 @@
 /** @jsxImportSource @emotion/react */
+import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { studyApi } from "../../apis/studys/studysApi";
@@ -85,6 +86,17 @@ function DashboardPage() {
   const progressRate = Number.isFinite(weeklyRate)
     ? Math.min(100, Math.max(0, weeklyRate))
     : 0;
+
+  const aiReport = dashboardData?.aiAnalysisReport;   // 백엔드 대시보드 DTO 필드
+  const aiSuggestion = dashboardData?.aiSuggestion;
+  const currentPlanId = dashboardData?.studyList?.[0]?.id;
+
+  const { mutate: generateFeedback, isPending } = useMutation({
+    mutationFn: () => studyApi.generateAiFeedback(currentPlanId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    },
+  });
 
   useEffect(() => {
     const todayIso = toYmd(new Date());
@@ -485,15 +497,22 @@ function DashboardPage() {
 
               <div css={s.feedbackCard}>
                 <h3 css={s.detailTitle}>AI 강의 피드백</h3>
-                <p css={s.feedbackText}>
-                  현재 개념은 잘 이해하고 있지만, 응용 문제에서 실수가 반복되고
-                  있어요.
-                </p>
-                <ul css={s.feedbackList}>
-                  <li>✔️ 개념 이해도 우수</li>
-                  <li>✔️ 학습 지속성 좋음</li>
-                  <li>⚠️ 실수 패턴 반복</li>
-                </ul>
+
+                <div css={s.feedbackText}>
+                  {(aiReport || "").split("\n").filter(Boolean).map((line, idx) => (
+                    <p key={idx} css={s.feedbackLine}>
+                      {line}
+                    </p>
+                  ))}
+                </div>
+
+                <button
+                  css={s.feedbackBtn}
+                  disabled={!currentPlanId || isPending}
+                  onClick={() => generateFeedback()}
+                >
+                  {isPending ? "생성 중..." : aiReport ? "피드백 업데이트" : "AI 피드백 생성"}
+                </button>
               </div>
             </section>
           )}

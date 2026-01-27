@@ -233,10 +233,13 @@ public class UserService {
         String aiAnalysis = "아직 충분한 학습 데이터가 없습니다. 꾸준히 학습해보세요!";
         String aiSuggestion = "오늘의 학습을 시작해보는 건 어때요?";
 
-        if (!logs.isEmpty()) {
-            StudyLogEntity lastLog = logs.get(logs.size() - 1);
-            if (lastLog.getAiFeedback() != null) aiAnalysis = lastLog.getAiFeedback();
-            aiSuggestion = "지난번 점수는 " + lastLog.getTestScore() + "점이었네요. 오늘은 더 잘할 수 있어요!";
+        StudyLogEntity latestLog = (currentPlan != null)
+                ? studyMapper.findLatestLogByPlanId(currentPlan.getId())
+                : null;
+
+        if (latestLog != null) {
+            if (latestLog.getAiFeedback() != null) aiAnalysis = latestLog.getAiFeedback();
+            aiSuggestion = "지난번 점수는 " + latestLog.getTestScore() + "점이었네요. 오늘은 더 잘할 수 있어요!";
         }
 
         UserDTO.DashboardDTO dashboardDTO = UserDTO.DashboardDTO.builder()
@@ -259,6 +262,10 @@ public class UserService {
         }
 
         return dashboardDTO;
+    }
+    // 캐시 삭제 메서드 추가
+    public void evictDashboardCache(String username) {
+        redisTemplate.delete("dashboard:" + username);
     }
 
     // --- 4. 라이벌 매칭 ---

@@ -7,6 +7,7 @@ import com.tutoroo.exception.TutorooException;
 import com.tutoroo.security.CustomUserDetails;
 import com.tutoroo.service.AssessmentService;
 import com.tutoroo.service.StudyService;
+import com.tutoroo.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ import java.util.List;
 public class StudyController {
 
     private final StudyService studyService;
+    private final UserService userService;
     private final AssessmentService assessmentService;
 
     @GetMapping("/status")
@@ -141,6 +143,7 @@ public class StudyController {
         studyService.getPlanDetail(userId, planId);
 
         String feedback = studyService.generateAiFeedbackByPlanId(planId);
+        userService.evictDashboardCache(user.getUsername());
         return ResponseEntity.ok(feedback);
     }
 }

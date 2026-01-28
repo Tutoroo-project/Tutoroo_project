@@ -404,3 +404,35 @@ export const feedbackList = css`
   }
 `;
 
+export const feedbackLine = css`
+  margin: 0;
+  margin-bottom: 4px;
+  font-size: 14px;
+  color: #333;
+  line-height: 1.5;
+`;
+
+export const feedbackBtn = css`
+  margin-top: 16px;
+  height: 36px;
+  padding: 0 16px;
+  border-radius: 8px;
+  border: none;
+  background-color: #ff8a3d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: #e0702b;
+  }
+
+  &:disabled {
+    background-color: #e0e0e0;
+    color: #999;
+    cursor: not-allowed;
+  }
+`;
+

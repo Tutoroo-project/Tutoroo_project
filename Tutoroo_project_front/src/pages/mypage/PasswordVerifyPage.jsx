@@ -4,7 +4,7 @@ import * as s  from "./styles";
 import { useState } from "react";
 import Header from "../../components/layouts/Header";
 import { useNavigate } from "react-router-dom";
-import logoImg from "../../assets/images/mascots/logo.jpg";
+import logoImg from "../../assets/images/mascots/logo.png";
 import Swal from "sweetalert2";
 import { userApi } from "../../apis/users/usersApi";
 

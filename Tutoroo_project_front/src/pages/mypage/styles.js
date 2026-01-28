@@ -24,12 +24,12 @@ export const authCard = css`
 export const titleWrapper = css`
     display: flex;
     align-items: center;
-    justify-content: center;
-    gap: 12px;
+    gap: 20px;
     margin-bottom: 24px;
 
     img {
-        width: 35px; 
+        margin-left: 50px;
+        width: 120px; 
         height: auto;
     }
 `;

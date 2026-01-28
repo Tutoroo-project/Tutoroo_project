@@ -25,7 +25,7 @@ const TUTOR_IMAGES = {
 };
 
 // 백엔드 URL (환경변수 또는 기본값)
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 function StudyPage() {
   const { 
@@ -92,16 +92,18 @@ function StudyPage() {
   const getImageSource = (url) => {
     if (!url) return null;
 
+    if (url.startsWith("http")) return url;
     if (url.includes('/tutors/')) {
         const filename = url.split('/').pop().split('.')[0].toLowerCase();
         return TUTOR_IMAGES[filename] || kangarooImg;
     }
-
     if (url.includes('break_time') || url.includes('quiz_bg')) {
         return currentTutorImage; 
     }
 
-    return url.startsWith("http") ? url : `${API_BASE_URL}${url}`;
+    const cleanBase = API_BASE_URL.replace(/\/$/, ""); 
+    const cleanUrl = url.startsWith("/") ? url : `/${url}`; 
+    return `${cleanBase}${cleanUrl}`;
   };
 
   const startRecording = async () => {
@@ -141,14 +143,19 @@ function StudyPage() {
   const handleDownloadPdf = async () => {
     try {
         const blob = await studyApi.downloadReviewPdf(planId, studyDay);
+        // Blob URL 생성
         const url = window.URL.createObjectURL(new Blob([blob]));
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `Study_Review_Day${studyDay}.pdf`);
         document.body.appendChild(link);
         link.click();
+        
+        // [수정] DOM 제거 및 URL 객체 메모리 해제 (필수)
         link.remove();
+        window.URL.revokeObjectURL(url); 
     } catch (e) {
+        console.error(e); // 에러 로그 추가
         alert("다운로드에 실패했습니다.");
     }
   };

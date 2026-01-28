@@ -19,9 +19,9 @@ function SessionStatus() {
 
   const formatTime = (seconds) => {
     if (seconds < 0) return "00:00";
-    const m = Math.floor(seconds / 60).toString().padStart(2, "0");
-    const s = seconds % 60;
-    return `${m}:${s.toString().padStart(2, "0")}`;
+    const min = Math.floor(seconds / 60).toString().padStart(2, "0"); 
+    const sec = seconds % 60; 
+    return `${min}:${sec.toString().padStart(2, "0")}`;
   };
 
   // 현재 모드에 맞는 라벨 가져오기 (없으면 기본값)

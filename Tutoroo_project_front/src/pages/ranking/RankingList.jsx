@@ -8,8 +8,11 @@ function RankingList({ rankingList, isLoading }) {
     if (!url) return defaultProfileImg;
     if (url.startsWith("http")) return url;
     
-    const BASE_URL = import.meta.env.VITE_API_BASE_URL;
-    return `${BASE_URL}${url}`;
+    const rawBaseUrl = import.meta.env.VITE_API_BASE_URL || "";
+    const cleanBase = rawBaseUrl.replace(/\/$/, "");
+    const cleanPath = url.startsWith("/") ? url : `/${url}`;
+
+    return `${cleanBase}${cleanPath}`;
   };
 
   return (

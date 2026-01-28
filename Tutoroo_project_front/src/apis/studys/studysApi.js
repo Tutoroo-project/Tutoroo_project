@@ -135,14 +135,6 @@ export const studyApi = {
     return response.data;
   },
 
-  getMonthlyCalendar: async (year, month) => {
-    const res = await api.get(
-      `/api/study/calendar?year=${year}&month=${month}`,
-    );
-    return res.data;
-  },
-
-  // 13. 월간 캘린더(점수/완료여부) 조회
   getMonthlyCalendar: async ({ year, month, planId }) => {
     const params = { year, month };
     if (planId) params.planId = planId;

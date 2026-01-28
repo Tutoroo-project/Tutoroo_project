@@ -46,7 +46,7 @@ jobs:
 
       - name: Springboot Docker image build
         run: |
-          cd ~/Tutoroo_project_back/tutoroo
+          cd Tutoroo_project_back/tutoroo
           docker build -t ${{env.DOCKER_USERNAME}}/springboot-app:latest .
 
       - name: Springboot Docker image push
@@ -56,7 +56,7 @@ jobs:
 
       - name: React Docker image build
         run: |
-          cd ~/Tutoroo_project_front
+          cd Tutoroo_project_front
           echo ${{env.REACT_ENV}} | base64 --decode > .env
           docker build -t ${{env.DOCKER_USERNAME}}/react-app:latest .
 

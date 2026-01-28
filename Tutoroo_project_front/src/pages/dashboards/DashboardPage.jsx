@@ -87,14 +87,16 @@ function DashboardPage() {
     ? Math.min(100, Math.max(0, weeklyRate))
     : 0;
 
-  const aiReport = dashboardData?.aiAnalysisReport;   // 백엔드 대시보드 DTO 필드
-  const aiSuggestion = dashboardData?.aiSuggestion;
-  const currentPlanId = dashboardData?.studyList?.[0]?.id;
+  const aiReport = dashboardData?.aiAnalysisReport; // 백엔드 대시보드 DTO 필드
+
+  const planIdForFeedback = selectedStudyId ? Number(selectedStudyId) : null;
 
   const { mutate: generateFeedback, isPending } = useMutation({
-    mutationFn: () => studyApi.generateAiFeedback(currentPlanId),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dashboard"] });
+    mutationFn: () => studyApi.generateAiFeedback(planIdForFeedback),
+    onSuccess: (feedbackText) => {
+      setDashboardData((prev) =>
+        prev ? { ...prev, aiAnalysisReport: feedbackText } : prev,
+      );
     },
   });
 
@@ -160,6 +162,18 @@ function DashboardPage() {
     const weekStart = dates?.[0]?.dateObj;
     return calcWeekNo(startYmd, weekStart);
   }, [planDetail?.startDate, dates]);
+
+  useEffect(() => {
+    if (!selectedStudyId) return;
+    setDashboardData((prev) =>
+      prev ? { ...prev, aiAnalysisReport: "" } : prev,
+    );
+    setPlanDetail(null);
+    setCurriculumByDate({});
+    setDoneByIso({});
+    setChartData([]);
+    setWeeklyRate(0);
+  }, [selectedStudyId]);
 
   //  선택된 학습(planId) 바뀔 때마다 로드맵 불러오기
   useEffect(() => {
@@ -499,19 +513,26 @@ function DashboardPage() {
                 <h3 css={s.detailTitle}>AI 강의 피드백</h3>
 
                 <div css={s.feedbackText}>
-                  {(aiReport || "").split("\n").filter(Boolean).map((line, idx) => (
-                    <p key={idx} css={s.feedbackLine}>
-                      {line}
-                    </p>
-                  ))}
+                  {(aiReport || "")
+                    .split("\n")
+                    .filter(Boolean)
+                    .map((line, idx) => (
+                      <p key={idx} css={s.feedbackLine}>
+                        {line}
+                      </p>
+                    ))}
                 </div>
 
                 <button
                   css={s.feedbackBtn}
-                  disabled={!currentPlanId || isPending}
+                  disabled={!planIdForFeedback || isPending}
                   onClick={() => generateFeedback()}
                 >
-                  {isPending ? "생성 중..." : aiReport ? "피드백 업데이트" : "AI 피드백 생성"}
+                  {isPending
+                    ? "생성 중..."
+                    : aiReport
+                      ? "피드백 업데이트"
+                      : "AI 피드백 생성"}
                 </button>
               </div>
             </section>

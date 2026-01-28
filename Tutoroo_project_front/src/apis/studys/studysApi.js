@@ -143,5 +143,5 @@ export const studyApi = {
   },
 
   generateAiFeedback: (planId) =>
-    instance.post(`/api/study/plans/${planId}/ai-feedback`).then(res => res.data),
+    api.post(`/api/study/plans/${planId}/ai-feedback`).then(res => res.data),
 };

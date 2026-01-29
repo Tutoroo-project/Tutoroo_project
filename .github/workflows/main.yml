@@ -22,9 +22,7 @@ jobs:
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_JAEWON}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_JAEWON}}" >> $GITHUB_ENV
 
-            elif [ ${{github.ref}} == 'refs/heads/deploy_jaewon' ]; then
-
-            if [ ${{github.ref}} == 'refs/heads/deploy-gyeonggu' ]; then
+          elif [ ${{github.ref}} == 'refs/heads/deploy-gyeonggu' ]; then
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_GYEONGGU}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_GYEONGGU}}" >> $GITHUB_ENV
@@ -34,9 +32,7 @@ jobs:
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_GYEONGGU}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_GYEONGGU}}" >> $GITHUB_ENV
 
-            elif [ ${{github.ref}} == 'refs/heads/deploy-gyeonggu' ]; then
-
-            if [ ${{github.ref}} == 'refs/heads/deploy-seongyeop' ]; then
+          elif [ ${{github.ref}} == 'refs/heads/deploy-seongyeop' ]; then
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SEONGYEOP}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SEONGYEOP}}" >> $GITHUB_ENV
@@ -46,9 +42,7 @@ jobs:
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SEONGYEOP}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_SEONGYEOP}}" >> $GITHUB_ENV
 
-            elif [ ${{github.ref}} == 'refs/heads/deploy-seongyeop' ]; then
-
-            if [ ${{github.ref}} == 'refs/heads/deploy-sohyun' ]; then
+          elif [ ${{github.ref}} == 'refs/heads/deploy-sohyun' ]; then
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SOHYUN}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SOHYUN}}" >> $GITHUB_ENV
@@ -57,8 +51,6 @@ jobs:
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SOHYUN}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SOHYUN}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_SOHYUN}}" >> $GITHUB_ENV
-
-            elif [ ${{github.ref}} == 'refs/heads/deploy-sohyun' ]; then
               
           fi
           

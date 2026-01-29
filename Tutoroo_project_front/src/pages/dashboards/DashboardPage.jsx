@@ -104,7 +104,7 @@ function DashboardPage() {
     const todayIso = toYmd(new Date());
     const idx = dates.findIndex((d) => d.iso === todayIso);
     setSelectedIndex(idx >= 0 ? idx : 0);
-  }, [weekOffset]);
+  }, [weekOffset]); // weekOffset이 변할 때만 오늘 날짜 인덱스로 초기화
 
   const [planDetail, setPlanDetail] = useState(null);
   const [curriculumByDate, setCurriculumByDate] = useState({});
@@ -295,7 +295,7 @@ function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [user, weekOffset, selectedStudyId]);
+  }, [user, weekOffset, selectedStudyId, dates]); // dates 종속성 추가
 
   useEffect(() => {
     if (!user) return;
@@ -317,8 +317,19 @@ function DashboardPage() {
     fetchData();
   }, [user]);
 
+  // [New] 오늘 날짜 확인 및 완료 여부 계산
+  const todayIso = toYmd(new Date());
+  // doneByIso는 API 호출로 채워지는 상태값
+  const isTodayDone = !!doneByIso[todayIso]?.isDone;
+
   // 학습 시작 핸들러
   const handleStartStudy = () => {
+    // [New] 오늘 학습 완료 시 차단
+    if (isTodayDone) {
+      alert("오늘의 학습을 이미 완료했습니다! 내일 또 만나요.");
+      return;
+    }
+
     if (!selectedStudyId) {
       alert("학습을 선택해주세요");
       return;
@@ -387,9 +398,13 @@ function DashboardPage() {
                 학습 추가 +
               </button>
 
-              {/* 학습 시작 버튼 */}
-              <button css={s.studyBtn} onClick={handleStartStudy}>
-                학습하러 가기
+              {/* 학습 시작 버튼 (상태에 따라 스타일 및 텍스트 변경) */}
+              <button 
+                css={[s.studyBtn, isTodayDone && s.disabledBtn]} 
+                onClick={handleStartStudy}
+                disabled={isTodayDone}
+              >
+                {isTodayDone ? "오늘 학습 완료" : "학습하러 가기"}
               </button>
             </div>
           </section>

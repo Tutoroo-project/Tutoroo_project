@@ -25,11 +25,27 @@ export const SESSION_MODES = {
   REVIEW: { label: "복습 자료", defaultTime: 0 },
 };
 
+// [Helper] 날짜 비교 함수 (YYYY-MM-DD)
+const isSameDate = (dateString) => {
+  if (!dateString) return false;
+  const today = new Date();
+  const target = new Date(dateString);
+  return (
+    today.getFullYear() === target.getFullYear() &&
+    today.getMonth() === target.getMonth() &&
+    today.getDate() === target.getDate()
+  );
+};
+
 const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
   selectedTutorId: "kangaroo", 
+
+  // [New] 추가된 상태
+  todayTopic: "",               // 오늘의 로드맵 주제
+  isStudyCompletedToday: false, // 오늘 학습 완료 여부 (Daily Lock)
   
   messages: [],
   isLoading: false,     
@@ -42,7 +58,6 @@ const useStudyStore = create((set, get) => ({
   sessionSchedule: {},   
   currentStepIndex: 0,   
 
-  // [수정] 설정 상태 (기본값: false로 변경하여 꺼진 상태로 시작)
   isSpeakerOn: false,     
 
   // --- [Actions] 동작 함수들 ---
@@ -66,11 +81,16 @@ const useStudyStore = create((set, get) => ({
       const data = await studyApi.getStudyStatus(targetPlanId);
       
       if (data) {
+        // [수정] 백엔드 응답에서 마지막 학습일 확인하여 오늘 완료 여부 설정
+        const isFinished = isSameDate(data.lastStudyDate);
+
         set({ 
             planId: data.planId, 
             studyDay: data.currentDay || 1, 
             studyGoal: data.goal,
-            selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo"
+            todayTopic: data.todayTopic || "오늘의 학습", // 로드맵 주제 매핑
+            selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo",
+            isStudyCompletedToday: isFinished // 완료 여부 상태 저장
         });
       }
     } catch (error) {
@@ -96,6 +116,12 @@ const useStudyStore = create((set, get) => ({
 
   // 5. 수업 시작
   startClassSession: async (tutorInfo, navigate) => {
+    // [보호] 이미 완료했으면 시작 불가
+    if (get().isStudyCompletedToday) {
+        alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
+        return;
+    }
+
     set({ isLoading: true, messages: [] });
     const { planId, studyDay, isSpeakerOn } = get();
 
@@ -106,7 +132,7 @@ const useStudyStore = create((set, get) => ({
     }
 
     try {
-      // 수업 시작 API 호출 (needsTts가 false면 오디오 생성 안 함)
+      // 수업 시작 API 호출
       const res = await studyApi.startClass({
         planId,
         dayCount: studyDay,
@@ -162,7 +188,7 @@ const useStudyStore = create((set, get) => ({
                 sessionMode: mode,
                 personaName: selectedTutorId.toUpperCase(),
                 dayCount: studyDay,
-                needsTts: isSpeakerOn // 현재 스피커 상태(false) 전달 -> 오디오 생성 X
+                needsTts: isSpeakerOn 
             });
 
             set((state) => ({
@@ -192,15 +218,28 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 8. 다음 단계로 자동 전환
-  nextSessionStep: () => {
-    const { currentStepIndex, sessionSchedule } = get();
+  // 8. 다음 단계로 자동 전환 (수정: 학습 완료 처리 추가)
+  nextSessionStep: async () => {
+    const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
 
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
       get().setupMode(nextMode, sessionSchedule, true);
+
+      // [New] 다음 모드가 REVIEW(복습)라면 오늘 학습 마무리 단계임
+      if (nextMode === "REVIEW") {
+          try {
+              // 백엔드에 완료 처리 요청 (AI 피드백 생성이 트리거 역할)
+              await studyApi.generateAiFeedback(planId);
+              // 프론트 상태 즉시 잠금
+              set({ isStudyCompletedToday: true }); 
+          } catch (e) {
+              console.error("학습 마무리 처리 실패:", e);
+          }
+      }
+
     } else {
       set({ isTimerRunning: false });
       set((state) => ({

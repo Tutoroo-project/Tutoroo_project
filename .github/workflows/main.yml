@@ -1,0 +1,93 @@
+name: GCP-VM-CICD
+
+on:
+  push: 
+    branches: [deploy_jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
+  pull_request: 
+    branches: [deploy_jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
+
+jobs:
+  build-deploy_jaewon:
+    runs-on: ubuntu-22.04
+    steps:
+      - name: "환경변수 세팅"
+        run: |
+          if [ ${{github.ref}} == 'refs/heads/deploy_jaewon' ]; then
+          
+            echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_JAEWON}}" >> $GITHUB_ENV
+            echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_JAEWON}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_JAEWON}}" >> $GITHUB_ENV
+            echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_JAEWON}}" >> $GITHUB_ENV
+            echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_JAEWON}}" >> $GITHUB_ENV
+            echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_JAEWON}}" >> $GITHUB_ENV
+            echo "REACT_ENV=${{secrets.REACT_ENV_JAEWON}}" >> $GITHUB_ENV
+
+          elif [ ${{github.ref}} == 'refs/heads/deploy-gyeonggu' ]; then
+          
+            echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_GYEONGGU}}" >> $GITHUB_ENV
+            echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_GYEONGGU}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_GYEONGGU}}" >> $GITHUB_ENV
+            echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_GYEONGGU}}" >> $GITHUB_ENV
+            echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_GYEONGGU}}" >> $GITHUB_ENV
+            echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_GYEONGGU}}" >> $GITHUB_ENV
+            echo "REACT_ENV=${{secrets.REACT_ENV_GYEONGGU}}" >> $GITHUB_ENV
+
+          elif [ ${{github.ref}} == 'refs/heads/deploy-seongyeop' ]; then
+          
+            echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "REACT_ENV=${{secrets.REACT_ENV_SEONGYEOP}}" >> $GITHUB_ENV
+
+          elif [ ${{github.ref}} == 'refs/heads/deploy-sohyun' ]; then
+          
+            echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SOHYUN}}" >> $GITHUB_ENV
+            echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SOHYUN}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_SOHYUN}}" >> $GITHUB_ENV
+            echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_SOHYUN}}" >> $GITHUB_ENV
+            echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SOHYUN}}" >> $GITHUB_ENV
+            echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SOHYUN}}" >> $GITHUB_ENV
+            echo "REACT_ENV=${{secrets.REACT_ENV_SOHYUN}}" >> $GITHUB_ENV
+              
+          fi
+          
+      - name: checkout
+        uses: actions/checkout@v6.0.2
+        with:
+          ref: ${{github.ref}}
+          
+      - name: install JDK
+        uses: actions/setup-java@v5.2.0
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      - name: Springboot Build
+        run: |
+          cd Tutoroo_project_back/tutoroo
+          echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret.yml
+          chmod 777 ./mvnw
+          ./mvnw clean package -Dtestskip
+
+      - name: Springboot Docker image build
+        run: |
+          cd Tutoroo_project_back/tutoroo
+          docker build -t ${{env.DOCKER_USERNAME}}/springboot-app:latest .
+
+      - name: Springboot Docker image push
+        run: |
+          echo "${{env.DOCKER_PASSWORD}}" | docker login -u ${{env.DOCKER_USERNAME}} --password-stdin
+          docker push ${{env.DOCKER_USERNAME}}/springboot-app:latest
+
+      - name: React Docker image build
+        run: |
+          cd Tutoroo_project_front
+          echo ${{env.REACT_ENV}} | base64 --decode > .env
+          docker build -t ${{env.DOCKER_USERNAME}}/react-app:latest .
+
+      - name: React Docker image push
+        run: |
+          docker push ${{env.DOCKER_USERNAME}}/react-app:latest

@@ -25,11 +25,26 @@ export const SESSION_MODES = {
   REVIEW: { label: "복습 자료", defaultTime: 0 },
 };
 
+// [Helper] 날짜 비교 함수 (YYYY-MM-DD)
+const isSameDate = (dateString) => {
+  if (!dateString) return false;
+  const today = new Date();
+  const target = new Date(dateString);
+  return (
+    today.getFullYear() === target.getFullYear() &&
+    today.getMonth() === target.getMonth() &&
+    today.getDate() === target.getDate()
+  );
+};
+
 const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
   selectedTutorId: "kangaroo", 
+  
+  todayTopic: "", 
+  isStudyCompletedToday: false, 
   
   messages: [],
   isLoading: false,     
@@ -43,29 +58,32 @@ const useStudyStore = create((set, get) => ({
   currentStepIndex: 0,   
 
   isSpeakerOn: false,     
-  
-  // [New] 오늘 학습 완료 여부 상태 추가
-  isStudyCompletedToday: false,
 
   // --- [Actions] 동작 함수들 ---
 
+  // 1. 플랜 기본 정보 설정 (이어하기 지원)
   setPlanInfo: (planId, goal) => {
-    // 플랜 ID가 바뀔 때만 초기화 (이어하기 지원)
-    if (get().planId !== planId) {
+    const currentPlanId = get().planId;
+
+    // 다른 플랜을 선택했을 때만 초기화
+    if (currentPlanId !== planId) {
         set({ 
             planId, 
             studyGoal: goal,
-            messages: [],
-            currentMode: "CLASS",
+            messages: [],           // 메시지 초기화
+            currentMode: "CLASS",   // 모드 초기화
             currentStepIndex: 0,
             isTimerRunning: false,
-            isStudyCompletedToday: false // 초기화
+            timeLeft: SESSION_MODES["CLASS"].defaultTime,
+            isStudyCompletedToday: false // 완료 상태 초기화
         });
     } else {
+        // 같은 플랜이면 목표 텍스트만 업데이트하고 나머지는 유지
         set({ studyGoal: goal });
     }
   },
 
+  // 2. 사용자 학습 상태 로드
   loadUserStatus: async (specificPlanId = null) => {
     set({ isLoading: true });
     try {
@@ -78,12 +96,15 @@ const useStudyStore = create((set, get) => ({
       const data = await studyApi.getStudyStatus(targetPlanId);
       
       if (data) {
+        const isFinished = isSameDate(data.lastStudyDate);
+
         set({ 
             planId: data.planId, 
             studyDay: data.currentDay || 1, 
             studyGoal: data.goal,
+            todayTopic: data.todayTopic || "오늘의 학습",
             selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo",
-            // 만약 API에서 isCompleted 같은 필드를 준다면 여기서도 세팅 가능
+            isStudyCompletedToday: isFinished 
         });
       }
     } catch (error) {
@@ -93,18 +114,35 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // 3. 스피커 토글
   toggleSpeaker: () => {
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
+  // 4. 초기 세션 데이터 로드 (이어하기 로직 포함)
   initializeStudySession: async () => {
-     if (get().messages.length > 0) return; // 이어하기
-     if (!get().planId) await get().loadUserStatus();
+     const state = get();
+     
+     // 이미 메시지가 있거나 진행 중이면 초기화하지 않고 리턴 (이어하기)
+     if (state.messages.length > 0) {
+         return; 
+     }
+     
+     // 데이터가 없을 때만 서버에서 상태 로드
+     if (!state.planId) {
+         await state.loadUserStatus();
+     }
   },
 
+  // 5. 수업 시작 (TutorSelectionPage에서 호출)
   startClassSession: async (tutorInfo, navigate) => {
-    // 이미 완료된 상태라면 차단 로직을 추가할 수도 있음
+    if (get().isStudyCompletedToday) {
+        alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
+        return;
+    }
+
     set({ isLoading: true, messages: [] });
+    
     const { planId, studyDay, isSpeakerOn } = get();
 
     if (!planId) {
@@ -149,6 +187,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // 6. 모드 설정 및 AI 멘트 요청
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
@@ -188,6 +227,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // 7. 타이머 틱
   tick: () => {
     const { timeLeft, nextSessionStep } = get();
     if (timeLeft > 0) {
@@ -197,36 +237,59 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // [핵심 수정] 다음 단계 전환 및 학습 완료 처리
+  // 8. 다음 단계로 전환 및 학습 완료 처리 (피드백 출력 포함)
   nextSessionStep: async () => {
     const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
 
+    // 다음 단계가 남아있을 경우
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
+      
+      // 모드 설정 (기본 멘트 로드 등)
       get().setupMode(nextMode, sessionSchedule, true);
 
-      // [New] 마지막 단계인 'REVIEW' (복습) 모드로 진입하면 서버에 완료 요청
       if (nextMode === "REVIEW") {
           try {
-              // 백엔드 API 명세에 있는 AI 피드백 생성 API 호출
-              // 이 API가 실행되면 DB의 study_logs 테이블에 피드백이 저장되고 완료 처리될 것으로 예상됨
-              await studyApi.generateAiFeedback(planId);
+              set({ isChatLoading: true }); 
+
+              const feedbackText = await studyApi.generateAiFeedback(planId);
               
-              set({ isStudyCompletedToday: true }); // 프론트 상태도 완료로 변경
-              console.log("오늘 학습 완료 및 피드백 생성 요청 성공");
+              set({ isStudyCompletedToday: true });
+
+              set((state) => ({
+                  messages: [
+                      ...state.messages,
+                      { 
+                          type: 'AI', 
+                          content: feedbackText || "오늘의 학습 분석 결과를 불러오지 못했습니다.",
+                      },
+                      {
+                          type: 'AI',
+                          content: "오늘 학습하느라 정말 고생 많았어요! 아래 버튼을 눌러 복습 자료를 다운로드 받으세요."
+                      }
+                  ],
+                  isChatLoading: false
+              }));
+
           } catch (e) {
-              console.error("학습 마무리(AI 피드백 생성) 처리 실패:", e);
-              // 에러가 나더라도 UI는 멈추지 않도록 처리
+              console.error("학습 마무리(AI 피드백 생성) 실패:", e);
+              set((state) => ({
+                  messages: [
+                      ...state.messages, 
+                      { type: 'AI', content: "학습은 완료되었지만 피드백 생성에 실패했습니다. 잠시 후 다시 시도해주세요." }
+                  ],
+                  isChatLoading: false,
+                  isStudyCompletedToday: true 
+              }));
           }
       }
 
     } else {
-      // 모든 시퀀스가 끝났을 때
       set({ isTimerRunning: false });
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인하고 푹 쉬세요." }]
+        messages: [...state.messages, { type: 'AI', content: "모든 과정이 종료되었습니다. 안녕히 가세요!" }]
       }));
     }
   },

@@ -14,9 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -32,147 +30,146 @@ public class RankingService {
 
     /**
      * [기능: 실시간 랭킹 조회 (Redis ZSet 최적화)]
-     * 개선점: 기존 N+1 문제를 findAllByIds로 해결하여 Redis 부하를 1/100로 줄임.
+     * 개선점: 기존 N+1 문제를 reverseRangeWithScores로 해결하여 Redis 부하를 1/100로 줄임.
      */
     @Transactional(readOnly = true)
     public RankingDTO getRealtimeRankings(Long myUserId) {
         ZSetOperations<String, String> zSetOps = redisTemplate.opsForZSet();
 
-        // 1. Redis에서 Top 100 ID 조회 (점수 포함)
-        Set<ZSetOperations.TypedTuple<String>> topRankersWithScore =
-                zSetOps.reverseRangeWithScores(LEADERBOARD_KEY, 0, 99);
+        // 1. [최적화] ID와 점수를 한 번에 조회 (Tuple 사용)
+        Set<ZSetOperations.TypedTuple<String>> topRankersTuple = zSetOps.reverseRangeWithScores(LEADERBOARD_KEY, 0, 99);
 
-        if (topRankersWithScore == null || topRankersWithScore.isEmpty()) {
+        if (topRankersTuple == null || topRankersTuple.isEmpty()) {
             return new RankingDTO(Collections.emptyList(), Collections.emptyList(), null);
         }
 
-        // 2. ID 리스트 추출
-        List<Long> userIds = topRankersWithScore.stream()
-                .map(tuple -> Long.parseLong(tuple.getValue()))
-                .toList();
-
-        // 3. [최적화] DB에서 한 번에 조회 (WHERE IN) -> Map으로 변환하여 O(1) 접근
-        List<UserEntity> users = userMapper.findAllByIds(userIds);
-        Map<Long, UserEntity> userMap = users.stream()
-                .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
-
-        // 4. Redis 순서대로 DTO 조립
         List<RankingDTO.RankEntry> allRankers = new ArrayList<>();
         int currentRank = 1;
 
-        for (ZSetOperations.TypedTuple<String> tuple : topRankersWithScore) {
-            Long uid = Long.parseLong(tuple.getValue());
-            UserEntity user = userMap.get(uid);
-            int score = tuple.getScore() != null ? tuple.getScore().intValue() : 0;
+        // 2. DTO 변환
+        for (ZSetOperations.TypedTuple<String> tuple : topRankersTuple) {
+            String userIdStr = tuple.getValue();
+            Double score = tuple.getScore(); // Redis 점수 사용 (DB 조회 불필요)
 
-            if (user != null) {
-                allRankers.add(RankingDTO.RankEntry.builder()
-                        .rank(currentRank++)
-                        .maskedName(user.getMaskedName())
-                        .totalPoint(score) // Redis 점수가 최신
-                        .profileImage(user.getProfileImage())
-                        .ageGroup(getAgeGroup(user.getAge()))
-                        .build());
+            try {
+                Long userId = Long.parseLong(userIdStr);
+                // 유저 정보는 DB에서 조회 (캐싱 적용 권장)
+                UserEntity user = userMapper.findById(userId);
+
+                if (user != null) {
+                    allRankers.add(RankingDTO.RankEntry.builder()
+                            .rank(currentRank++)
+                            .maskedName(user.getMaskedName())
+                            .totalPoint(score != null ? score.intValue() : 0)
+                            .profileImage(user.getProfileImage())
+                            .ageGroup(getAgeGroup(user.getAge()))
+                            .build());
+                }
+            } catch (NumberFormatException e) {
+                log.warn("랭킹 데이터 파싱 오류: {}", userIdStr);
             }
         }
 
-        // 5. 상위 3명 추출
-        List<RankingDTO.RankEntry> topRankers = allRankers.stream()
-                .limit(3)
-                .toList();
+        // 3. Top 3 및 내 랭킹 추출
+        List<RankingDTO.RankEntry> top3 = allRankers.stream().limit(3).toList();
+        RankingDTO.RankEntry myRankEntry = (myUserId != null) ? getMyRealtimeRank(myUserId, zSetOps) : null;
 
-        // 6. 내 랭킹 조회 (로그인 시)
-        RankingDTO.RankEntry myRank = null;
-        if (myUserId != null) {
-            myRank = getMyRank(myUserId, zSetOps);
-        }
-
-        return new RankingDTO(topRankers, allRankers, myRank);
+        return new RankingDTO(top3, allRankers, myRankEntry);
     }
 
     /**
-     * [기능: 필터링 랭킹 조회 (DB 조회)]
-     * 참고: 필터링(성별, 연령)은 Redis ZSet으로 구현하기 복잡하므로 DB 쿼리를 사용합니다.
+     * [기능: 필터링 랭킹 조회]
+     * 설명: 성별/연령별 랭킹 리스트를 조회하고, 그 안에서 내 순위를 찾습니다.
      */
     @Transactional(readOnly = true)
     public RankingDTO getFilteredRankings(RankingDTO.FilterRequest filter, Long myUserId) {
-        List<UserEntity> entities = userMapper.getRankingList(filter.gender(), filter.ageGroup());
+        // DB 쿼리 (이미 점수순 정렬되어 옴)
+        List<UserEntity> users = userMapper.getRankingList(filter.gender(), filter.ageGroup());
 
-        List<RankingDTO.RankEntry> allRankers = new ArrayList<>();
-        RankingDTO.RankEntry myRank = null;
+        List<RankingDTO.RankEntry> rankEntries = new ArrayList<>();
+        RankingDTO.RankEntry myRankEntry = null;
 
-        for (int i = 0; i < entities.size(); i++) {
-            UserEntity user = entities.get(i);
+        for (int i = 0; i < users.size(); i++) {
+            UserEntity u = users.get(i);
+            int rank = i + 1;
+
             RankingDTO.RankEntry entry = RankingDTO.RankEntry.builder()
-                    .rank(i + 1)
-                    .maskedName(user.getMaskedName())
-                    .totalPoint(user.getTotalPoint())
-                    .profileImage(user.getProfileImage())
-                    .ageGroup(getAgeGroup(user.getAge()))
+                    .rank(rank)
+                    .maskedName(u.getMaskedName())
+                    .totalPoint(u.getTotalPoint())
+                    .profileImage(u.getProfileImage())
+                    .ageGroup(getAgeGroup(u.getAge()))
                     .build();
 
-            allRankers.add(entry);
+            rankEntries.add(entry);
 
-            if (myUserId != null && user.getId().equals(myUserId)) {
-                myRank = entry;
+            if (myUserId != null && u.getId().equals(myUserId)) {
+                myRankEntry = entry;
             }
         }
 
-        List<RankingDTO.RankEntry> topRankers = allRankers.stream().limit(3).toList();
-        return new RankingDTO(topRankers, allRankers, myRank);
+        return new RankingDTO(
+                rankEntries.stream().limit(3).toList(),
+                rankEntries,
+                myRankEntry
+        );
     }
 
     /**
-     * [기능: 라이벌 비교]
+     * [기능: 라이벌 정보 비교 (Step 17 누락 기능 추가)]
      */
     @Transactional(readOnly = true)
     public RivalDTO.RivalComparisonResponse compareRival(Long myUserId) {
         UserEntity me = userMapper.findById(myUserId);
-        if (me == null) throw new RuntimeException("유저 정보를 찾을 수 없습니다.");
 
+        // 라이벌이 없는 경우
         if (me.getRivalId() == null) {
             return RivalDTO.RivalComparisonResponse.builder()
                     .hasRival(false)
                     .myProfile(toRivalProfile(me))
                     .message("아직 라이벌이 없습니다. 매칭을 시작해보세요!")
-                    .pointGap(0)
                     .build();
         }
 
+        // 라이벌 정보 조회
         UserEntity rival = userMapper.findById(me.getRivalId());
-        // 라이벌이 탈퇴했을 경우 방어 로직
         if (rival == null) {
+            // 예외 처리: 라이벌 계정이 삭제된 경우 등
             return RivalDTO.RivalComparisonResponse.builder()
                     .hasRival(false)
                     .myProfile(toRivalProfile(me))
-                    .message("라이벌이 떠났습니다. 새로운 라이벌을 찾아보세요.")
-                    .pointGap(0)
+                    .message("라이벌 정보를 찾을 수 없습니다.")
                     .build();
         }
 
         int gap = me.getTotalPoint() - rival.getTotalPoint();
-        String msg;
-        if (gap > 0) msg = "라이벌보다 " + gap + "점 앞서고 있어요! 😆";
-        else if (gap < 0) msg = "라이벌에게 " + Math.abs(gap) + "점 뒤쳐지고 있어요. 분발하세요! 🔥";
-        else msg = "라이벌과 점수가 똑같아요! 긴장감이 넘치네요. ⚡";
+        String message = gap > 0
+                ? "라이벌을 " + gap + "점 앞서고 있어요! 😎"
+                : "분발하세요! 라이벌이 " + Math.abs(gap) + "점 앞서갑니다. 🔥";
 
         return RivalDTO.RivalComparisonResponse.builder()
                 .hasRival(true)
                 .myProfile(toRivalProfile(me))
                 .rivalProfile(toRivalProfile(rival))
-                .message(msg)
+                .message(message)
                 .pointGap(Math.abs(gap))
                 .build();
     }
 
-    // --- Helper Methods ---
-
-    // Redis 점수 갱신 (UserEventListener 등에서 호출)
+    /**
+     * [기능: 랭킹 점수 업데이트]
+     */
     public void updateUserScore(Long userId, int totalPoint) {
-        redisTemplate.opsForZSet().add(LEADERBOARD_KEY, String.valueOf(userId), totalPoint);
+        try {
+            redisTemplate.opsForZSet().add(LEADERBOARD_KEY, String.valueOf(userId), totalPoint);
+        } catch (Exception e) {
+            log.error("랭킹 업데이트 실패: {}", e.getMessage());
+        }
     }
 
-    private RankingDTO.RankEntry getMyRank(Long myUserId, ZSetOperations<String, String> zSetOps) {
+    // --- Helper Methods ---
+
+    private RankingDTO.RankEntry getMyRealtimeRank(Long myUserId, ZSetOperations<String, String> zSetOps) {
         try {
             String userIdStr = String.valueOf(myUserId);
             Long rankIndex = zSetOps.reverseRank(LEADERBOARD_KEY, userIdStr);

@@ -5,7 +5,6 @@ import org.apache.ibatis.annotations.Mapper;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
-import java.util.Set;
 
 @Mapper
 public interface UserMapper {
@@ -36,10 +35,9 @@ public interface UserMapper {
     List<UserEntity> getRankingList(@Param("gender") String gender, @Param("ageGroup") Integer ageGroup);
     List<UserEntity> findAllByOrderByTotalPointDesc();
     UserEntity findPotentialRival(@Param("myId") Long myId, @Param("myPoint") int myPoint);
+
+    // --- [관리/스케줄러] ---
     List<UserEntity> findUsersForWeeklyReport();
     List<UserEntity> findWithdrawnUsersForPurge();
     void deleteUserPermanently(Long id);
-
-    // [New] 랭킹 최적화를 위한 대량 조회 (N+1 문제 해결용)
-    List<UserEntity> findAllByIds(@Param("ids") List<Long> ids);
 }

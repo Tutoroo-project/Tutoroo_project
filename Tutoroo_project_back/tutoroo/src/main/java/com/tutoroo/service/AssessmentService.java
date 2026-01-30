@@ -24,6 +24,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 @Slf4j
@@ -39,265 +40,333 @@ public class AssessmentService {
     private final ObjectMapper objectMapper;
     private final FileStore fileStore;
 
-    // [설정] 최소 상담 턴 수
+    // [핵심 설정] 최소 상담 턴 수 10회 (심층 분석)
     private static final int MIN_CONSULT_TURNS = 10;
-    // [설정] 상담 종료 키워드
-    private static final Pattern STOP_KEYWORDS = Pattern.compile(".*(그만|종료|멈춰|끝|결과|로드맵|힘들|지겨|안할래|stop|finish|done|상담완료).*", Pattern.CASE_INSENSITIVE);
 
-    // =================================================================================
-    // 1. [상담] 수준 파악 티키타카 (DTO: ConsultRequest -> ConsultResponse)
-    // =================================================================================
+    // [유저 의도 감지] 조기 종료 키워드 (정규식)
+    private static final Pattern STOP_KEYWORDS = Pattern.compile(".*(그만|종료|멈춰|끝|결과|로드맵|힘들|지겨|안할래|stop|finish|done).*", Pattern.CASE_INSENSITIVE);
 
+    // --- [Step 2] 수준 파악 상담 (고도화됨) ---
     public AssessmentDTO.ConsultResponse proceedConsultation(AssessmentDTO.ConsultRequest request) {
-        // 턴 수 계산
-        int currentTurnCount = (request.history() == null) ? 0 : (request.history().size() / 2) + 1;
+        // 1. DB에서 기본 페르소나 로드
+        String baseSystemPrompt = commonMapper.findPromptContentByKey("CONSULT_SYSTEM");
+        if (baseSystemPrompt == null) {
+            baseSystemPrompt = "너는 대한민국 최고의 입시/학습 컨설턴트야. 학생의 성적, 성향, 멘탈까지 완벽하게 파악해야 해.";
+        }
+
+        // 2. 현재 대화 턴 수 및 유저 의도 파악
+        int currentTurnCount = (request.history() == null) ? 0 : request.history().size();
         String lastUserMessage = request.lastUserMessage();
         boolean userWantsToStop = isUserRequestingStop(lastUserMessage);
 
-        boolean isFinished = false;
-
-        // 종료 조건 판단 logic
-        if (currentTurnCount < MIN_CONSULT_TURNS) {
-            // 강제 진행 (아직 정보 부족)
-            isFinished = false;
-            if (userWantsToStop) {
-                lastUserMessage += " (System: User wants to stop, but you MUST politely insist on asking more details for better analysis.)";
-            }
-        } else {
-            // 선택적 종료
-            if (userWantsToStop) isFinished = true;
-        }
-
-        // 프롬프트 생성
-        String systemPrompt = buildConsultationPrompt(request, currentTurnCount, isFinished);
+        // 3. [Dynamic Prompt] 상황에 맞는 프롬프트 조립
+        String enhancedPrompt = buildGuardedPrompt(baseSystemPrompt, request, currentTurnCount, userWantsToStop);
 
         try {
-            String aiMessage = chatModel.call(systemPrompt + "\n\nUser: " + lastUserMessage);
+            // 4. AI 호출
+            String jsonResponse = chatModel.call(enhancedPrompt);
+            String cleanedJson = cleanJson(jsonResponse);
 
-            if (isFinished) {
-                aiMessage = "수고하셨습니다! 분석이 완료되었습니다. '결과 보기' 버튼을 눌러 상세 로드맵을 확인하세요.";
+            // 5. 응답 파싱
+            JsonNode rootNode = objectMapper.readTree(cleanedJson);
+            String message = rootNode.path("message").asText();
+            boolean isFinished = rootNode.path("isFinished").asBoolean();
+
+            // [최종 안전장치 Logic]
+            // A. 유저가 멈추길 원하면 -> 무조건 종료 (AI가 눈치 없이 계속 질문하는 것 방지)
+            if (userWantsToStop) {
+                log.info("🛑 유저 요청으로 상담을 조기 종료합니다. (현재 턴: {})", currentTurnCount);
+                isFinished = true;
+                // 메시지가 너무 질문형이면 "네, 알겠습니다. 분석을 시작합니다." 등으로 덮어씌울 수도 있음
+            }
+            // B. 유저가 멈추길 원치 않는데, 10회 미만이고 AI가 끝내려 하면 -> 강제 연장
+            else if (isFinished && currentTurnCount < MIN_CONSULT_TURNS) {
+                log.info("⚠️ 심층 분석을 위해 상담을 강제로 연장합니다. (현재 턴: {} < {})", currentTurnCount, MIN_CONSULT_TURNS);
+                isFinished = false;
             }
 
-            String audioUrl = generateTtsAudio(aiMessage);
+            // 6. TTS 생성
+            String audioUrl = generateTtsAudio(message);
 
             return AssessmentDTO.ConsultResponse.builder()
-                    .aiMessage(aiMessage)
+                    .aiMessage(message)
                     .audioUrl(audioUrl)
                     .isFinished(isFinished)
                     .build();
 
         } catch (Exception e) {
-            log.error("Consultation Error", e);
-            throw new TutorooException("상담 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
+            log.error("Consultation Error: ", e);
+            // 에러 발생 시 안전하게 종료 처리하지 않고 예외를 던져 프론트가 알게 함
+            throw new TutorooException("상담 진행 중 오류가 발생했습니다.", ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
-    // =================================================================================
-    // 2. [로드맵] 분석 및 생성 (DTO: AssessmentSubmitRequest -> AssessmentResultResponse)
-    // =================================================================================
-
+    // --- [Step 3] 로드맵 생성 (분석 + 로드맵 + DB저장) ---
     @Transactional
     public AssessmentDTO.AssessmentResultResponse analyzeAndCreateRoadmap(Long userId, AssessmentDTO.AssessmentSubmitRequest request) {
         UserEntity user = userMapper.findById(userId);
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
 
+        // [검증] 멤버십 제한
         checkPlanLimit(user);
 
-        // 1. 레벨 분석 (내부 Record AnalysisResult 사용)
+        // 1. 레벨 분석 (Current & Target)
         String analysisJson = analyzeStudentLevel(user, request.studyInfo(), request.history());
-        AnalysisResult analysis = parseAnalysisResult(analysisJson);
+        AnalysisResult analysis;
+        try {
+            analysis = objectMapper.readValue(analysisJson, AnalysisResult.class);
+        } catch (Exception e) {
+            log.error("분석 파싱 실패: {}", e.getMessage());
+            analysis = new AnalysisResult("BEGINNER", "INTERMEDIATE", "상담 데이터 부족으로 기초부터 시작합니다.");
+        }
 
-        // 2. 로드맵 생성 (JSON)
+        // 2. 전체 로드맵 생성
         String roadmapJson = generateFullRoadmap(user, request.studyInfo(), analysis);
-
         AssessmentDTO.RoadmapData roadmapData;
         try {
             roadmapData = objectMapper.readValue(roadmapJson, AssessmentDTO.RoadmapData.class);
         } catch (Exception e) {
-            log.error("Roadmap Parsing Failed", e);
-            roadmapData = createFallbackRoadmap(request.studyInfo().goal());
-            try { roadmapJson = objectMapper.writeValueAsString(roadmapData); } catch(Exception ex){}
+            log.error("로드맵 파싱 실패. Raw JSON: {}", roadmapJson);
+            throw new TutorooException("로드맵 생성 형식이 올바르지 않습니다.", ErrorCode.AI_PROCESSING_ERROR);
         }
 
-        // 3. DB 저장 (StudyPlan)
-        // DTO에 planId 필드가 없으므로, 여기서 생성된 ID를 반환 객체에 담아야 함
-        Long planId = savePlanToDB(userId, request.studyInfo(), roadmapJson, analysis);
+        // 3. DB 저장 (endDate, targetLevel 포함)
+        savePlanToDB(userId, request.studyInfo(), roadmapJson, analysis);
 
-        // 4. 응답 DTO 생성
+        // 4. 응답 생성 (요약본)
+        AssessmentDTO.RoadmapOverview overview = AssessmentDTO.RoadmapOverview.builder()
+                .summary(roadmapData.summary())
+                .chapters(roadmapData.tableOfContents())
+                .build();
+
         return AssessmentDTO.AssessmentResultResponse.builder()
-                .planId(planId)
                 .analyzedLevel(analysis.currentLevel)
                 .analysisReport(analysis.analysisReport)
-                .overview(AssessmentDTO.RoadmapOverview.builder()
-                        .summary(roadmapData.summary())
-                        .chapters(roadmapData.tableOfContents())
-                        .build())
-                .message("로드맵 생성이 완료되었습니다.")
+                .overview(overview)
+                .message("로드맵 생성이 완료되었습니다. 대시보드에서 상세 내용을 확인하세요.")
                 .build();
     }
 
-    // =================================================================================
-    // 3. [간편 생성] (DTO: RoadmapRequest -> RoadmapResponse)
-    // =================================================================================
-
+    // --- [복구됨] 간편 생성 (StudyController 호환용) ---
     @Transactional
     public AssessmentDTO.RoadmapResponse createStudentRoadmap(Long userId, AssessmentDTO.RoadmapRequest request) {
         UserEntity user = userMapper.findById(userId);
         if (user == null) throw new TutorooException(ErrorCode.USER_NOT_FOUND);
+
         checkPlanLimit(user);
 
-        // 간편 생성을 위한 임시 정보 구성
+        String currentLevel = request.currentLevel() != null ? request.currentLevel() : "BEGINNER";
         AssessmentDTO.StudyStartRequest info = new AssessmentDTO.StudyStartRequest(
-                request.goal(), "4주", "60분", request.teacherType()
+                request.goal(), "3개월", "2시간", request.teacherType()
         );
-        AnalysisResult analysis = new AnalysisResult(
-                request.currentLevel() != null ? request.currentLevel() : "BEGINNER",
-                "ADVANCED",
-                "간편 진단 결과"
-        );
+        AnalysisResult analysis = new AnalysisResult(currentLevel, "ADVANCED", "간편 생성을 통해 생성된 로드맵입니다.");
 
         String roadmapJson = generateFullRoadmap(user, info, analysis);
-        AssessmentDTO.RoadmapData data;
+        AssessmentDTO.RoadmapData roadmapData;
         try {
-            data = objectMapper.readValue(roadmapJson, AssessmentDTO.RoadmapData.class);
+            roadmapData = objectMapper.readValue(roadmapJson, AssessmentDTO.RoadmapData.class);
         } catch (Exception e) {
-            data = createFallbackRoadmap(request.goal());
+            log.error("로드맵 파싱 실패: {}", e.getMessage());
+            throw new TutorooException(ErrorCode.AI_PROCESSING_ERROR);
         }
 
         savePlanToDB(userId, info, roadmapJson, analysis);
 
-        // RoadmapResponse (간편 버전) 매핑
         Map<String, String> simpleCurriculum = new HashMap<>();
-        if (data.tableOfContents() != null) {
-            for (AssessmentDTO.Chapter ch : data.tableOfContents()) {
+        if (roadmapData.tableOfContents() != null) {
+            for (AssessmentDTO.Chapter ch : roadmapData.tableOfContents()) {
                 simpleCurriculum.put(ch.week(), ch.title() + ": " + ch.description());
             }
         }
 
         return AssessmentDTO.RoadmapResponse.builder()
-                .summary(data.summary())
+                .summary(roadmapData.summary())
                 .weeklyCurriculum(simpleCurriculum)
-                .examSchedule(data.examSchedule())
-                .build();
-    }
-
-    // =================================================================================
-    // 4. [기타] 레벨 테스트 및 로드맵 수정
-    // =================================================================================
-
-    public AssessmentDTO.LevelTestResponse generateLevelTest(AssessmentDTO.LevelTestRequest request) {
-        String prompt = String.format("과목: %s. 5지선다 5문제를 JSON 배열로 출제해. [{\"questionNo\":1, \"question\":\"...\", \"options\":[\"...\"]}]", request.subject());
-        try {
-            String json = cleanJson(chatModel.call(prompt));
-            List<AssessmentDTO.LevelTestResponse.TestQuestion> questions = objectMapper.readValue(json, new TypeReference<>() {});
-            return AssessmentDTO.LevelTestResponse.builder()
-                    .testId(UUID.randomUUID().toString())
-                    .subject(request.subject())
-                    .questions(questions)
-                    .build();
-        } catch (Exception e) {
-            return AssessmentDTO.LevelTestResponse.builder().testId("error").questions(List.of()).build();
-        }
-    }
-
-    public AssessmentDTO.AssessmentResult evaluateLevelTest(Long userId, AssessmentDTO.TestSubmitRequest request) {
-        // 간단한 로직 (실제로는 정답 비교 필요)
-        return AssessmentDTO.AssessmentResult.builder()
-                .level("INTERMEDIATE")
-                .score(80)
-                .analysis("기초가 탄탄합니다.")
-                .recommendedPath("심화 과정")
+                .examSchedule(roadmapData.examSchedule())
                 .build();
     }
 
     @Transactional
-    public void adjustRoadmap(Long planId, String feedback) {
+    public AssessmentDTO.AssessmentResultResponse regenerateRoadmap(Long userId, Long planId, AssessmentDTO.AssessmentSubmitRequest request) {
         StudyPlanEntity plan = studyMapper.findById(planId);
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
-
-        String prompt = String.format("Current JSON: %s\nFeedback: %s\nUpdate the JSON structure based on feedback.", plan.getRoadmapJson(), feedback);
-        String json = cleanJson(chatModel.call(prompt));
-
-        try {
-            objectMapper.readTree(json);
-            plan.setRoadmapJson(json);
-            studyMapper.updatePlan(plan);
-        } catch (Exception e) { log.error("Adjust Fail", e); }
+        if (!plan.getUserId().equals(userId)) throw new TutorooException(ErrorCode.UNAUTHORIZED_ACCESS);
+        return analyzeAndCreateRoadmap(userId, request);
     }
 
-    // =================================================================================
-    // 5. [Private Helpers] 프롬프트 및 유틸
-    // =================================================================================
+    // --- 기타 기능 (레벨 테스트 등) ---
+    public AssessmentDTO.LevelTestResponse generateLevelTest(AssessmentDTO.LevelTestRequest request) {
+        String prompt = String.format("과목: %s. 5지선다 5문제 JSON 출제.", request.subject());
+        try {
+            String json = cleanJson(chatModel.call(prompt));
+            List<AssessmentDTO.LevelTestResponse.TestQuestion> qs = objectMapper.readValue(json, new TypeReference<>() {});
+            return AssessmentDTO.LevelTestResponse.builder().testId(UUID.randomUUID().toString()).subject(request.subject()).questions(qs).build();
+        } catch(Exception e) {
+            return AssessmentDTO.LevelTestResponse.builder().testId("error").questions(new ArrayList<>()).build();
+        }
+    }
 
-    private String buildConsultationPrompt(AssessmentDTO.ConsultRequest request, int currentTurn, boolean isFinished) {
+    public AssessmentDTO.AssessmentResult evaluateLevelTest(Long userId, AssessmentDTO.TestSubmitRequest request) {
+        return AssessmentDTO.AssessmentResult.builder().level("BEGINNER").score(0).analysis("기본 제공").recommendedPath("기초").build();
+    }
+
+    // --- Private Helper Methods ---
+
+    private boolean isUserRequestingStop(String message) {
+        if (message == null || message.trim().isEmpty()) return false;
+        return STOP_KEYWORDS.matcher(message).find();
+    }
+
+    private String buildGuardedPrompt(String baseSystemPrompt, AssessmentDTO.ConsultRequest request, int currentTurn, boolean userWantsToStop) {
         StringBuilder sb = new StringBuilder();
-        sb.append("You are an expert Academic Advisor. Goal: ").append(request.studyInfo().goal()).append("\n");
+
+        sb.append(baseSystemPrompt).append("\n\n");
+        sb.append("You are a strict and highly detailed academic counselor. Your goal is to gather as much detail as possible about the student's current status, weaknesses, and habits.\n\n");
+
+        sb.append("[Student Profile]\n");
+        sb.append("Goal: ").append(request.studyInfo().goal()).append("\n");
         sb.append("Available Time: ").append(request.studyInfo().availableTime()).append("\n");
+        sb.append("Deadline: ").append(request.studyInfo().deadline()).append("\n\n");
 
-        if (isFinished) {
-            sb.append("ACTION: Summarize and finish consultation.");
+        sb.append("[SYSTEM RULES - EXECUTE STRICTLY]\n");
+        sb.append("Current Turn: ").append(currentTurn).append(" / Target Min Turn: ").append(MIN_CONSULT_TURNS).append("\n");
+
+        if (userWantsToStop) {
+            sb.append("CONDITION: The student explicitly wants to stop or see the result.\n");
+            sb.append("ACTION: Stop asking questions immediately. Provide a brief closing remark confirming you have analyzed their data.\n");
+            sb.append("OUTPUT: Set 'isFinished': true.\n");
         } else if (currentTurn < MIN_CONSULT_TURNS) {
-            sb.append("ACTION: Ask one probing question to analyze weaknesses deeply. Do not finish yet.");
+            sb.append("CONDITION: Conversation is in the early/middle stage (Under 10 turns).\n");
+            sb.append("ACTION: You MUST NOT finish. Ask a deep, probing follow-up question. Dig into specific subjects, recent exam scores, or study distractions.\n");
+            sb.append("EXAMPLE: 'mathematics score is low? which part? calculus or geometry?'\n");
+            sb.append("OUTPUT: Set 'isFinished': false.\n");
         } else {
-            sb.append("ACTION: Gather any remaining details or suggest finishing.");
+            sb.append("CONDITION: Sufficient data collected (Over 10 turns).\n");
+            sb.append("ACTION: You may finish now. Summarize briefly and encourage the student.\n");
+            sb.append("OUTPUT: Set 'isFinished': true.\n");
         }
 
-        sb.append("\n[History]\n");
+        sb.append("6. FORMAT: Return ONLY JSON. Example: { \"message\": \"Your question here\", \"isFinished\": boolean }\n\n");
+
+        sb.append("[Conversation History]\n");
         if (request.history() != null) {
-            request.history().forEach(m -> sb.append(m.role()).append(": ").append(m.content()).append("\n"));
+            for (AssessmentDTO.Message msg : request.history()) {
+                sb.append(msg.role()).append(": ").append(msg.content()).append("\n");
+            }
         }
+
+        if (request.lastUserMessage() != null && !request.lastUserMessage().isEmpty()) {
+            sb.append("user: ").append(request.lastUserMessage()).append("\n");
+        } else if (currentTurn == 0) {
+            sb.append("system: Start the consultation with a sharp, insightful question based on their goal.\n");
+        }
+
         return sb.toString();
+    }
+
+    private void checkPlanLimit(UserEntity user) {
+        int currentActivePlans = studyMapper.countActivePlansByUserId(user.getId());
+        int allowedLimit = user.getEffectiveTier().getMaxActiveGoals();
+
+        if (currentActivePlans >= allowedLimit) {
+            throw new TutorooException(
+                    String.format("현재 등급(%s)에서는 더 이상 학습 목표를 생성할 수 없습니다. (최대 %d개)",
+                            user.getEffectiveTier().name(), allowedLimit),
+                    ErrorCode.MULTIPLE_PLANS_REQUIRED_PAYMENT
+            );
+        }
+    }
+
+    // [수정] AnalysisResult 파라미터 추가 및 필드 매핑 완벽 지원
+    private void savePlanToDB(Long userId, AssessmentDTO.StudyStartRequest info, String json, AnalysisResult analysis) {
+        // deadline 문자열 파싱 (예: "3개월", "100일") -> LocalDate
+        LocalDate endDate = calculateEndDate(info.deadline());
+
+        StudyPlanEntity plan = StudyPlanEntity.builder()
+                .userId(userId)
+                .goal(info.goal())
+                .persona(info.teacherType() != null ? info.teacherType() : "TIGER")
+                .roadmapJson(json)
+                .progressRate(0.0)
+                .status("PROCEEDING")
+                .currentLevel(analysis.currentLevel)
+                .targetLevel(analysis.targetLevel) // [New] 목표 레벨 저장
+                .startDate(LocalDate.now())
+                .endDate(endDate)                  // [New] 계산된 종료일 저장
+                .isPaid(false)
+                .build();
+        studyMapper.savePlan(plan);
+    }
+
+    // [New] 종료일 계산 헬퍼
+    private LocalDate calculateEndDate(String deadline) {
+        if (deadline == null || deadline.isEmpty()) return LocalDate.now().plusDays(30);
+        try {
+            if (deadline.contains("개월")) {
+                int months = Integer.parseInt(deadline.replaceAll("[^0-9]", ""));
+                return LocalDate.now().plusMonths(months);
+            } else if (deadline.contains("주")) {
+                int weeks = Integer.parseInt(deadline.replaceAll("[^0-9]", ""));
+                return LocalDate.now().plusWeeks(weeks);
+            } else if (deadline.contains("일")) {
+                int days = Integer.parseInt(deadline.replaceAll("[^0-9]", ""));
+                return LocalDate.now().plusDays(days);
+            }
+        } catch (Exception e) {
+            log.warn("날짜 파싱 실패: {}, 기본값 30일 적용", deadline);
+        }
+        return LocalDate.now().plusDays(30);
     }
 
     private String analyzeStudentLevel(UserEntity user, AssessmentDTO.StudyStartRequest info, List<AssessmentDTO.Message> history) {
         String prompt = String.format("""
-                Analyze student level based on chat history.
-                Output JSON: {"currentLevel": "BEGINNER/INTERMEDIATE/ADVANCED", "targetLevel": "...", "analysisReport": "..."}
-                User Goal: %s
-                History: %s
-                """, info.goal(), serializeHistory(history));
+                [학생 프로필] %s (%d세)
+                [목표] %s (기한: %s)
+                [상담 내역]
+                %s
+                
+                위 상담 내용을 바탕으로 이 학생의 '현재 수준'과 목표 달성을 위한 '목표 수준'을 냉철하게 분석해.
+                JSON으로 출력 (Key 이름 준수):
+                {
+                  "currentLevel": "BEGINNER / INTERMEDIATE / ADVANCED 중 택1",
+                  "targetLevel": "INTERMEDIATE / ADVANCED / MASTER 중 택1",
+                  "analysisReport": "상세 분석 내용 (5문장 내외)"
+                }
+                """, user.getName(), user.getAge(), info.goal(), info.deadline(), serializeHistory(history));
+
         return cleanJson(chatModel.call(prompt));
     }
 
-    // [중요] DTO의 RoadmapData 구조(Map)와 일치하는 JSON 요청
     private String generateFullRoadmap(UserEntity user, AssessmentDTO.StudyStartRequest info, AnalysisResult analysis) {
         String prompt = String.format("""
-                Create a 4-week roadmap JSON.
-                Goal: %s, Level: %s -> %s
+                [학생 정보] 이름: %s (%d세), 목표: %s, 기한: %s, 시간: %s
+                [분석 결과] 수준: %s -> %s, 코멘트: %s
                 
-                [JSON Structure STRICTLY Match this]
+                위 정보를 종합하여 JSON을 작성해.
+                
+                1. **tableOfContents (빙산의 일각)**: 전체 과정을 주차별(또는 챕터별)로 요약한 목차. (title, description)
+                2. **detailedCurriculum (진짜 빙산)**: 실제 일별 상세 학습 스케줄. Key는 '1주차' 등 목차와 일치해야 함.
+                
+                응답 형식 (JSON):
                 {
-                  "summary": "String",
+                  "summary": "한 줄 슬로건",
                   "tableOfContents": [
-                    {"week": "1주차", "title": "Title", "description": "Desc"}
+                    {"week": "1주차", "title": "입문", "description": "기초 다지기"}
                   ],
                   "detailedCurriculum": {
                     "1주차": [
-                      {"day": "1일차", "topic": "Topic", "method": "Lecture", "material": "Book"}
+                      {"day": "1일차", "topic": "변수", "method": "강의", "material": "1장"},
+                      {"day": "2일차", "topic": "연산자", "method": "실습", "material": "2장"}
                     ]
                   },
-                  "examSchedule": ["String"]
+                  "examSchedule": ["2주차 테스트"]
                 }
-                """, info.goal(), analysis.currentLevel, analysis.targetLevel);
-        return cleanJson(chatModel.call(prompt));
-    }
+                """,
+                user.getName(), user.getAge(), info.goal(), info.deadline(), info.availableTime(),
+                analysis.currentLevel, analysis.targetLevel, analysis.analysisReport
+        );
 
-    private Long savePlanToDB(Long userId, AssessmentDTO.StudyStartRequest info, String json, AnalysisResult analysis) {
-        StudyPlanEntity plan = StudyPlanEntity.builder()
-                .userId(userId)
-                .goal(info.goal())
-                .persona("DEFAULT") // 학습 시작 시 선택
-                .roadmapJson(json)
-                .currentLevel(analysis.currentLevel)
-                .targetLevel(analysis.targetLevel)
-                .startDate(LocalDate.now())
-                .endDate(LocalDate.now().plusDays(28)) // 4주 고정
-                .progressRate(0.0)
-                .status("PROCEEDING")
-                .isPaid(false)
-                .build();
-        studyMapper.savePlan(plan);
-        return plan.getId();
+        return cleanJson(chatModel.call(prompt));
     }
 
     private String serializeHistory(List<AssessmentDTO.Message> history) {
@@ -307,49 +376,28 @@ public class AssessmentService {
         return sb.toString();
     }
 
-    private boolean isUserRequestingStop(String message) {
-        if (message == null || message.trim().isEmpty()) return false;
-        return STOP_KEYWORDS.matcher(message).find();
-    }
-
-    private void checkPlanLimit(UserEntity user) {
-        if (studyMapper.countActivePlansByUserId(user.getId()) >= user.getEffectiveTier().getMaxActiveGoals()) {
-            throw new TutorooException("Plan Limit Reached", ErrorCode.MULTIPLE_PLANS_REQUIRED_PAYMENT);
-        }
-    }
-
-    private AnalysisResult parseAnalysisResult(String json) {
-        try { return objectMapper.readValue(json, AnalysisResult.class); }
-        catch (Exception e) { return new AnalysisResult("BEGINNER", "INTERMEDIATE", "분석 오류"); }
-    }
-
-    // DTO 구조에 맞춘 Fallback 데이터
-    private AssessmentDTO.RoadmapData createFallbackRoadmap(String goal) {
-        AssessmentDTO.Chapter ch = new AssessmentDTO.Chapter("1주차", "기초", "시작하기");
-        AssessmentDTO.DailyDetail dd = new AssessmentDTO.DailyDetail("1일차", "개요", "읽기", "자료");
-        return new AssessmentDTO.RoadmapData(
-                goal + " 로드맵",
-                List.of(ch),
-                Map.of("1주차", List.of(dd)),
-                List.of("테스트")
-        );
-    }
-
     private String generateTtsAudio(String text) {
         try {
-            SpeechResponse res = speechModel.call(new SpeechPrompt(text));
-            return fileStore.storeFile(res.getResult().getOutput(), ".mp3");
+            SpeechResponse response = speechModel.call(new SpeechPrompt(text));
+            return fileStore.storeFile(response.getResult().getOutput(), ".mp3");
         } catch (Exception e) { return null; }
     }
 
     private String cleanJson(String text) {
         if (text == null) return "{}";
         String cleaned = text.trim();
-        if (cleaned.startsWith("```json")) cleaned = cleaned.substring(7);
-        if (cleaned.startsWith("```")) cleaned = cleaned.substring(3);
-        if (cleaned.endsWith("```")) cleaned = cleaned.substring(0, cleaned.length() - 3);
+        if (cleaned.startsWith("```json")) {
+            cleaned = cleaned.substring(7);
+        }
+        if (cleaned.startsWith("```")) {
+            cleaned = cleaned.substring(3);
+        }
+        if (cleaned.endsWith("```")) {
+            cleaned = cleaned.substring(0, cleaned.length() - 3);
+        }
         return cleaned.trim();
     }
 
+    // [New] AnalysisResult 레코드 (targetLevel 추가)
     private record AnalysisResult(String currentLevel, String targetLevel, String analysisReport) {}
 }

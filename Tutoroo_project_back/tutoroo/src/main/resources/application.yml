@@ -2,9 +2,11 @@ spring:
   profiles:
     active: dev
     group:
-      dev: dev, common, secret
-      jaewon: jaewon-server, common, secret
-
+      dev: dev, common, secret-dev
+      jaewon: jaewon-server, common, secret-prod
+      gyeonggu: gyeonggu-server, common, secret-prod
+      seongyeop: seongyeop-server, common, secret-prod
+      sohyun: sohyun-server, common, secret-prod
 ---
 spring:
   config:
@@ -28,12 +30,60 @@ spring:
 
 domain:
   name:
-    http: http://localhost:80
-    https: https://localhost:443
+    http: http://tutoroo-study.shop
+    https: https://tutoroo-study.shop
 app:
   cors:
     allowed-origins:
-      - "https://aaaa.co.kr"
+      - "https://tutoroo-study.shop"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: gyeonggu-server
+
+domain:
+  name:
+    http: http://gettutoroo.store
+    https: https://gettutoroo.store
+app:
+  cors:
+    allowed-origins:
+      - "https://gettutoroo.store"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: seongyeop-server
+
+domain:
+  name:
+    http: http://bndadtutoroo.com
+    https: https://bndadtutoroo.com
+app:
+  cors:
+    allowed-origins:
+      - "https://bndadtutoroo.com"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: sohyun-server
+
+domain:
+  name:
+    http: http://bnmamatutoroo.com
+    https: https://bnmamatutoroo.com
+app:
+  cors:
+    allowed-origins:
+      - "https://bnmamatutoroo.com"
 ---
 
 spring:

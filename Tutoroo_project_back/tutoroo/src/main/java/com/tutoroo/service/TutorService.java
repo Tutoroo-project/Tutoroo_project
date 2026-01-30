@@ -170,10 +170,13 @@ public class TutorService {
         try {
             return objectMapper.readValue(cleaned, TutorDTO.DailyTestResponse.class);
         } catch (Exception e) {
-            // 파싱 실패 시 기본 응답 반환 (안전장치)
+            // [수정 완료] 이제 DTO 생성자와 인자가 완벽히 일치합니다.
             return new TutorDTO.DailyTestResponse(
-                    "QUIZ", "오늘 배운 내용을 스스로 정리해보세요!", null,
-                    List.of("네", "아니오", "글쎄요", "모르겠어요"), 0
+                    "QUIZ",
+                    "오늘 배운 내용을 스스로 정리해보세요!",
+                    null,
+                    List.of("네", "아니오", "글쎄요", "모르겠어요"),
+                    0
             );
         }
     }
@@ -261,15 +264,6 @@ public class TutorService {
             if (ans.attachmentUrl() != null) summary.append(" [파일 제출: ").append(ans.attachmentUrl()).append("]");
             summary.append("\n");
         }
-    }
-
-    // [Legacy] 데일리 테스트 (기존 유지)
-    @Transactional
-    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
-        StudyPlanEntity plan = studyMapper.findById(planId);
-        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백 줘.";
-        String res = chatModel.call(prompt);
-        int score = parseScore(res);
 
         String promptText = String.format("""
             학생 답안 채점 요청.
@@ -298,7 +292,6 @@ public class TutorService {
             return result;
         } catch (JsonProcessingException e) {
             log.error("채점 JSON 파싱 실패", e);
-            // [Fix] ErrorCode.AI_SERVICE_ERROR -> ErrorCode.AI_PROCESSING_ERROR (변수명 일치시킴)
             throw new TutorooException("채점 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
         }
     }

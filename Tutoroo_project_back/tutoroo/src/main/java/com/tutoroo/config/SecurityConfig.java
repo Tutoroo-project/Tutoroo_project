@@ -45,37 +45,37 @@ public class SecurityConfig {
                 // 3. 세션 관리 (JWT 사용하므로 Stateless)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 4. URL별 접근 권한 관리 [핵심 수정]
+                // 4. URL별 접근 권한 관리 [핵심 수정 구간]
                 .authorizeHttpRequests(auth -> auth
-                        // [Everyone] 누구나 접근 가능
+                        // [Everyone] 누구나 접근 가능 (로그인 불필요)
                         .requestMatchers(
                                 "/", "/error", "/index.html",
-                                "/api/auth/**",          // 로그인, 회원가입, 토큰재발급
+                                "/api/auth/**",          // 로그인, 회원가입
                                 "/api/public/**",        // 공지사항 등
-                                "/api/payment/webhook",  // 결제 웹훅 (인증 없이 호출됨)
-                                "/swagger-ui/**", "/v3/api-docs/**", // API 문서
-                                "/uploads/**"            // 업로드된 파일 접근 허용
+                                "/api/payment/webhook",  // 결제 웹훅 (인증 없이 PG사 호출 허용)
+                                "/swagger-ui/**", "/v3/api-docs/**" // API 문서
                         ).permitAll()
 
-                        // [Static Resources] 정적 파일 접근 허용 (이미지, 오디오)
+                        // [Static Resources] 이미지, 오디오 파일 접근 허용
                         .requestMatchers(
                                 "/static/**",
-                                "/images/**",   // AI 생성 이미지 경로
-                                "/audio/**",    // TTS 생성 오디오 경로
+                                "/images/**",
+                                "/audio/**",
+                                "/uploads/**",  // 업로드된 파일 접근 경로 추가
                                 "/favicon.ico"
                         ).permitAll()
 
-                        // [User Only] 학생 전용 기능 (로그인 필수)
+                        // [User Only] 로그인한 유저만 접근 가능 (여기에 practice 추가!)
                         .requestMatchers(
-                                "/api/assessment/**",    // 진단 상담 및 로드맵
-                                "/api/tutor/**",         // AI 수업 및 시험
-                                "/api/study/**",         // 학습 대시보드
-                                "/api/pet/**",           // 펫 키우기
-                                "/api/user/**",          // 내 정보 수정
-                                "/api/notifications/**", // 알림 확인
-                                "/api/payment/**",       // 결제 요청/내역
-                                "/api/ranking/**",       // 랭킹 조회
-                                "/api/practice/**"       // [NEW] 실전 무한 테스트 (여기 추가됨!)
+                                "/api/assessment/**",    // 진단 및 로드맵
+                                "/api/tutor/**",         // AI 수업
+                                "/api/study/**",         // 학습 관리
+                                "/api/pet/**",           // 펫 관리
+                                "/api/user/**",          // 마이페이지
+                                "/api/notifications/**", // 알림 (누락분 추가)
+                                "/api/payment/**",       // 결제 (누락분 추가)
+                                "/api/ranking/**",       // 랭킹 (누락분 추가)
+                                "/api/practice/**"       // [NEW] 실전 무한 테스트 (여기 추가되었습니다!)
                         ).hasAnyRole("USER", "ADMIN")
 
                         // 그 외 모든 요청은 인증 필요
@@ -88,7 +88,7 @@ public class SecurityConfig {
                         .successHandler(oAuth2SuccessHandler)
                 )
 
-                // 6. JWT 필터 등록 (UsernamePasswordFilter 앞에서 동작)
+                // 6. JWT 필터 등록
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate),
                         UsernamePasswordAuthenticationFilter.class

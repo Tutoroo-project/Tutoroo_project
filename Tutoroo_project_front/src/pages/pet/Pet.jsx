@@ -1,13 +1,8 @@
 /** @jsxImportSource @emotion/react */
 import { useState, useEffect, useCallback } from "react";
-import Header from "../../components/layouts/Header"; // 경로 확인 필요
+import Header from "../../components/layouts/Header";
 import * as s from "./styles";
-import {
-  adoptPet,
-  getAdoptablePets,
-  getPetStatus,
-  interactWithPet,
-} from "../../apis/pet/petApi";
+import { adoptPet, getAdoptablePets, getPetStatus, interactWithPet } from "../../apis/pet/petApi";
 
 import { ANIMATIONS } from "./petAnimations";
 import { PET_IMAGES } from "../../constants/petImages";
@@ -15,6 +10,7 @@ import SpriteChar from "./SpriteChar";
 
 
 function Pet() {
+
   const [loading, setLoading] = useState(true);
   const [petStatus, setPetStatus] = useState(null);
   const [isNoPet, setIsNoPet] = useState(false);
@@ -55,32 +51,43 @@ function Pet() {
         return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
     }
 
-  // 1. 데이터 가져오기
-  const fetchData = useCallback(async () => {
+    // 기분 좋음
+    if (petStatus.intimacy >= 80) {
+        return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
+    }
+    
+    // [기본] 평상시
+    return { src: images.PART2, sequence: ANIMATIONS.ROW1 };
+  };
+
+  // 위 함수를 실행해서 현재 보여줄 정보를 뽑아냅니다.
+  const { src, sequence } = getRenderInfo();
+
+  useEffect(() => {
+      const timer = setInterval(() => {
+          setFrameIndex((prev) => (prev + 1)  % sequence.length);
+      }, 500);
+
+      return () => clearInterval(timer);
+  }, [sequence]);
+  
+ 
+ const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const status = await getPetStatus();
-
-      // 데이터가 있고, 필수 필드(petId 또는 petName)가 있는지 확인
-      if (status && (status.petId || status.petName)) {
-        console.log("동물 상태 적용:", status);
+      if (status) {
         setPetStatus(status);
         setIsNoPet(false);
       } else {
-        console.log("동물 없음 상태로 전환");
-        setIsNoPet(true);
+        setIsNoPet("ADOPT"); // [수정] "ADOPT" 문자열로 통일
         setPetStatus(null);
-
-        // 입양 리스트 가져오기
-        const listData = await getAdoptablePets();
-        // 배열인지 확인 후 설정 (배열이 아니면 빈 배열)
-        const list = Array.isArray(listData)
-          ? listData
-          : listData.availablePets || [];
-        setAdoptableList(list);
+        const listResponse = await getAdoptablePets();
+        setAdoptableList(listResponse.availablePets || []);
       }
     } catch (error) {
-      console.error("데이터 로딩 중 에러:", error);
+      console.error("데이터 로딩 실패: ", error);
+      // alert("데이터를 불러오는 중 문제가 발생했습니다."); // 귀찮으면 주석
     } finally {
       setLoading(false);
     }
@@ -88,100 +95,96 @@ function Pet() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData]);
+  }, [fetchData])
 
-  // 2. 입양 핸들러
-  const handleAdopt = async (petType) => {
+  const handleAdopt = async (petType) => { 
     if (!window.confirm("이 친구로 입양하시겠습니까?")) return;
     try {
       await adoptPet(petType);
-      alert("입양 성공! 🎉");
+      alert("입양 성공! 새로운 친구가 생겼어요.");
       fetchData();
     } catch (error) {
-      alert(
-        "입양 실패: " + (error.response?.data?.message || "알 수 없는 오류"),
-      );
+      console.error(error);
+      alert("입양 중 오류가 발생했습니다.")
     }
   };
 
-  // 3. 상호작용 핸들러
+  const handleHatch = async (petType) => {
+    if (!window.confirm("이 알을 부화시키시겠습니까?")) return;
+    try {
+        await hatchEgg(petType);
+        alert("알이 부화했습니다! 🐣 새로운 여정을 시작하세요.");
+        fetchData(); // 상태 갱신 -> PET 모드로 변경됨
+    } catch (error) {
+        alert("부화에 실패했습니다.");
+    }
+  };
+
   const handleInteract = async (actionType) => {
     try {
       const updateStatus = await interactWithPet(actionType);
-      if (updateStatus) {
-        setPetStatus(updateStatus);
+      setPetStatus(updateStatus);
+
+     if (actionType === "FEED") {
+          setActionStatus("EATING"); 
+          setTimeout(() => setActionStatus(null), 2000); 
+      } else if (actionType === "CLEAN") {
+          setActionStatus("CLEANING"); 
+          setTimeout(() => setActionStatus(null), 2000);
       }
     } catch (error) {
-      if (
-        error.response &&
-        error.response.data &&
-        error.response.data.message
-      ) {
+      console.log(error);
+
+      if (error.response && error.response.data && error.response.data.data.message) {
         alert(error.response.data.message);
       } else {
-        alert("행동 실패!");
+        alert ("적용 실패!!")
       }
     }
   };
 
-  // 4. 이미지 경로 생성 (대문자 파일명 매칭)
-  const getPetImage = (pet) => {
-    if (!pet) return "";
-    if (pet.customImageUrl) return pet.customImageUrl;
-
-    // petType을 대문자로 변환 (Tiger -> TIGER)
-    const type = pet.petType ? pet.petType.toUpperCase() : "TIGER";
-    // 상태: 자는 중(SLEEP) vs 깨어있음(IDLE)
-    const state = pet.isSleeping ? "SLEEP" : "IDLE";
-
-    // 경로: /assets/pets/TIGER_1_IDLE.png
-    return `/assets/pets/${type}_${pet.stage}_${state}.png`;
-  };
-
-  // 5. 배경 이미지 (없으면 회색 배경)
+  // [New] 배경 이미지 결정
   const getBackgroundImage = () => {
+    // 나중에 레벨이나 펫 종류에 따라 배경을 바꿀 수 있음
     return "url('/assets/backgrounds/room_default.png')";
   };
 
-  return (
+
+ return (
     <>
       <Header />
       <div css={s.wrapper}>
         <div css={s.contentBox}>
           <div css={s.mainContainer}>
-            {loading && <div>데이터를 불러오는 중입니다...</div>}
+            {loading && <div>로딩 중...</div>}
 
-            {/* CASE A: 펫 없음 (입양 화면) */}
-            {!loading && isNoPet && (
+            {/* [유지] 입양 화면 */}
+            {!loading && isNoPet === "ADOPT" && (
               <div css={s.innerGameArea}>
                 <div style={{ textAlign: "center", marginBottom: "30px" }}>
                   <h2 style={{ fontSize: "28px", color: "#333", marginBottom: "10px" }}>
                     새로운 파트너를 선택해주세요 🐾
                   </h2>
                 </div>
+
                 <div css={s.adoptionList}>
                   {adoptableList.map((pet) => (
-                    <div
-                      key={pet.type || pet.petType}
-                      css={s.adoptionCard}
-                      onClick={() => handleAdopt(pet.type || pet.petType)}
-                    >
-                      <div style={{ fontSize: "50px", marginBottom: "10px" }}>
-                        🥚
-                      </div>
-                      <h3 style={{ margin: "0 0 10px 0", color: "#e67025" }}>
-                        {pet.name}
-                      </h3>
-                      <p style={{ fontSize: "13px", color: "#666" }}>
-                        {pet.description}
-                      </p>
+                    <div key={pet.type} css={s.adoptionCard} onClick={() => handleAdopt(pet.type)}>
+                      
+                      <img
+                        src={PET_IMAGES.Egg.DEFAULT} 
+                        alt={pet.name}
+                        style={{ width: "100px", height: "100px", objectFit: "contain", marginBottom: "15px" }}
+                      />
+                      <h3 style={{ margin: "0 0 10px 0", color: "#e67025" }}>{pet.name}</h3>
+                      <p style={{ fontSize: "13px", color: "#666" }}>{pet.description}</p>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* CASE B: 펫 있음 (육성 화면) */}
+            
             {!loading && !isNoPet && petStatus && (
               <div
                 css={s.innerGameArea}
@@ -194,33 +197,26 @@ function Pet() {
                   <div css={s.statusMsg}>"{petStatus.statusMessage}"</div>
                 </div>
 
-                {/* 펫 이미지 */}
+                
                 <div css={s.petImageArea}>
                   {petStatus.isSleeping && <div css={s.zzzText}>ZZZ...</div>}
-                  <img
-                    src={getPetImage(petStatus)}
-                    alt="pet"
-                    css={s.petImage(petStatus.isSleeping)}
-                    onError={(e) => {
-                      e.target.onerror = null;
-                      // 이미지 없을 때 임시 이미지
-                      e.target.src = `https://via.placeholder.com/300?text=${petStatus.petType}`;
-                    }}
+                  
+                  {/* SpriteChar 연결: getRenderInfo에서 받은 src, sequence 사용 */}
+                  <SpriteChar 
+                    src={src} 
+                    index={sequence[frameIndex]} 
+                    size={280} 
                   />
                 </div>
 
-                {/* 하단 컨트롤 */}
-                <div
-                  css={s.controlPanel}
-                  style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
-                >
+                {/* [유지] 컨트롤 패널 */}
+                <div css={s.controlPanel} style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}>
                   <div css={s.statsGrid}>
                     <StatBar label="배고픔" value={petStatus.fullness} color="#FF9800" />
                     <StatBar label="친밀도" value={petStatus.intimacy} color="#E91E63" />
                     <StatBar label="청결도" value={petStatus.cleanliness} color="#2196F3" />
                     <StatBar label="에너지" value={petStatus.energy} color="#4CAF50" />
                   </div>
-
                   <div css={s.btnGroup}>
                     {petStatus.isSleeping ? (
                       <button css={s.wakeBtn} onClick={() => handleInteract("WAKE_UP")}>
@@ -228,22 +224,13 @@ function Pet() {
                       </button>
                     ) : (
                       <>
-                        <button
-                          css={s.gameBtn}
-                          onClick={() => handleInteract("FEED")}
-                        >
+                        <button css={s.gameBtn} onClick={() => handleInteract("FEED")}>
                           🍖 밥주기
                         </button>
-                        <button
-                          css={s.gameBtn}
-                          onClick={() => handleInteract("PLAY")}
-                        >
+                        <button css={s.gameBtn} onClick={() => handleInteract("PLAY")}>
                           ⚽ 놀아주기
                         </button>
-                        <button
-                          css={s.gameBtn}
-                          onClick={() => handleInteract("CLEAN")}
-                        >
+                        <button css={s.gameBtn} onClick={() => handleInteract("CLEAN")}>
                           ✨ 씻겨주기
                         </button>
                         <button css={s.gameBtn} onClick={() => handleInteract("SLEEP")}>
@@ -263,26 +250,12 @@ function Pet() {
   );
 }
 
+// [유지] StatBar 컴포넌트
 const StatBar = ({ label, value, color }) => (
   <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", fontWeight: "bold", color: "#555" }}>
     <span style={{ width: "50px" }}>{label}</span>
-    <div
-      style={{
-        flex: 1,
-        height: "10px",
-        background: "#eee",
-        borderRadius: "5px",
-        overflow: "hidden",
-      }}
-    >
-      <div
-        style={{
-          width: `${Math.min(100, Math.max(0, value))}%`,
-          height: "100%",
-          background: color,
-          transition: "width 0.5s",
-        }}
-      />
+    <div style={{ flex: 1, height: "10px", background: "#eee", borderRadius: "5px", overflow: "hidden" }}>
+      <div style={{ width: `${Math.min(100, value)}%`, height: "100%", background: color, transition: "width 0.5s" }} />
     </div>
     <span style={{ width: "30px", textAlign: "right" }}>{value}</span>
   </div>

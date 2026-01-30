@@ -25,7 +25,7 @@ export const SESSION_MODES = {
   REVIEW: { label: "복습 자료", defaultTime: 0 },
 };
 
-// [Helper] 날짜 비교 함수 (YYYY-MM-DD)
+// [Helper] 날짜 비교 함수
 const isSameDate = (dateString) => {
   if (!dateString) return false;
   const today = new Date();
@@ -61,11 +61,11 @@ const useStudyStore = create((set, get) => ({
 
   // --- [Actions] 동작 함수들 ---
 
-  // 1. 플랜 기본 정보 설정 (이어하기 지원)
+  // [수정 1] 플랜 설정 시, 같은 플랜이면 리셋하지 않음
   setPlanInfo: (planId, goal) => {
     const currentPlanId = get().planId;
 
-    // 다른 플랜을 선택했을 때만 초기화
+    // 기존과 다른 새로운 플랜을 선택했을 때만 상태 초기화
     if (currentPlanId !== planId) {
         set({ 
             planId, 
@@ -74,16 +74,14 @@ const useStudyStore = create((set, get) => ({
             currentMode: "CLASS",   // 모드 초기화
             currentStepIndex: 0,
             isTimerRunning: false,
-            timeLeft: SESSION_MODES["CLASS"].defaultTime,
-            isStudyCompletedToday: false // 완료 상태 초기화
+            timeLeft: SESSION_MODES["CLASS"].defaultTime // 시간도 초기화
         });
     } else {
-        // 같은 플랜이면 목표 텍스트만 업데이트하고 나머지는 유지
+        // 같은 플랜이면 목표 텍스트만 업데이트하고 나머지는 유지 (이어하기)
         set({ studyGoal: goal });
     }
   },
 
-  // 2. 사용자 학습 상태 로드
   loadUserStatus: async (specificPlanId = null) => {
     set({ isLoading: true });
     try {
@@ -114,33 +112,33 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 3. 스피커 토글
   toggleSpeaker: () => {
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
-  // 4. 초기 세션 데이터 로드 (이어하기 로직 포함)
+  // [수정 2] 페이지 진입 시 초기화 로직 (이어하기 지원)
   initializeStudySession: async () => {
      const state = get();
      
-     // 이미 메시지가 있거나 진행 중이면 초기화하지 않고 리턴 (이어하기)
+     // 이미 메시지가 존재한다면(학습 중이었다면) 초기화하지 않고 리턴
      if (state.messages.length > 0) {
          return; 
      }
      
-     // 데이터가 없을 때만 서버에서 상태 로드
+     // 플랜 ID가 없거나 데이터가 비어있을 때만 서버에서 상태 로드
      if (!state.planId) {
          await state.loadUserStatus();
      }
   },
 
-  // 5. 수업 시작 (TutorSelectionPage에서 호출)
   startClassSession: async (tutorInfo, navigate) => {
     if (get().isStudyCompletedToday) {
         alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
         return;
     }
 
+    // [참고] 여기서는 명시적으로 '시작' 버튼을 눌렀으므로 초기화해도 되지만,
+    // TutorSelectionPage에서 넘어올 때 호출되므로 messages를 비워주는 게 맞음
     set({ isLoading: true, messages: [] });
     
     const { planId, studyDay, isSpeakerOn } = get();
@@ -171,8 +169,7 @@ const useStudyStore = create((set, get) => ({
         }],
         currentMode: "CLASS",
         currentStepIndex: 0,
-        sessionSchedule: res.schedule || {},
-        isStudyCompletedToday: false 
+        sessionSchedule: res.schedule || {} 
       });
 
       get().setupMode("CLASS", res.schedule || {}, false);
@@ -187,7 +184,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 6. 모드 설정 및 AI 멘트 요청
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
@@ -227,7 +223,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 7. 타이머 틱
   tick: () => {
     const { timeLeft, nextSessionStep } = get();
     if (timeLeft > 0) {
@@ -237,59 +232,27 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 8. 다음 단계로 전환 및 학습 완료 처리 (피드백 출력 포함)
   nextSessionStep: async () => {
     const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
 
-    // 다음 단계가 남아있을 경우
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
-      
-      // 모드 설정 (기본 멘트 로드 등)
       get().setupMode(nextMode, sessionSchedule, true);
 
       if (nextMode === "REVIEW") {
           try {
-              set({ isChatLoading: true }); 
-
-              const feedbackText = await studyApi.generateAiFeedback(planId);
-              
-              set({ isStudyCompletedToday: true });
-
-              set((state) => ({
-                  messages: [
-                      ...state.messages,
-                      { 
-                          type: 'AI', 
-                          content: feedbackText || "오늘의 학습 분석 결과를 불러오지 못했습니다.",
-                      },
-                      {
-                          type: 'AI',
-                          content: "오늘 학습하느라 정말 고생 많았어요! 아래 버튼을 눌러 복습 자료를 다운로드 받으세요."
-                      }
-                  ],
-                  isChatLoading: false
-              }));
-
+              await studyApi.generateAiFeedback(planId);
+              set({ isStudyCompletedToday: true }); 
           } catch (e) {
-              console.error("학습 마무리(AI 피드백 생성) 실패:", e);
-              set((state) => ({
-                  messages: [
-                      ...state.messages, 
-                      { type: 'AI', content: "학습은 완료되었지만 피드백 생성에 실패했습니다. 잠시 후 다시 시도해주세요." }
-                  ],
-                  isChatLoading: false,
-                  isStudyCompletedToday: true 
-              }));
+              console.error("학습 마무리 처리 실패:", e);
           }
       }
-
     } else {
       set({ isTimerRunning: false });
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "모든 과정이 종료되었습니다. 안녕히 가세요!" }]
+        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인해보세요." }]
       }));
     }
   },

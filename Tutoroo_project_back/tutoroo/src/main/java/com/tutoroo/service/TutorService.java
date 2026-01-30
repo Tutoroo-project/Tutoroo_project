@@ -13,7 +13,6 @@ import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
-import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -40,7 +39,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -71,7 +69,6 @@ public class TutorService {
         updatePersonaIfChanged(plan, request.personaName());
 
         // [프롬프트: 학습 총량 보존의 법칙]
-        // 학생의 기분은 '시간'이 아니라 '태도'와 '전략'에만 영향을 줍니다.
         String userPrompt = String.format("""
                 [학습 컨텍스트]
                 - 과목: %s
@@ -143,7 +140,46 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 2. 범용 멀티모달 시험 (Universal Exam Engine)
+    // 2. 데일리 테스트 생성
+    // =================================================================================
+    @Transactional(readOnly = true)
+    public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+
+        String prompt = String.format("""
+                [데일리 테스트 생성]
+                - 과목: %s
+                - 진도: %d일차
+                - 페르소나: %s
+                
+                오늘 학습한 내용을 확인하는 가벼운 4지선다 퀴즈 1개를 JSON으로 만들어줘.
+                형식:
+                {
+                    "type": "QUIZ",
+                    "question": "문제 내용 (재미있게)",
+                    "imageUrl": null,
+                    "options": ["보기1", "보기2", "보기3", "보기4"],
+                    "answerIndex": 0
+                }
+                """, plan.getGoal(), dayCount, plan.getPersona());
+
+        String response = chatModel.call(prompt);
+        String cleaned = cleanJson(response);
+
+        try {
+            return objectMapper.readValue(cleaned, TutorDTO.DailyTestResponse.class);
+        } catch (Exception e) {
+            // 파싱 실패 시 기본 응답 반환 (안전장치)
+            return new TutorDTO.DailyTestResponse(
+                    "QUIZ", "오늘 배운 내용을 스스로 정리해보세요!", null,
+                    List.of("네", "아니오", "글쎄요", "모르겠어요"), 0
+            );
+        }
+    }
+
+    // =================================================================================
+    // 3. 범용 멀티모달 시험 (Universal Exam Engine)
     // =================================================================================
 
     @Transactional(readOnly = true)
@@ -154,8 +190,6 @@ public class TutorService {
         StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(planId);
         String topic = (lastLog != null) ? lastLog.getContentSummary() : "기초 입문";
 
-        // [핵심] 하드코딩(Switch-Case) 삭제 -> AI 주도적 도메인 분석
-        // 세상의 모든 과목(코딩, 요리, 명상, 주식 등)을 커버하는 'Zero-shot' 프롬프트
         String promptText = String.format("""
             [Role] You are a world-class expert tutor in '%s'.
             [Topic] %s
@@ -192,12 +226,9 @@ public class TutorService {
                         "referenceMediaUrl": null,
                         "codeTemplate": null
                     }
-                    ...
                 ]
             }
             """, plan.getGoal(), topic, plan.getGoal());
-
-
 
         String jsonResponse = chatModel.call(promptText);
         String cleanedJson = cleanJson(jsonResponse);
@@ -210,8 +241,14 @@ public class TutorService {
         }
     }
 
+    // 주간/월간 시험 생성 (오버로딩)
+    @Transactional(readOnly = true)
+    public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId, int startDay, int endDay) {
+        return generateExam(userId, planId);
+    }
+
     // =================================================================================
-    // 3. 범용 채점 (Universal Grading)
+    // 4. 범용 채점 (Universal Grading)
     // =================================================================================
 
     @Transactional
@@ -224,8 +261,16 @@ public class TutorService {
             if (ans.attachmentUrl() != null) summary.append(" [파일 제출: ").append(ans.attachmentUrl()).append("]");
             summary.append("\n");
         }
+    }
 
-        // [프롬프트: 전문가적 관점 평가]
+    // [Legacy] 데일리 테스트 (기존 유지)
+    @Transactional
+    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백 줘.";
+        String res = chatModel.call(prompt);
+        int score = parseScore(res);
+
         String promptText = String.format("""
             학생 답안 채점 요청.
             이 과목의 **최고 전문가 관점**에서 채점해.
@@ -253,8 +298,14 @@ public class TutorService {
             return result;
         } catch (JsonProcessingException e) {
             log.error("채점 JSON 파싱 실패", e);
-            throw new TutorooException("채점 중 오류가 발생했습니다.", ErrorCode.AI_SERVICE_ERROR);
+            // [Fix] ErrorCode.AI_SERVICE_ERROR -> ErrorCode.AI_PROCESSING_ERROR (변수명 일치시킴)
+            throw new TutorooException("채점 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
         }
+    }
+
+    // [New] 컨트롤러의 submitExam 호출과 매핑되는 메서드
+    public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
+        return evaluateExam(userId, request);
     }
 
     // [Legacy] 데일리 테스트 (기존 유지)
@@ -276,7 +327,7 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 4. 상담 및 STT
+    // 5. 상담 및 STT
     // =================================================================================
 
     @Transactional
@@ -289,7 +340,6 @@ public class TutorService {
 
         String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
 
-        // [프롬프트: 협상가 모드]
         String counselingPrompt = basePrompt + """
             \n[모드: 학습 조율 상담]
             1. 학생의 감정은 충분히 공감해줘. ("힘들었겠구나")
@@ -325,8 +375,18 @@ public class TutorService {
         studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
     }
 
+    // [New] 커스텀 튜터 이름 변경
+    @Transactional
+    public void renameCustomTutor(Long planId, String newName) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+
+        plan.setCustomTutorName(newName);
+        studyMapper.updatePlan(plan);
+    }
+
     // =================================================================================
-    // 5. Private Helpers
+    // 6. Private Helpers
     // =================================================================================
 
     private void updatePersonaIfChanged(StudyPlanEntity plan, String newPersona) {
@@ -354,7 +414,6 @@ public class TutorService {
             int idx = response.lastIndexOf("{");
             if (idx != -1) {
                 schedule = objectMapper.readValue(response.substring(idx), Map.class);
-                // [안전장치] AI가 10분 미만으로 잡으면 강제로 30분 할당 (총량 보존)
                 if (schedule.getOrDefault("CLASS", 0) < 600) schedule.put("CLASS", 1800);
                 msg = response.substring(0, idx).trim();
             } else {
@@ -379,7 +438,6 @@ public class TutorService {
         } catch (Exception e) { return null; }
     }
 
-    // [Fix] ExamQuestion 파라미터 개수(7개)와 순서 완벽 일치
     private TutorDTO.ExamGenerateResponse createFallbackExam(String topic) {
         return new TutorDTO.ExamGenerateResponse(
                 topic + " 기초 평가",
@@ -387,10 +445,10 @@ public class TutorService {
                         1,
                         QuestionType.MULTIPLE_CHOICE,
                         topic + "의 개념은?",
-                        null, // referenceMediaUrl
-                        null, // referenceMediaType
-                        List.of("A", "B", "C", "D"), // options
-                        null  // codeTemplate
+                        null,
+                        null,
+                        List.of("A", "B", "C", "D"),
+                        null
                 ))
         );
     }

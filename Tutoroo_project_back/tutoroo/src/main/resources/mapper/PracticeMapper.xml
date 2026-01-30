@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.PracticeMapper">
+
+    <select id="countByContentHash" resultType="int">
+        SELECT count(*) FROM practice_questions WHERE content_hash = #{contentHash}
+    </select>
+
+    <insert id="saveQuestion" parameterType="com.tutoroo.entity.PracticeQuestionEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO practice_questions (
+            plan_id, content_hash, question_json, topic, question_type, difficulty, image_url, created_at
+        ) VALUES (
+                     #{planId}, #{contentHash}, #{questionJson}, #{topic}, #{questionType}, #{difficulty}, #{imageUrl}, NOW()
+                 )
+    </insert>
+
+    <select id="findQuestionById" resultType="com.tutoroo.entity.PracticeQuestionEntity">
+        SELECT * FROM practice_questions WHERE id = #{id}
+    </select>
+
+    <insert id="saveLog" parameterType="com.tutoroo.entity.PracticeLogEntity" useGeneratedKeys="true" keyProperty="id">
+        INSERT INTO practice_logs (
+            user_id, question_id, user_answer, is_correct, ai_feedback, solved_at
+        ) VALUES (
+                     #{userId}, #{questionId}, #{userAnswer}, #{isCorrect}, #{aiFeedback}, NOW()
+                 )
+    </insert>
+
+    <select id="findTopWeakTopics" resultType="string">
+        SELECT q.topic
+        FROM practice_logs l
+                 JOIN practice_questions q ON l.question_id = q.id
+        WHERE l.user_id = #{userId}
+          AND q.plan_id = #{planId}
+          AND l.is_correct = false
+        GROUP BY q.topic
+        ORDER BY count(*) DESC
+            LIMIT 5
+    </select>
+
+    <select id="findWrongQuestionsByTopic" resultType="com.tutoroo.entity.PracticeQuestionEntity">
+        SELECT DISTINCT q.*
+        FROM practice_logs l
+                 JOIN practice_questions q ON l.question_id = q.id
+        WHERE l.user_id = #{userId}
+          AND q.topic = #{topic}
+          AND l.is_correct = false
+        ORDER BY RAND()
+            LIMIT 3
+    </select>
+
+</mapper>

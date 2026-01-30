@@ -32,13 +32,14 @@ public class TutorDTO {
             Map<String, Integer> schedule // [New] AI가 제안하는 세션별 시간표 (초 단위)
     ) {}
 
-    // 3. 데일리 테스트 생성 응답
+    // 3. 데일리 테스트 생성 응답 [수정됨]
+    // 서비스 로직(TutorService)과 필드를 일치시켰습니다.
     public record DailyTestResponse(
-            String type,     // QUIZ, MISSION 등
-            String question,
-            String imageUrl,
-            String voiceUrl, // TTS 오디오 경로
-            int timeLimitSeconds
+            String type,            // QUIZ, MISSION 등
+            String question,        // 문제 내용
+            String imageUrl,        // 이미지 (없으면 null)
+            List<String> options,   // [New] 4지선다 보기 리스트 (기존 voiceUrl 대체)
+            int answerIndex         // [New] 정답 인덱스 (기존 timeLimitSeconds 대체)
     ) {}
 
     // 4. 테스트 제출 요청 (데일리 테스트용)

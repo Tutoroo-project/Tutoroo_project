@@ -54,23 +54,15 @@
             <if test="deletedAt != null">deleted_at = #{deletedAt},</if>
 
             updated_at = NOW()
-        </set>
         WHERE id = #{id}
     </update>
 
     <select id="findByNameAndEmailAndPhone" resultType="com.tutoroo.entity.UserEntity">
-        SELECT * FROM users
-        WHERE name = #{name}
-          AND email = #{email}
-          AND phone = #{phone}
-          AND status = 'ACTIVE'
+        SELECT * FROM users WHERE name = #{name} AND email = #{email} AND phone = #{phone}
     </select>
 
     <select id="findByUsernameAndEmail" resultType="com.tutoroo.entity.UserEntity">
-        SELECT * FROM users
-        WHERE username = #{username}
-          AND email = #{email}
-          AND status = 'ACTIVE'
+        SELECT * FROM users WHERE username = #{username} AND email = #{email}
     </select>
 
     <update id="updatePassword">
@@ -89,16 +81,15 @@
             parent_phone = #{parentPhone},
             age = #{age},
             gender = #{gender},
-            role = 'ROLE_USER',
+            role = #{role},
             updated_at = NOW()
-        WHERE username = #{username}
+        WHERE id = #{id}
     </update>
 
     <update id="earnPoints">
         UPDATE users
         SET total_point = total_point + #{amount},
             point_balance = point_balance + #{amount},
-            exp = exp + #{amount},
             updated_at = NOW()
         WHERE id = #{userId}
     </update>
@@ -107,32 +98,32 @@
         UPDATE users
         SET point_balance = point_balance - #{amount},
             updated_at = NOW()
-        WHERE id = #{userId} AND point_balance >= #{amount}
+        WHERE id = #{userId}
     </update>
 
     <update id="updateUserPointByPlan">
-        UPDATE users u
-            JOIN study_plans p ON u.id = p.user_id
-            SET u.total_point = u.total_point + #{point},
-                u.point_balance = u.point_balance + #{point},
-                u.exp = u.exp + #{point},
-                u.updated_at = NOW()
-        WHERE p.id = #{planId}
+        UPDATE users
+        SET point_balance = point_balance + #{point},
+            updated_at = NOW()
+        WHERE id = (SELECT user_id FROM study_plans WHERE id = #{planId})
     </update>
 
     <update id="resetRankingPoints">
-        UPDATE users SET total_point = 0, daily_rank = 0
+        UPDATE users SET daily_rank = NULL
     </update>
 
     <select id="getRankingList" resultType="com.tutoroo.entity.UserEntity">
         SELECT * FROM users
         <where>
-            role = 'ROLE_USER'
-            AND status = 'ACTIVE'
-            <if test="gender != null and gender != ''">AND gender = #{gender}</if>
+            status = 'ACTIVE'
+            <if test="gender != null">AND gender = #{gender}</if>
             <if test="ageGroup != null">
                 <choose>
-                    <when test="ageGroup == 0">AND age &lt; 10</when>
+                    <when test="ageGroup == 10">AND age BETWEEN 10 AND 19</when>
+                    <when test="ageGroup == 20">AND age BETWEEN 20 AND 29</when>
+                    <when test="ageGroup == 30">AND age BETWEEN 30 AND 39</when>
+                    <when test="ageGroup == 40">AND age BETWEEN 40 AND 49</when>
+                    <when test="ageGroup == 50">AND age BETWEEN 50 AND 59</when>
                     <when test="ageGroup == 60">AND age >= 60</when>
                     <otherwise>AND age >= #{ageGroup} AND age &lt; #{ageGroup} + 10</otherwise>
                 </choose>
@@ -173,5 +164,18 @@
     <delete id="deleteUserPermanently">
         DELETE FROM users WHERE id = #{id}
     </delete>
+
+    <select id="findAllByIds" resultType="com.tutoroo.entity.UserEntity">
+        SELECT * FROM users
+        WHERE id IN
+        <foreach item="id" collection="ids" open="(" separator="," close=")">
+            #{id}
+        </foreach>
+        ORDER BY FIELD(id,
+        <foreach item="id" collection="ids" separator=",">
+            #{id}
+        </foreach>
+        )
+    </select>
 
 </mapper>

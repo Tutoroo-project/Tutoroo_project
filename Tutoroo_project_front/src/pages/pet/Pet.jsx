@@ -9,11 +9,51 @@ import {
   interactWithPet,
 } from "../../apis/pet/petApi";
 
+import { ANIMATIONS } from "./petAnimations";
+import { PET_IMAGES } from "../../constants/petImages";
+import SpriteChar from "./SpriteChar";
+
+
 function Pet() {
   const [loading, setLoading] = useState(true);
   const [petStatus, setPetStatus] = useState(null);
   const [isNoPet, setIsNoPet] = useState(false);
   const [adoptableList, setAdoptableList] = useState([]);
+  const [actionStatus, setActionStatus ] = useState(null);
+
+  const [ frameIndex, setFrameIndex ]  = useState(0); //프레임 번호
+
+  const getRenderInfo = () => {
+    if (!petStatus || petStatus.stage <= 1) {
+      return { src: PET_IMAGES.Egg.DEFAULT, sequence: ANIMATIONS.ROW1 };
+    }
+    
+
+    const type = petStatus.petType || "Fox";
+    const images = PET_IMAGES[type] || PET_IMAGES.Fox;
+
+    if (actionStatus === "EATING") {
+        return { src: images.PART2, sequence: ANIMATIONS.ROW1 , isEgg: true};
+    }
+
+    // if (actionStatus === "PLAYING") {
+    //     return { src: images.PART2, sequence: ANIMATIONS.ROW2 }; // 주석상 ROW2가 '사랑'이라면 여기로 연결
+    // }
+
+    //  씻는 중 
+    if (actionStatus === "CLEANING") {
+        return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
+    }
+
+    //  자는 중 
+    if (petStatus.isSleeping) {
+        return { src: images.PART1, sequence: ANIMATIONS.ROW1 };
+    }
+
+    // 배고픔(슬픔) 
+    if (petStatus.fullness < 30) {
+        return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
+    }
 
   // 1. 데이터 가져오기
   const fetchData = useCallback(async () => {
@@ -115,18 +155,9 @@ function Pet() {
             {!loading && isNoPet && (
               <div css={s.innerGameArea}>
                 <div style={{ textAlign: "center", marginBottom: "30px" }}>
-                  <h2
-                    style={{
-                      fontSize: "28px",
-                      color: "#333",
-                      marginBottom: "10px",
-                    }}
-                  >
+                  <h2 style={{ fontSize: "28px", color: "#333", marginBottom: "10px" }}>
                     새로운 파트너를 선택해주세요 🐾
                   </h2>
-                  <p style={{ color: "#888" }}>
-                    함께 공부하며 성장할 친구입니다.
-                  </p>
                 </div>
                 <div css={s.adoptionList}>
                   {adoptableList.map((pet) => (
@@ -154,23 +185,11 @@ function Pet() {
             {!loading && !isNoPet && petStatus && (
               <div
                 css={s.innerGameArea}
-                style={{
-                  backgroundImage: getBackgroundImage(),
-                  backgroundSize: "cover",
-                }}
+                style={{ backgroundImage: getBackgroundImage(), backgroundSize: "cover" }}
               >
-                {/* 상단 정보 */}
                 <div style={{ textAlign: "center", zIndex: 2 }}>
-                  <h2
-                    style={{
-                      margin: 0,
-                      fontSize: "28px",
-                      color: "#333",
-                      textShadow: "2px 2px 0px #fff",
-                    }}
-                  >
-                    {petStatus.petName}
-                    <span css={s.levelBadge}>Lv.{petStatus.stage}</span>
+                  <h2 style={{ margin: 0, fontSize: "28px", color: "#333" }}>
+                    {petStatus.petName} <span css={s.levelBadge}>Lv.{petStatus.stage}</span>
                   </h2>
                   <div css={s.statusMsg}>"{petStatus.statusMessage}"</div>
                 </div>
@@ -196,34 +215,15 @@ function Pet() {
                   style={{ backgroundColor: "rgba(255, 255, 255, 0.95)" }}
                 >
                   <div css={s.statsGrid}>
-                    <StatBar
-                      label="배고픔"
-                      value={petStatus.fullness}
-                      color="#FF9800"
-                    />
-                    <StatBar
-                      label="친밀도"
-                      value={petStatus.intimacy}
-                      color="#E91E63"
-                    />
-                    <StatBar
-                      label="청결도"
-                      value={petStatus.cleanliness}
-                      color="#2196F3"
-                    />
-                    <StatBar
-                      label="에너지"
-                      value={petStatus.energy}
-                      color="#4CAF50"
-                    />
+                    <StatBar label="배고픔" value={petStatus.fullness} color="#FF9800" />
+                    <StatBar label="친밀도" value={petStatus.intimacy} color="#E91E63" />
+                    <StatBar label="청결도" value={petStatus.cleanliness} color="#2196F3" />
+                    <StatBar label="에너지" value={petStatus.energy} color="#4CAF50" />
                   </div>
 
                   <div css={s.btnGroup}>
                     {petStatus.isSleeping ? (
-                      <button
-                        css={s.wakeBtn}
-                        onClick={() => handleInteract("WAKE_UP")}
-                      >
+                      <button css={s.wakeBtn} onClick={() => handleInteract("WAKE_UP")}>
                         ⏰ 흔들어 깨우기
                       </button>
                     ) : (
@@ -246,10 +246,7 @@ function Pet() {
                         >
                           ✨ 씻겨주기
                         </button>
-                        <button
-                          css={s.gameBtn}
-                          onClick={() => handleInteract("SLEEP")}
-                        >
+                        <button css={s.gameBtn} onClick={() => handleInteract("SLEEP")}>
                           💤 재우기
                         </button>
                       </>
@@ -267,16 +264,7 @@ function Pet() {
 }
 
 const StatBar = ({ label, value, color }) => (
-  <div
-    style={{
-      display: "flex",
-      alignItems: "center",
-      gap: "10px",
-      fontSize: "14px",
-      fontWeight: "bold",
-      color: "#555",
-    }}
-  >
+  <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", fontWeight: "bold", color: "#555" }}>
     <span style={{ width: "50px" }}>{label}</span>
     <div
       style={{

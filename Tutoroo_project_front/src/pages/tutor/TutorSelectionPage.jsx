@@ -3,7 +3,6 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useStudyStore from "../../stores/useStudyStore";
 import * as s from "./styles";
-// 이미지 import 유지
 import tigerImg from "../../assets/images/mascots/logo_tiger.png";
 import turtleImg from "../../assets/images/mascots/logo_turtle.png";
 import rabbitImg from "../../assets/images/mascots/logo_rabbit.png";
@@ -21,17 +20,30 @@ const TUTORS = [
 const TutorSelectionPage = () => {
   const navigate = useNavigate();
   
-  const { studyDay, loadUserStatus, startClassSession, isLoading, planId } = useStudyStore();
+  // store에서 messages와 기타 상태 가져오기
+  const { 
+      studyDay, loadUserStatus, startClassSession, isLoading, planId,
+      todayTopic, isStudyCompletedToday, messages 
+  } = useStudyStore();
   
   const [activeTutorId, setActiveTutorId] = useState("TIGER");
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInput, setCustomInput] = useState("");
 
+  // [New] 진행 중인 학습(메시지)이 있으면 튜터 선택 건너뛰기
   useEffect(() => {
+    // 메시지가 있다는 것은 이미 세션이 시작되었다는 의미이므로 바로 이동
+    if (messages && messages.length > 0) {
+        navigate("/study", { replace: true }); // 뒤로가기 방지를 위해 replace 사용
+    }
+  }, [messages, navigate]);
+
+  useEffect(() => {
+    // planId가 있다면 상태 로드
+    // (단, 위 useEffect에 의해 messages가 있으면 리다이렉트가 먼저 발생함)
     if (planId) {
         loadUserStatus(planId);
     } else {
-        // planId가 없다면(새로고침 등) 기본값 로드
         loadUserStatus();
     }
   }, [loadUserStatus, planId]);
@@ -53,6 +65,11 @@ const TutorSelectionPage = () => {
   };
 
   const handleStart = () => {
+    // 오늘 학습 완료 여부 체크
+    if (isStudyCompletedToday) {
+        alert("오늘 학습을 이미 완료하셨습니다. 내일 다시 도전해주세요!");
+        return;
+    }
     if (isLoading) return;
 
     const tutorInfo = {
@@ -64,9 +81,27 @@ const TutorSelectionPage = () => {
     startClassSession(tutorInfo, navigate);
   };
 
+  // 버튼 렌더링 헬퍼 함수
+  const renderStartButton = () => {
+    if (isStudyCompletedToday) {
+        return (
+            <button css={s.startBtn} disabled style={{ backgroundColor: '#999', cursor: 'default' }}>
+                🎉 오늘 학습 완료! (내일 00시 오픈)
+            </button>
+        );
+    }
+    return (
+        <button css={s.startBtn} onClick={handleStart} disabled={isLoading}>
+            {isLoading ? "로딩 중..." : "수업 시작하기"}
+        </button>
+    );
+  };
+
   return (
     <div css={s.container}>
-      <h2 css={s.title}>오늘 함께할 선생님을 선택해주세요 ({studyDay}일차)</h2>
+      <h2 css={s.title}>
+        {todayTopic ? `Day ${studyDay}. ${todayTopic}` : `오늘 함께할 선생님을 선택해주세요 (${studyDay}일차)`}
+      </h2>
 
       <div css={s.contentWrap}>
         <div css={s.listPanel}>
@@ -83,10 +118,7 @@ const TutorSelectionPage = () => {
           ))}
 
           <div 
-            css={[
-                s.customBtn(isCustomMode), 
-                isDayOne && s.disabledBtn
-            ]} 
+            css={[s.customBtn(isCustomMode), isDayOne && s.disabledBtn]} 
             onClick={handleToggleCustom}
           >
             <div className="name">
@@ -109,25 +141,28 @@ const TutorSelectionPage = () => {
                 value={customInput}
                 onChange={(e) => setCustomInput(e.target.value)}
               />
-              <button css={s.startBtn} onClick={handleStart} disabled={isLoading}>
-                {isLoading ? "로딩 중..." : "이 설정으로 시작하기"}
-              </button>
+              {renderStartButton()}
             </div>
           ) : (
             <div css={s.infoBox}>
               <img src={activeTutor.image} alt={activeTutor.name} css={s.detailProfileImg} />
               
               <p css={s.guideText}>
-                선택한 <strong>{activeTutor.name}</strong>과 함께<br/>
-                즐거운 학습을 시작해보세요!
+                {isStudyCompletedToday ? (
+                    <strong>오늘의 목표를 달성했습니다!<br/>푹 쉬고 내일 만나요.</strong>
+                ) : (
+                    <>
+                    선택한 <strong>{activeTutor.name}</strong>과 함께<br/>
+                    즐거운 학습을 시작해보세요!
+                    </>
+                )}
               </p>
+              
               <div css={s.descBox}>
                 <strong>[ {activeTutor.name} ]</strong>
                 <p>{activeTutor.desc}</p>
               </div>
-              <button css={s.startBtn} onClick={handleStart} disabled={isLoading}>
-                {isLoading ? "로딩 중..." : "수업 시작하기"}
-              </button>
+              {renderStartButton()}
             </div>
           )}
         </div>

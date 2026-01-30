@@ -261,6 +261,15 @@ public class TutorService {
             if (ans.attachmentUrl() != null) summary.append(" [파일 제출: ").append(ans.attachmentUrl()).append("]");
             summary.append("\n");
         }
+    }
+
+    // [Legacy] 데일리 테스트 (기존 유지)
+    @Transactional
+    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백 줘.";
+        String res = chatModel.call(prompt);
+        int score = parseScore(res);
 
         String promptText = String.format("""
             학생 답안 채점 요청.

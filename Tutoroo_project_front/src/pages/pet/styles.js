@@ -126,10 +126,11 @@ export const statusMsg = css`
 export const petImageArea = css`
     flex: 1;
     display: flex;
+    width: 100%;
     align-items: center;
     justify-content: center;
     position: relative;
-    width: 100%;
+    overflow: visible;
 `;
 
 // [게임 화면] 자는 표시 (ZZZ 애니메이션)

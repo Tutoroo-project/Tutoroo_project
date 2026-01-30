@@ -34,45 +34,61 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                // 1. CSRF 비활성화 (JWT 사용 시 불필요)
+                // 1. 기본 보안 설정 비활성화 (Rest API 방식이므로 불필요)
+                .httpBasic(AbstractHttpConfigurer::disable)
                 .csrf(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
 
-                // 2. CORS 설정 적용
+                // 2. CORS 설정 (프론트엔드 연동)
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
 
-                // 3. 세션 관리 정책 설정 (Stateless)
+                // 3. 세션 관리 (JWT 사용하므로 Stateless)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
 
-                // 4. Form Login 및 HttpBasic 비활성화
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable)
-
-                // 5. 요청별 권한 설정
+                // 4. URL별 접근 권한 관리 [핵심 수정 구간]
                 .authorizeHttpRequests(auth -> auth
-                        // 인증 없이 접근 가능한 경로 설정
+                        // [Everyone] 누구나 접근 가능 (로그인 불필요)
                         .requestMatchers(
-                                "/",
-                                "/index.html",
-                                "/static/**",
-                                "/images/**",   // [필수] 프로필/업로드 이미지 접근 허용
-                                "/audio/**",    // [필수] TTS 오디오 파일 접근 허용
-                                "/api/auth/**",
-                                "/api/health",
-                                "/swagger-ui/**",
-                                "/v3/api-docs/**",
-                                "/api/payment/webhook" // [New] 포트원 웹훅 허용 (인증 없음)
+                                "/", "/error", "/index.html",
+                                "/api/auth/**",          // 로그인, 회원가입
+                                "/api/public/**",        // 공지사항 등
+                                "/api/payment/webhook",  // 결제 웹훅 (인증 없이 PG사 호출 허용)
+                                "/swagger-ui/**", "/v3/api-docs/**" // API 문서
                         ).permitAll()
+
+                        // [Static Resources] 이미지, 오디오 파일 접근 허용
+                        .requestMatchers(
+                                "/static/**",
+                                "/images/**",
+                                "/audio/**",
+                                "/uploads/**",  // 업로드된 파일 접근 경로 추가
+                                "/favicon.ico"
+                        ).permitAll()
+
+                        // [User Only] 로그인한 유저만 접근 가능 (여기에 practice 추가!)
+                        .requestMatchers(
+                                "/api/assessment/**",    // 진단 및 로드맵
+                                "/api/tutor/**",         // AI 수업
+                                "/api/study/**",         // 학습 관리
+                                "/api/pet/**",           // 펫 관리
+                                "/api/user/**",          // 마이페이지
+                                "/api/notifications/**", // 알림 (누락분 추가)
+                                "/api/payment/**",       // 결제 (누락분 추가)
+                                "/api/ranking/**",       // 랭킹 (누락분 추가)
+                                "/api/practice/**"       // [NEW] 실전 무한 테스트 (여기 추가되었습니다!)
+                        ).hasAnyRole("USER", "ADMIN")
+
                         // 그 외 모든 요청은 인증 필요
                         .anyRequest().authenticated()
                 )
 
-                // 6. OAuth2 로그인 설정
+                // 5. OAuth2 소셜 로그인 설정
                 .oauth2Login(oauth2 -> oauth2
                         .userInfoEndpoint(userInfo -> userInfo.userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)
                 )
 
-                // 7. JWT 인증 필터 추가
+                // 6. JWT 필터 등록
                 .addFilterBefore(
                         new JwtAuthenticationFilter(jwtTokenProvider, redisTemplate),
                         UsernamePasswordAuthenticationFilter.class
@@ -81,13 +97,11 @@ public class SecurityConfig {
         return http.build();
     }
 
-    // 비밀번호 암호화 인코더
     @Bean
     public PasswordEncoder passwordEncoder() {
         return new BCryptPasswordEncoder();
     }
 
-    // AuthenticationManager 빈 등록 (로그인 로직에서 사용)
     @Bean
     public AuthenticationManager authenticationManager(AuthenticationConfiguration authenticationConfiguration) throws Exception {
         return authenticationConfiguration.getAuthenticationManager();

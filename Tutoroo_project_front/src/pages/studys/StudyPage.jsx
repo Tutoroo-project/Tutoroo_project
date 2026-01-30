@@ -14,7 +14,6 @@ import { HiMiniSpeakerWave, HiMiniSpeakerXMark } from "react-icons/hi2";
 import { FaCircle } from "react-icons/fa";
 import { PiMicrophoneStageFill } from "react-icons/pi";
 
-// 튜터 이미지 매핑 객체
 const TUTOR_IMAGES = {
   tiger: tigerImg,
   turtle: turtleImg,
@@ -24,7 +23,6 @@ const TUTOR_IMAGES = {
   dragon: dragonImg 
 };
 
-// 백엔드 URL (환경변수 또는 기본값)
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
 function StudyPage() {
@@ -50,8 +48,21 @@ function StudyPage() {
 
   const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
 
+  // [수정] 페이지 진입 및 이탈 시 처리
   useEffect(() => {
+    // 1. 세션 초기화 (Store에 메시지가 있으면 무시됨 -> 이어하기)
     initializeStudySession();
+    
+    // 2. 페이지를 떠날 때(대시보드 이동 등) 오디오/녹음만 중지하고 상태는 유지
+    return () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
+            mediaRecorderRef.current.stop();
+        }
+    };
   }, []); 
 
   useEffect(() => {
@@ -71,7 +82,7 @@ function StudyPage() {
 
         audioRef.current.src = fullUrl;
         audioRef.current.play().catch(e => {
-            console.log("Audio play blocked (user interaction needed):", e);
+            console.log("Audio play blocked:", e);
         });
       }
     } else {
@@ -91,7 +102,6 @@ function StudyPage() {
 
   const getImageSource = (url) => {
     if (!url) return null;
-
     if (url.startsWith("http")) return url;
     if (url.includes('/tutors/')) {
         const filename = url.split('/').pop().split('.')[0].toLowerCase();
@@ -100,7 +110,6 @@ function StudyPage() {
     if (url.includes('break_time') || url.includes('quiz_bg')) {
         return currentTutorImage; 
     }
-
     const cleanBase = API_BASE_URL.replace(/\/$/, ""); 
     const cleanUrl = url.startsWith("/") ? url : `/${url}`; 
     return `${cleanBase}${cleanUrl}`;
@@ -143,19 +152,16 @@ function StudyPage() {
   const handleDownloadPdf = async () => {
     try {
         const blob = await studyApi.downloadReviewPdf(planId, studyDay);
-        // Blob URL 생성
         const url = window.URL.createObjectURL(new Blob([blob]));
         const link = document.createElement('a');
         link.href = url;
         link.setAttribute('download', `Study_Review_Day${studyDay}.pdf`);
         document.body.appendChild(link);
         link.click();
-        
-        // [수정] DOM 제거 및 URL 객체 메모리 해제 (필수)
         link.remove();
         window.URL.revokeObjectURL(url); 
     } catch (e) {
-        console.error(e); // 에러 로그 추가
+        console.error(e);
         alert("다운로드에 실패했습니다.");
     }
   };
@@ -172,7 +178,6 @@ function StudyPage() {
           ) : (
             messages.map((msg, index) => {
               const isUser = msg.type === "USER";
-              // 이미지 소스 결정
               const imgSrc = getImageSource(msg.imageUrl);
 
               return (
@@ -183,7 +188,6 @@ function StudyPage() {
                     </div>
                   )} 
                   <div css={s.bubble(isUser)}>
-                    {/* [이미지 렌더링] src가 유효할 때만 표시 */}
                     {imgSrc && (
                         <img 
                             src={imgSrc} 

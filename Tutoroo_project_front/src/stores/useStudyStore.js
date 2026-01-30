@@ -42,22 +42,34 @@ const useStudyStore = create((set, get) => ({
   sessionSchedule: {},   
   currentStepIndex: 0,   
 
-  // [수정] 설정 상태 (기본값: false로 변경하여 꺼진 상태로 시작)
   isSpeakerOn: false,     
+  
+  // [New] 오늘 학습 완료 여부 상태 추가
+  isStudyCompletedToday: false,
 
   // --- [Actions] 동작 함수들 ---
 
-  // 1. 플랜 기본 정보 설정
   setPlanInfo: (planId, goal) => {
-    set({ planId, studyGoal: goal });
+    // 플랜 ID가 바뀔 때만 초기화 (이어하기 지원)
+    if (get().planId !== planId) {
+        set({ 
+            planId, 
+            studyGoal: goal,
+            messages: [],
+            currentMode: "CLASS",
+            currentStepIndex: 0,
+            isTimerRunning: false,
+            isStudyCompletedToday: false // 초기화
+        });
+    } else {
+        set({ studyGoal: goal });
+    }
   },
 
-  // 2. 사용자 학습 상태 로드
   loadUserStatus: async (specificPlanId = null) => {
     set({ isLoading: true });
     try {
       const targetPlanId = specificPlanId || get().planId;
-      
       if (!targetPlanId) {
           set({ isLoading: false });
           return;
@@ -70,7 +82,8 @@ const useStudyStore = create((set, get) => ({
             planId: data.planId, 
             studyDay: data.currentDay || 1, 
             studyGoal: data.goal,
-            selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo"
+            selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo",
+            // 만약 API에서 isCompleted 같은 필드를 준다면 여기서도 세팅 가능
         });
       }
     } catch (error) {
@@ -80,22 +93,17 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 3. 스피커 토글 (TTS On/Off)
   toggleSpeaker: () => {
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
-  // 4. 초기 세션 데이터 로드
   initializeStudySession: async () => {
-     if (get().messages.length > 0 && get().currentMode === "CLASS") return;
-     
-     if (!get().planId) {
-         await get().loadUserStatus();
-     }
+     if (get().messages.length > 0) return; // 이어하기
+     if (!get().planId) await get().loadUserStatus();
   },
 
-  // 5. 수업 시작
   startClassSession: async (tutorInfo, navigate) => {
+    // 이미 완료된 상태라면 차단 로직을 추가할 수도 있음
     set({ isLoading: true, messages: [] });
     const { planId, studyDay, isSpeakerOn } = get();
 
@@ -106,7 +114,6 @@ const useStudyStore = create((set, get) => ({
     }
 
     try {
-      // 수업 시작 API 호출 (needsTts가 false면 오디오 생성 안 함)
       const res = await studyApi.startClass({
         planId,
         dayCount: studyDay,
@@ -126,7 +133,8 @@ const useStudyStore = create((set, get) => ({
         }],
         currentMode: "CLASS",
         currentStepIndex: 0,
-        sessionSchedule: res.schedule || {} 
+        sessionSchedule: res.schedule || {},
+        isStudyCompletedToday: false 
       });
 
       get().setupMode("CLASS", res.schedule || {}, false);
@@ -141,7 +149,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 6. 모드 설정 및 AI 멘트/이미지 요청
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
@@ -156,13 +163,12 @@ const useStudyStore = create((set, get) => ({
     if (shouldFetchMessage) {
         try {
             const { planId, selectedTutorId, studyDay, isSpeakerOn } = get();
-
             const res = await studyApi.startSessionMode({
                 planId,
                 sessionMode: mode,
                 personaName: selectedTutorId.toUpperCase(),
                 dayCount: studyDay,
-                needsTts: isSpeakerOn // 현재 스피커 상태(false) 전달 -> 오디오 생성 X
+                needsTts: isSpeakerOn 
             });
 
             set((state) => ({
@@ -182,7 +188,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 7. 타이머 틱
   tick: () => {
     const { timeLeft, nextSessionStep } = get();
     if (timeLeft > 0) {
@@ -192,35 +197,49 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 8. 다음 단계로 자동 전환
-  nextSessionStep: () => {
-    const { currentStepIndex, sessionSchedule } = get();
+  // [핵심 수정] 다음 단계 전환 및 학습 완료 처리
+  nextSessionStep: async () => {
+    const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
 
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
       get().setupMode(nextMode, sessionSchedule, true);
+
+      // [New] 마지막 단계인 'REVIEW' (복습) 모드로 진입하면 서버에 완료 요청
+      if (nextMode === "REVIEW") {
+          try {
+              // 백엔드 API 명세에 있는 AI 피드백 생성 API 호출
+              // 이 API가 실행되면 DB의 study_logs 테이블에 피드백이 저장되고 완료 처리될 것으로 예상됨
+              await studyApi.generateAiFeedback(planId);
+              
+              set({ isStudyCompletedToday: true }); // 프론트 상태도 완료로 변경
+              console.log("오늘 학습 완료 및 피드백 생성 요청 성공");
+          } catch (e) {
+              console.error("학습 마무리(AI 피드백 생성) 처리 실패:", e);
+              // 에러가 나더라도 UI는 멈추지 않도록 처리
+          }
+      }
+
     } else {
+      // 모든 시퀀스가 끝났을 때
       set({ isTimerRunning: false });
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인해보세요." }]
+        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인하고 푹 쉬세요." }]
       }));
     }
   },
 
-  // 9. 사용자 메시지 전송
   sendMessage: async (text) => {
       set((state) => ({ messages: [...state.messages, { type: 'USER', content: text }], isChatLoading: true }));
       try {
           const { planId, isSpeakerOn } = get(); 
-
           const res = await studyApi.sendChatMessage({ 
               planId, 
               message: text, 
               needsTts: isSpeakerOn 
           });
-
           set((state) => ({ messages: [...state.messages, { type: 'AI', content: res.aiResponse, audioUrl: res.audioUrl }], isChatLoading: false }));
       } catch (e) {
           console.error(e);

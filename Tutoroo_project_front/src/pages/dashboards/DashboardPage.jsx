@@ -58,8 +58,11 @@ function DashboardPage() {
   const openLogin = useModalStore((state) => state.openLogin);
   const openStudyPlan = useModalStore((state) => state.openStudyPlan);
 
-  // [New] 학습 정보 설정을 위한 액션 가져오기
+  // [New] 학습 정보 설정을 위한 액션 및 상태 가져오기
   const setPlanInfo = useStudyStore((state) => state.setPlanInfo);
+  // 현재 진행 중인(메모리에 있는) 플랜 ID와 메시지 확인
+  const currentPlanId = useStudyStore((state) => state.planId);
+  const currentMessages = useStudyStore((state) => state.messages);
 
   // 대시보드 데이터 상태 관리
   const [dashboardData, setDashboardData] = useState(null);
@@ -104,7 +107,7 @@ function DashboardPage() {
     const todayIso = toYmd(new Date());
     const idx = dates.findIndex((d) => d.iso === todayIso);
     setSelectedIndex(idx >= 0 ? idx : 0);
-  }, [weekOffset]);
+  }, [weekOffset, dates]);
 
   const [planDetail, setPlanDetail] = useState(null);
   const [curriculumByDate, setCurriculumByDate] = useState({});
@@ -295,7 +298,7 @@ function DashboardPage() {
     return () => {
       alive = false;
     };
-  }, [user, weekOffset, selectedStudyId]);
+  }, [user, weekOffset, selectedStudyId, dates]);
 
   useEffect(() => {
     if (!user) return;
@@ -317,21 +320,40 @@ function DashboardPage() {
     fetchData();
   }, [user]);
 
-  // 학습 시작 핸들러
+  // 오늘 날짜 확인 및 완료 여부 계산
+  const todayIso = toYmd(new Date());
+  const isTodayDone = !!doneByIso[todayIso]?.isDone;
+
+  // [핵심] 학습 시작 핸들러 (이어하기 로직 추가)
   const handleStartStudy = () => {
+    // 1. 오늘 이미 완료했으면 차단
+    if (isTodayDone) {
+      alert("오늘의 학습을 이미 완료했습니다! 내일 또 만나요.");
+      return;
+    }
+
     if (!selectedStudyId) {
       alert("학습을 선택해주세요");
       return;
     }
 
+    const targetId = Number(selectedStudyId);
+
+    // [New] 2. 이어하기 체크
+    // 선택한 플랜이 현재 진행 중인 플랜과 같고, 대화 내용이 남아있다면 바로 이동
+    if (targetId === currentPlanId && currentMessages.length > 0) {
+        navigate("/study");
+        return;
+    }
+
+    // 3. 새로운 학습 시작 (또는 진행 내역이 없는 경우)
     const selectedStudy = studyList.find(
       (s) => String(s.id) === String(selectedStudyId),
     );
     const studyName = selectedStudy ? selectedStudy.name : "학습";
 
-    setPlanInfo(Number(selectedStudyId), studyName);
-
-    navigate(`/tutor`);
+    setPlanInfo(targetId, studyName); // Store 상태 설정 (planId 변경 시 리셋됨)
+    navigate(`/tutor`); // 튜터 선택 페이지로 이동
   };
 
   const point = myDash?.totalPoint ?? dashboardData?.currentPoint ?? 0;
@@ -388,8 +410,12 @@ function DashboardPage() {
               </button>
 
               {/* 학습 시작 버튼 */}
-              <button css={s.studyBtn} onClick={handleStartStudy}>
-                학습하러 가기
+              <button 
+                css={[s.studyBtn, isTodayDone && s.disabledBtn]} 
+                onClick={handleStartStudy}
+                disabled={isTodayDone}
+              >
+                {isTodayDone ? "오늘 학습 완료" : "학습하러 가기"}
               </button>
             </div>
           </section>

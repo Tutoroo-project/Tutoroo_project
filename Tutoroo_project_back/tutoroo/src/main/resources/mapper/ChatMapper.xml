@@ -8,14 +8,15 @@
     </insert>
 
     <select id="findRecentMessages" resultType="com.tutoroo.mapper.ChatMapper$ChatMessage">
-        SELECT * FROM (
-                          SELECT sender, message
-                          FROM chat_messages
-                          WHERE plan_id = #{planId}
-                          ORDER BY created_at DESC
-                              LIMIT #{limit}
-                      ) sub
-        ORDER BY created_at ASC -- AI에게는 시간 순서대로 줘야 함
+        SELECT sub.sender, sub.message
+        FROM (
+                 SELECT sender, message, id
+                 FROM chat_messages
+                 WHERE plan_id = #{planId}
+                 ORDER BY id DESC
+                     LIMIT #{limit}
+             ) sub
+        ORDER BY sub.id ASC
     </select>
 
 </mapper>

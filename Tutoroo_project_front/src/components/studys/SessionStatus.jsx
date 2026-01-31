@@ -4,18 +4,19 @@ import useStudyStore, { SESSION_MODES } from "../../stores/useStudyStore";
 import * as s from "./styles";
 
 function SessionStatus() {
-  const { currentMode, timeLeft, tick, isTimerRunning } = useStudyStore();
+  const { currentMode, timeLeft, tick, isTimerRunning, isInfinitePractice } = useStudyStore();
 
   useEffect(() => {
     let interval = null;
-    if (isTimerRunning && timeLeft > 0) {
-      interval = setInterval(tick, 1000);
-    } else if (isTimerRunning && timeLeft === 0) {
-        // 시간이 0이 되는 순간 다음 단계 트리거
-        tick();
+    if (!isInfinitePractice) {
+      if (isTimerRunning && timeLeft > 0) {
+        interval = setInterval(tick, 1000);
+      } else if (isTimerRunning && timeLeft === 0) {
+        tick(); // 시간이 0이 되는 순간 다음 단계 트리거
+      }
     }
     return () => clearInterval(interval);
-  }, [isTimerRunning, timeLeft, tick]);
+  }, [isInfinitePractice, isTimerRunning, timeLeft, tick]);
 
   const formatTime = (seconds) => {
     if (seconds < 0) return "00:00";
@@ -33,7 +34,7 @@ function SessionStatus() {
     <div css={s.statusWidget}>
       <div css={s.statusLabel}>{label}</div>
       <div css={s.timerText}>
-        {showTime ? formatTime(timeLeft) : "-"}
+         {isInfinitePractice ? "∞" : showTime ? formatTime(timeLeft) : "-"}
       </div>
     </div>
   );

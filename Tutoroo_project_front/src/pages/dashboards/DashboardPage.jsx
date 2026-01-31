@@ -1,6 +1,6 @@
 /** @jsxImportSource @emotion/react */
 import { useMutation } from "@tanstack/react-query";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import Swal from "sweetalert2";
 import { studyApi } from "../../apis/studys/studysApi";
@@ -15,6 +15,7 @@ import useStudyStore from "../../stores/useStudyStore";
 import { FaTrash } from "react-icons/fa";
 
 import * as s from "./styles";
+
 
 // 요일 이름
 const DAY_NAMES = ["일", "월", "화", "수", "목", "금", "토"];
@@ -101,6 +102,25 @@ function DashboardPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
 
+  const [isStudyMenuOpen, setIsStudyMenuOpen] = useState(false);
+  const studyMenuRef = useRef(null);
+
+  useEffect(() => {
+    const handleOutside = (e) => {
+      if (!studyMenuRef.current) return;
+      if (!studyMenuRef.current.contains(e.target)) setIsStudyMenuOpen(false);
+    };
+    const handleKey = (e) => {
+      if (e.key === "Escape") setIsStudyMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleOutside);
+    document.addEventListener("keydown", handleKey);
+    return () => {
+      document.removeEventListener("mousedown", handleOutside);
+      document.removeEventListener("keydown", handleKey);
+    };
+  }, []);
+
   const [planDetail, setPlanDetail] = useState(null);
 
   const dates = useMemo(() => {
@@ -133,58 +153,58 @@ function DashboardPage() {
 
   const handleDeleteStudy = async () => {
     if (!selectedStudyId) {
-        Swal.fire("알림", "삭제할 학습을 선택해주세요.", "warning");
-        return;
+      Swal.fire("알림", "삭제할 학습을 선택해주세요.", "warning");
+      return;
     }
 
     // 1. 비밀번호 입력 받기
     const { value: password } = await Swal.fire({
-        title: '학습 삭제',
-        html: '정말 삭제하시겠습니까?<br/>본인 확인을 위해 <b>비밀번호</b>를 입력해주세요.',
-        input: 'password',
-        inputPlaceholder: '비밀번호 입력',
-        showCancelButton: true,
-        confirmButtonText: '삭제',
-        cancelButtonText: '취소',
-        confirmButtonColor: '#ff4d4f', 
-        preConfirm: async (password) => {
-            if (!password) {
-                Swal.showValidationMessage('비밀번호를 입력해주세요.');
-            }
-            return password;
+      title: '학습 삭제',
+      html: '정말 삭제하시겠습니까?<br/>본인 확인을 위해 <b>비밀번호</b>를 입력해주세요.',
+      input: 'password',
+      inputPlaceholder: '비밀번호 입력',
+      showCancelButton: true,
+      confirmButtonText: '삭제',
+      cancelButtonText: '취소',
+      confirmButtonColor: '#ff4d4f',
+      preConfirm: async (password) => {
+        if (!password) {
+          Swal.showValidationMessage('비밀번호를 입력해주세요.');
         }
+        return password;
+      }
     });
 
     if (password) {
-        try {
-            // 2. 비밀번호 검증 API 호출
-            await userApi.verifyPassword(password);
-            
-            // 3. 검증 성공 시 삭제 API 호출
-            await studyApi.deleteStudyPlan(selectedStudyId);
+      try {
+        // 2. 비밀번호 검증 API 호출
+        await userApi.verifyPassword(password);
 
-            await Swal.fire("삭제 완료", "학습 플랜이 정상적으로 삭제되었습니다.", "success");
-            
-            // 4. 리스트 갱신 및 선택값 초기화
-            const newList = await studyApi.getStudyList();
-            setStudyList(newList);
-            
-            if (newList.length > 0) {
-                // 남은 학습 중 첫 번째 선택
-                setSelectedStudyId(String(newList[0].id));
-            } else {
-                // 남은 학습이 없으면 초기화
-                setSelectedStudyId("");
-                setDashboardData(null);
-                setChartData([]);
-                setPlanDetail(null);
-            }
+        // 3. 검증 성공 시 삭제 API 호출
+        await studyApi.deleteStudyPlan(selectedStudyId);
 
-        } catch (error) {
-            console.error(error);
-            const msg = error.response?.data?.message || "비밀번호가 일치하지 않거나 삭제 중 오류가 발생했습니다.";
-            Swal.fire("삭제 실패", msg, "error");
+        await Swal.fire("삭제 완료", "학습 플랜이 정상적으로 삭제되었습니다.", "success");
+
+        // 4. 리스트 갱신 및 선택값 초기화
+        const newList = await studyApi.getStudyList();
+        setStudyList(newList);
+
+        if (newList.length > 0) {
+          // 남은 학습 중 첫 번째 선택
+          setSelectedStudyId(String(newList[0].id));
+        } else {
+          // 남은 학습이 없으면 초기화
+          setSelectedStudyId("");
+          setDashboardData(null);
+          setChartData([]);
+          setPlanDetail(null);
         }
+
+      } catch (error) {
+        console.error(error);
+        const msg = error.response?.data?.message || "비밀번호가 일치하지 않거나 삭제 중 오류가 발생했습니다.";
+        Swal.fire("삭제 실패", msg, "error");
+      }
     }
   };
 
@@ -211,7 +231,7 @@ function DashboardPage() {
   function flattenCurriculum(detailedCurriculum) {
     const list = [];
     if (!detailedCurriculum) return list;
-    
+
     // 주차를 정렬하여 순서대로 처리
     const sortedWeeks = Object.keys(detailedCurriculum).sort((a, b) => {
       const weekNoA = parseInt(a.match(/\d+/)?.[0] || "0");
@@ -220,15 +240,15 @@ function DashboardPage() {
     });
 
     let cumulativeDayNo = 0;
-    
+
     sortedWeeks.forEach((week) => {
       const days = detailedCurriculum[week];
       if (!Array.isArray(days)) return;
-      
+
       days.forEach((d) => {
         const dayNo = getDayNo(d.day);
         if (!dayNo) return;
-        
+
         cumulativeDayNo++;
         list.push({ ...d, dayNo: cumulativeDayNo, week });
       });
@@ -424,7 +444,7 @@ function DashboardPage() {
   const isTodayDone = !!doneByIso[todayIso]?.isDone;
 
   // 학습 시작 핸들러
-  const handleStartStudy = () => {
+  const startRegularClass = () => {
     if (isTodayDone) {
       alert("오늘의 학습을 이미 완료했습니다! 내일 또 만나요.");
       return;
@@ -439,8 +459,8 @@ function DashboardPage() {
 
     // 이어하기 체크: 현재 플랜과 같고 메시지가 있으면 바로 이동
     if (targetId === currentPlanId && currentMessages.length > 0) {
-        navigate("/study");
-        return;
+      navigate("/study");
+      return;
     }
 
     const selectedStudy = studyList.find(
@@ -450,6 +470,33 @@ function DashboardPage() {
 
     setPlanInfo(targetId, studyName);
     navigate(`/tutor`);
+  };
+
+  const goInfinitePractice = () => {
+    if (!selectedStudyId) {
+      alert("학습을 선택해주세요");
+      return;
+    }
+    const targetId = Number(selectedStudyId);
+    const selectedStudy = studyList.find(
+      (s) => String(s.id) === String(selectedStudyId),
+    );
+    const studyName = selectedStudy ? selectedStudy.name : "학습";
+
+    setPlanInfo(targetId, studyName);
+    navigate("/practice/infinite");
+  }
+
+  const toggleStudyMenu = () => {
+    if (!user) {
+      openLogin();
+      return;
+    }
+    if (!selectedStudyId) {
+      alert("학습을 선택해주세요");
+      return;
+    }
+    setIsStudyMenuOpen((prev) => !prev);
   };
 
   const point = myDash?.totalPoint ?? dashboardData?.currentPoint ?? 0;
@@ -491,11 +538,11 @@ function DashboardPage() {
                 ))}
               </select>
 
-              <button 
-                  css={s.deleteBtn}
-                  onClick={handleDeleteStudy}
-                  disabled={!selectedStudyId}
-                  title="현재 선택된 학습 삭제"
+              <button
+                css={s.deleteBtn}
+                onClick={handleDeleteStudy}
+                disabled={!selectedStudyId}
+                title="현재 선택된 학습 삭제"
               >
                 <FaTrash />
               </button>
@@ -515,13 +562,45 @@ function DashboardPage() {
               </button>
 
               {/* 학습 시작 버튼 */}
-              <button 
-                css={[s.studyBtn, isTodayDone && s.disabledBtn]} 
-                onClick={handleStartStudy}
-                disabled={isTodayDone}
-              >
-                {isTodayDone ? "오늘 학습 완료" : "학습하러 가기"}
-              </button>
+              <div css={s.studyMenuWrap} ref={studyMenuRef}>
+                <button
+                  css={[s.studyBtn, isTodayDone && s.completedBtn]}
+                  onClick={toggleStudyMenu}
+                  aria-haspopup="menu"
+                  aria-expanded={isStudyMenuOpen}
+                  type="button"
+                >
+                  {isTodayDone ? "오늘 학습 완료" : "학습하러 가기"}
+                  <span css={[s.caret, isStudyMenuOpen && s.caretOpen]}>▼</span>
+                </button>
+
+                {isStudyMenuOpen && (
+                  <div css={s.studyMenu} role="menu">
+                    <button
+                      type="button"
+                      css={s.studyMenuItem}
+                      onClick={() => {
+                        setIsStudyMenuOpen(false);
+                        startRegularClass();
+                      }}
+                      disabled={isTodayDone}   //  오늘 완료면 정규수업만 막고
+                    >
+                      정규 수업
+                    </button>
+
+                    <button
+                      type="button"
+                      css={s.studyMenuItem}
+                      onClick={() => {
+                        setIsStudyMenuOpen(false);
+                        goInfinitePractice();   // 실습은 계속 가능
+                      }}
+                    >
+                      무한 반복 실습
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </section>
 

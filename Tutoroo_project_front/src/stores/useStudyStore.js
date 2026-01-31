@@ -25,26 +25,11 @@ export const SESSION_MODES = {
   REVIEW: { label: "복습 자료", defaultTime: 0 },
 };
 
-// [Helper] 날짜 비교 함수
-const isSameDate = (dateString) => {
-  if (!dateString) return false;
-  const today = new Date();
-  const target = new Date(dateString);
-  return (
-    today.getFullYear() === target.getFullYear() &&
-    today.getMonth() === target.getMonth() &&
-    today.getDate() === target.getDate()
-  );
-};
-
 const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
   selectedTutorId: "kangaroo", 
-  
-  todayTopic: "", 
-  isStudyCompletedToday: false, 
   
   messages: [],
   isLoading: false,     
@@ -58,26 +43,25 @@ const useStudyStore = create((set, get) => ({
   currentStepIndex: 0,   
 
   isSpeakerOn: false,     
+  
+  // [New] 오늘 학습 완료 여부 상태 추가
+  isStudyCompletedToday: false,
 
   // --- [Actions] 동작 함수들 ---
 
-  // [수정 1] 플랜 설정 시, 같은 플랜이면 리셋하지 않음
   setPlanInfo: (planId, goal) => {
-    const currentPlanId = get().planId;
-
-    // 기존과 다른 새로운 플랜을 선택했을 때만 상태 초기화
-    if (currentPlanId !== planId) {
+    // 플랜 ID가 바뀔 때만 초기화 (이어하기 지원)
+    if (get().planId !== planId) {
         set({ 
             planId, 
             studyGoal: goal,
-            messages: [],           // 메시지 초기화
-            currentMode: "CLASS",   // 모드 초기화
+            messages: [],
+            currentMode: "CLASS",
             currentStepIndex: 0,
             isTimerRunning: false,
-            timeLeft: SESSION_MODES["CLASS"].defaultTime // 시간도 초기화
+            isStudyCompletedToday: false // 초기화
         });
     } else {
-        // 같은 플랜이면 목표 텍스트만 업데이트하고 나머지는 유지 (이어하기)
         set({ studyGoal: goal });
     }
   },
@@ -94,15 +78,12 @@ const useStudyStore = create((set, get) => ({
       const data = await studyApi.getStudyStatus(targetPlanId);
       
       if (data) {
-        const isFinished = isSameDate(data.lastStudyDate);
-
         set({ 
             planId: data.planId, 
             studyDay: data.currentDay || 1, 
             studyGoal: data.goal,
-            todayTopic: data.todayTopic || "오늘의 학습",
             selectedTutorId: data.personaName ? data.personaName.toLowerCase() : "kangaroo",
-            isStudyCompletedToday: isFinished 
+            // 만약 API에서 isCompleted 같은 필드를 준다면 여기서도 세팅 가능
         });
       }
     } catch (error) {
@@ -116,31 +97,14 @@ const useStudyStore = create((set, get) => ({
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
-  // [수정 2] 페이지 진입 시 초기화 로직 (이어하기 지원)
   initializeStudySession: async () => {
-     const state = get();
-     
-     // 이미 메시지가 존재한다면(학습 중이었다면) 초기화하지 않고 리턴
-     if (state.messages.length > 0) {
-         return; 
-     }
-     
-     // 플랜 ID가 없거나 데이터가 비어있을 때만 서버에서 상태 로드
-     if (!state.planId) {
-         await state.loadUserStatus();
-     }
+     if (get().messages.length > 0) return; // 이어하기
+     if (!get().planId) await get().loadUserStatus();
   },
 
   startClassSession: async (tutorInfo, navigate) => {
-    if (get().isStudyCompletedToday) {
-        alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
-        return;
-    }
-
-    // [참고] 여기서는 명시적으로 '시작' 버튼을 눌렀으므로 초기화해도 되지만,
-    // TutorSelectionPage에서 넘어올 때 호출되므로 messages를 비워주는 게 맞음
+    // 이미 완료된 상태라면 차단 로직을 추가할 수도 있음
     set({ isLoading: true, messages: [] });
-    
     const { planId, studyDay, isSpeakerOn } = get();
 
     if (!planId) {
@@ -169,7 +133,8 @@ const useStudyStore = create((set, get) => ({
         }],
         currentMode: "CLASS",
         currentStepIndex: 0,
-        sessionSchedule: res.schedule || {} 
+        sessionSchedule: res.schedule || {},
+        isStudyCompletedToday: false 
       });
 
       get().setupMode("CLASS", res.schedule || {}, false);
@@ -232,6 +197,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
+  // [핵심 수정] 다음 단계 전환 및 학습 완료 처리
   nextSessionStep: async () => {
     const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
@@ -241,18 +207,26 @@ const useStudyStore = create((set, get) => ({
       set({ currentStepIndex: nextIndex });
       get().setupMode(nextMode, sessionSchedule, true);
 
+      // [New] 마지막 단계인 'REVIEW' (복습) 모드로 진입하면 서버에 완료 요청
       if (nextMode === "REVIEW") {
           try {
+              // 백엔드 API 명세에 있는 AI 피드백 생성 API 호출
+              // 이 API가 실행되면 DB의 study_logs 테이블에 피드백이 저장되고 완료 처리될 것으로 예상됨
               await studyApi.generateAiFeedback(planId);
-              set({ isStudyCompletedToday: true }); 
+              
+              set({ isStudyCompletedToday: true }); // 프론트 상태도 완료로 변경
+              console.log("오늘 학습 완료 및 피드백 생성 요청 성공");
           } catch (e) {
-              console.error("학습 마무리 처리 실패:", e);
+              console.error("학습 마무리(AI 피드백 생성) 처리 실패:", e);
+              // 에러가 나더라도 UI는 멈추지 않도록 처리
           }
       }
+
     } else {
+      // 모든 시퀀스가 끝났을 때
       set({ isTimerRunning: false });
       set((state) => ({
-        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인해보세요." }]
+        messages: [...state.messages, { type: 'AI', content: "오늘의 모든 학습이 종료되었습니다! 복습 자료를 확인하고 푹 쉬세요." }]
       }));
     }
   },

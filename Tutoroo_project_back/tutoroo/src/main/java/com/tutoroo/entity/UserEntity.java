@@ -18,7 +18,6 @@ public class UserEntity {
     private String username; // 아이디 (이메일과 동일)
     private String password;
     private String name;
-    private String nickname; // [필수 추가] 이게 없으면 Mapper에서 에러 남!
     private String phone;
     private String email;
     private String gender;   // M, F

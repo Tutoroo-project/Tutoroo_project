@@ -115,7 +115,7 @@ export const deleteBtn = css`
   border-radius: 8px;
   border: 1px solid #ff4d4f;
   background: #fff;
-  color: #ff4d4f;
+  color: #707070;
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;

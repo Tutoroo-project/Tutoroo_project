@@ -2,8 +2,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Swal from "sweetalert2"; // 알림창용 라이브러리
-
+import Swal from "sweetalert2";
 import { studyApi } from "../../apis/studys/studysApi";
 import { userApi } from "../../apis/users/usersApi";
 import { rankingApi } from "../../apis/ranking/rankingApi";
@@ -13,6 +12,7 @@ import StudyChart from "../../components/charts/StudyChart";
 import useAuthStore from "../../stores/useAuthStore";
 import useModalStore from "../../stores/modalStore";
 import useStudyStore from "../../stores/useStudyStore";
+import { FaTrash } from "react-icons/fa";
 
 import * as s from "./styles";
 
@@ -102,7 +102,6 @@ function DashboardPage() {
     },
   });
 
-  // [New] 학습 삭제 핸들러 (비밀번호 인증 포함)
   const handleDeleteStudy = async () => {
     if (!selectedStudyId) {
         Swal.fire("알림", "삭제할 학습을 선택해주세요.", "warning");
@@ -118,7 +117,7 @@ function DashboardPage() {
         showCancelButton: true,
         confirmButtonText: '삭제',
         cancelButtonText: '취소',
-        confirmButtonColor: '#ff4d4f', // 삭제 버튼은 빨간색
+        confirmButtonColor: '#ff4d4f', 
         preConfirm: async (password) => {
             if (!password) {
                 Swal.showValidationMessage('비밀번호를 입력해주세요.');
@@ -449,14 +448,13 @@ function DashboardPage() {
                 ))}
               </select>
 
-              {/* [New] 학습 삭제 버튼 */}
               <button 
                   css={s.deleteBtn}
                   onClick={handleDeleteStudy}
                   disabled={!selectedStudyId}
                   title="현재 선택된 학습 삭제"
               >
-                🗑️
+                <FaTrash />
               </button>
 
               {/* 학습 추가 버튼 */}
@@ -531,7 +529,7 @@ function DashboardPage() {
             <div css={s.calendarRow}>
               {dates.map((date, i) => {
                 const isToday = date.iso === toYmd(new Date());
-                const done = doneByIso[date.iso]; // { isDone, maxScore, topic }
+                const done = doneByIso[date.iso];
 
                 return (
                   <div

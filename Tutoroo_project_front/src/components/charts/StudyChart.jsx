@@ -13,6 +13,8 @@ import {
 const wrap = css`
   width: 100%;
   height: 100%;
+  min-width: 0;
+  min-height: 0;
 `;
 
 const empty = css`
@@ -45,13 +47,15 @@ function CustomTooltip({ active, payload, label }) {
 }
 
 export default function StudyAchievementChart({ data }) {
-  if (!data || data.length === 0) {
-    return <div css={empty}>표시할 데이터가 없어요</div>;
-  }
+  if (!data || data.length === 0) return <div css={empty}>표시할 데이터가 없어요</div>;
+
+  const initialDimension = { width: 600, height: 200 };
+
+  
 
   return (
     <div css={wrap}>
-      <ResponsiveContainer width="100%" height="100%">
+      <ResponsiveContainer width="100%" height="100%" initialDimension={initialDimension}>
         <BarChart data={data} barSize={18}>
           <CartesianGrid strokeDasharray="3 3" />
           <XAxis dataKey="label" />

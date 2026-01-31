@@ -462,10 +462,8 @@ export const chartPlaceholder = css`
   height: 200px;
   border-radius: 8px;
   background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #999;
+  overflow: hidden;
+  min-width: 0;
 `;
 
 export const progressFooter = css`

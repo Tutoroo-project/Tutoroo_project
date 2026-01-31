@@ -26,17 +26,41 @@ function toYmd(date) {
   return `${year}-${month}-${day}`;
 }
 
-// 기준 날짜를 기준으로 한 주 7일 날짜 정보 생성
-function getWeekDates(offset = 0) {
-  const today = new Date();
-  const day = today.getDay();
-  const start = new Date(today);
-  start.setHours(0, 0, 0, 0);
-  start.setDate(today.getDate() - day + offset * 7);
+function getWeekDates(startDateStr, offset = 0) {
+  if (!startDateStr) {
+    const today = new Date();
+    const day = today.getDay();
+    const start = new Date(today);
+    start.setHours(0, 0, 0, 0);
+    start.setDate(today.getDate() - day + offset * 7);
+
+    return Array.from({ length: 7 }, (_, i) => {
+      const date = new Date(start);
+      date.setDate(start.getDate() + i);
+
+      return {
+        date,
+        year: date.getFullYear(),
+        month: date.getMonth() + 1,
+        day: date.getDate(),
+        label: `${date.getDate()}일 (${DAY_NAMES[date.getDay()]})`,
+        iso: toYmd(date),
+        dateObj: date,
+      };
+    });
+  }
+
+  // 학습 시작일 기준으로 주 계산
+  const startDate = new Date(startDateStr);
+  startDate.setHours(0, 0, 0, 0);
+
+  // offset주 만큼 이동
+  const weekStart = new Date(startDate);
+  weekStart.setDate(startDate.getDate() + offset * 7);
 
   return Array.from({ length: 7 }, (_, i) => {
-    const date = new Date(start);
-    date.setDate(start.getDate() + i);
+    const date = new Date(weekStart);
+    date.setDate(weekStart.getDate() + i);
 
     return {
       date,
@@ -77,7 +101,12 @@ function DashboardPage() {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [showDetail, setShowDetail] = useState(false);
 
-  const dates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
+  const [planDetail, setPlanDetail] = useState(null);
+
+  const dates = useMemo(() => {
+    const startDate = planDetail?.startDate;
+    return getWeekDates(startDate, weekOffset);
+  }, [planDetail?.startDate, weekOffset]);
 
   // 차트 관련 상태
   const [chartData, setChartData] = useState([]);
@@ -163,9 +192,8 @@ function DashboardPage() {
     const todayIso = toYmd(new Date());
     const idx = dates.findIndex((d) => d.iso === todayIso);
     setSelectedIndex(idx >= 0 ? idx : 0);
-  }, [weekOffset, dates]);
+  }, [dates]);
 
-  const [planDetail, setPlanDetail] = useState(null);
   const [curriculumByDate, setCurriculumByDate] = useState({});
   const [doneByIso, setDoneByIso] = useState({});
 
@@ -183,15 +211,30 @@ function DashboardPage() {
   function flattenCurriculum(detailedCurriculum) {
     const list = [];
     if (!detailedCurriculum) return list;
-    Object.entries(detailedCurriculum).forEach(([week, days]) => {
-      (days ?? []).forEach((d) => {
+    
+    // 주차를 정렬하여 순서대로 처리
+    const sortedWeeks = Object.keys(detailedCurriculum).sort((a, b) => {
+      const weekNoA = parseInt(a.match(/\d+/)?.[0] || "0");
+      const weekNoB = parseInt(b.match(/\d+/)?.[0] || "0");
+      return weekNoA - weekNoB;
+    });
+
+    let cumulativeDayNo = 0;
+    
+    sortedWeeks.forEach((week) => {
+      const days = detailedCurriculum[week];
+      if (!Array.isArray(days)) return;
+      
+      days.forEach((d) => {
         const dayNo = getDayNo(d.day);
         if (!dayNo) return;
-        list.push({ ...d, dayNo, week });
+        
+        cumulativeDayNo++;
+        list.push({ ...d, dayNo: cumulativeDayNo, week });
       });
     });
 
-    return list.sort((a, b) => a.dayNo - b.dayNo);
+    return list;
   }
 
   const MS_WEEK = 7 * 24 * 60 * 60 * 1000;
@@ -232,9 +275,9 @@ function DashboardPage() {
     setDoneByIso({});
     setChartData([]);
     setWeeklyRate(0);
+    setWeekOffset(0);
   }, [selectedStudyId]);
 
-  //  선택된 학습(planId) 바뀔 때마다 로드맵 불러오기
   useEffect(() => {
     if (!user || !selectedStudyId) return;
 
@@ -522,6 +565,7 @@ function DashboardPage() {
                 setWeekOffset((prev) => prev - 1);
                 setSelectedIndex(0);
               }}
+              disabled={weekOffset <= 0}
             >
               ‹
             </button>

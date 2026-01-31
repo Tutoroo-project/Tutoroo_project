@@ -5,7 +5,6 @@ export const studyApi = {
   getStudyStatus: async (planId) => {
     const params = planId ? { planId } : {};
     const response = await api.get("/api/study/status", { params });
-    // 반환값: { planId, currentDay, goal, todayTopic, lastStudyDate, isTodayFinished ... }
     return response.data;
   },
 
@@ -15,7 +14,7 @@ export const studyApi = {
     return response.data;
   },
 
-  // [New] 3. 학습 플랜 삭제
+  // 3. 학습 플랜 삭제
   deleteStudyPlan: async (planId) => {
     const response = await api.delete(`/api/study/plans/${planId}`);
     return response.data;
@@ -107,7 +106,6 @@ export const studyApi = {
     const formData = new FormData();
     const requestData = { planId, textAnswer };
     
-    // JSON 데이터를 Blob으로 감싸서 'data' 파트에 추가
     formData.append(
       "data",
       new Blob([JSON.stringify(requestData)], { type: "application/json" }),
@@ -123,22 +121,33 @@ export const studyApi = {
     return response.data;
   },
 
-  // 12. 복습 자료(PDF) 다운로드
-  downloadReviewPdf: async (planId, dayCount) => {
-    const response = await api.get("/api/study/review/download", {
-      params: { planId, dayCount },
-      responseType: "blob", // 파일 다운로드 설정
+  // 12. [NEW] 학생 피드백 제출 (튜터 평가)
+  submitStudentFeedback: async ({ planId, dayCount, feedback, rating }) => {
+    const response = await api.post("/api/tutor/review", {
+      planId,
+      dayCount,
+      feedback,
+      rating,
     });
     return response.data;
   },
 
-  // 13. 학습 플랜 상세 정보 (로드맵 등)
+  // 13. 복습 자료(PDF) 다운로드
+  downloadReviewPdf: async (planId, dayCount) => {
+    const response = await api.get("/api/study/review/download", {
+      params: { planId, dayCount },
+      responseType: "blob",
+    });
+    return response.data;
+  },
+
+  // 14. 학습 플랜 상세 정보 (로드맵 등)
   getPlanDetail: async (planId) => {
     const response = await api.get(`/api/study/plans/${planId}`);
     return response.data;
   },
 
-  // 14. 월간 캘린더 데이터 조회
+  // 15. 월간 캘린더 데이터 조회
   getMonthlyCalendar: async ({ year, month, planId }) => {
     const params = { year, month };
     if (planId != null) params.planId = planId;
@@ -146,9 +155,9 @@ export const studyApi = {
     return response.data;
   },
 
-  // 15. AI 피드백 생성 (하루 학습 마감 처리)
+  // 16. AI 피드백 생성 (하루 학습 마감 처리)
   generateAiFeedback: async (planId) => {
     const response = await api.post(`/api/study/plans/${planId}/ai-feedback`);
-    return response.data; // 피드백 텍스트 반환
+    return response.data;
   },
 };

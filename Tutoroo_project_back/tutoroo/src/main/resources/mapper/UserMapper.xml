@@ -4,12 +4,12 @@
 
     <insert id="save" parameterType="com.tutoroo.entity.UserEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO users (
-            username, password, name, nickname, email, phone, parent_phone, age, gender,
+            username, password, name, email, phone, parent_phone, age, gender,
             role, provider, provider_id, membership_tier, total_point, point_balance,
             level, exp, profile_image, current_streak, last_study_date,
             status, created_at, updated_at
         ) VALUES (
-                     #{username}, #{password}, #{name}, #{nickname}, #{email}, #{phone}, #{parentPhone}, #{age}, #{gender},
+                     #{username}, #{password}, #{name}, #{email}, #{phone}, #{parentPhone}, #{age}, #{gender},
                      #{role}, #{provider}, #{providerId}, #{membershipTier}, #{totalPoint}, #{pointBalance},
                      #{level}, #{exp}, #{profileImage}, 0, NULL,
                      'ACTIVE', NOW(), NOW()
@@ -33,7 +33,7 @@
         <set>
             <if test="password != null">password = #{password},</if>
             <if test="name != null">name = #{name},</if>
-            <if test="nickname != null">nickname = #{nickname},</if> <if test="email != null">email = #{email},</if>
+            <if test="email != null">email = #{email},</if>
             <if test="phone != null">phone = #{phone},</if>
             <if test="parentPhone != null">parent_phone = #{parentPhone},</if>
             <if test="profileImage != null">profile_image = #{profileImage},</if>
@@ -85,7 +85,6 @@
         UPDATE users
         SET
             name = #{name},
-            nickname = #{nickname},
             phone = #{phone},
             parent_phone = #{parentPhone},
             age = #{age},

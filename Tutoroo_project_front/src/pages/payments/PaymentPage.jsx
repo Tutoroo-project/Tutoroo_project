@@ -38,7 +38,7 @@ function PaymentPage() {
                 const token = localStorage.getItem("accessToken");
 
                 if (!token) return;
-                const response = await axios.get("http://localhost:8080/api/user/me", {
+                const response = await axios.get(`${import.meta.env.VITE_API_BASE_URL}/api/user/me`, {
                     headers: { Authorization: `Bearer ${token}`}
                 })
 
@@ -116,7 +116,7 @@ function PaymentPage() {
                     };
 
                     const response = await axios.post(
-                        "http://localhost:8080/api/payment/verify",
+                        `${import.meta.env.VITE_API_BASE_URL}/api/payment/verify`,
                         verifyData,
                         { headers: { Authorization: `Bearer ${token}`}}
                     );

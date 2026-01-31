@@ -1,3 +1,90 @@
+spring:
+  profiles:
+    active: dev
+    group:
+      dev: dev, common, secret-dev
+      jaewon: jaewon-server, common, secret-prod
+      gyeonggu: gyeonggu-server, common, secret-prod
+      seongyeop: seongyeop-server, common, secret-prod
+      sohyun: sohyun-server, common, secret-prod
+---
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+      
+# [CORS] 프론트엔드 접근 허용 도메인 목록 (추가됨)
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:5173/"      # React 로컬 개발용
+      - "http://localhost:3000/"      # 예비용 포트
+      - "http://127.0.0.1:5500/"      # Live Server 등
+
+---
+spring:
+  config:
+    activate:
+      on-profile: jaewon-server
+
+domain:
+  name:
+    http: http://tutoroo-study.shop
+    https: https://tutoroo-study.shop
+app:
+  cors:
+    allowed-origins:
+      - "https://tutoroo-study.shop"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: gyeonggu-server
+
+domain:
+  name:
+    http: http://gettutoroo.store
+    https: https://gettutoroo.store
+app:
+  cors:
+    allowed-origins:
+      - "https://gettutoroo.store"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: seongyeop-server
+
+domain:
+  name:
+    http: http://bndadtutoroo.com
+    https: https://bndadtutoroo.com
+app:
+  cors:
+    allowed-origins:
+      - "https://bndadtutoroo.com"
+---
+
+---
+spring:
+  config:
+    activate:
+      on-profile: sohyun-server
+
+domain:
+  name:
+    http: http://bnmamatutoroo.com
+    https: https://bnmamatutoroo.com
+app:
+  cors:
+    allowed-origins:
+      - "https://bnmamatutoroo.com"
+---
 server:
   port: 8080
   servlet:

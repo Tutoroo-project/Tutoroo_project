@@ -10,7 +10,7 @@ import Swal from "sweetalert2";
 import useAuthStore from "../../stores/useAuthStore";
 
  function ChangeInfoPage() {
-    const BASE_URL = import.meta.env.VITE_API_BASE_URL?.replace(/\/$/, "") || "http://localhost:8080";
+    const BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
     const setUser = useAuthStore((state) => state.setUser);
 

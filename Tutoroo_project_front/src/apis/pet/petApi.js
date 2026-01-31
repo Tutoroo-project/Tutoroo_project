@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // 백엔드 API 기본 URL 설정 (환경 변수 또는 하드코딩)
-const BASE_URL = 'http://localhost:8080/api/pet';
+const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/pet`;
 
 /**
  * 1. 현재 내 펫 상태 조회

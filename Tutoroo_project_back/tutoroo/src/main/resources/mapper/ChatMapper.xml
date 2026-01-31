@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.tutoroo.mapper.ChatMapper">
+
+    <insert id="saveMessage">
+        INSERT INTO chat_messages (plan_id, sender, message, created_at)
+        VALUES (#{planId}, #{sender}, #{message}, NOW())
+    </insert>
+
+    <select id="findRecentMessages" resultType="com.tutoroo.mapper.ChatMapper$ChatMessage">
+        SELECT * FROM (
+                          SELECT sender, message
+                          FROM chat_messages
+                          WHERE plan_id = #{planId}
+                          ORDER BY created_at DESC
+                              LIMIT #{limit}
+                      ) sub
+        ORDER BY created_at ASC -- AI에게는 시간 순서대로 줘야 함
+    </select>
+
+</mapper>

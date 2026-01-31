@@ -1,47 +1,18 @@
-spring:
-  profiles:
-    active: dev
-    group:
-      dev: dev, common, secret
-      jaewon: jaewon-server, common, secret
-
----
-spring:
-  config:
-    activate:
-      on-profile: dev
-
-      
-# [CORS] 프론트엔드 접근 허용 도메인 목록 (추가됨)
-app:
-  cors:
-    allowed-origins:
-      - "http://localhost:5173/"      # React 로컬 개발용
-      - "http://localhost:3000/"      # 예비용 포트
-      - "http://127.0.0.1:5500/"      # Live Server 등
-
----
-spring:
-  config:
-    activate:
-      on-profile: jaewon-server
-
-domain:
-  name:
-    http: http://localhost:80
-    https: https://localhost:443
-app:
-  cors:
-    allowed-origins:
-      - "https://aaaa.co.kr"
----
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
 
 spring:
   application:
     name: tutoroo
-  config:
-    activate:
-      on-profile: common
+
+  # [보안] secret 파일 로드 (DB, AI Key 등)
+  profiles:
+    include: secret
 
   # [성능] Java 21 가상 스레드 활성화
   threads:
@@ -71,14 +42,6 @@ spring:
     # 이제 서버를 재시작해도 데이터가 유지됩니다.
     clean-disabled: true
 
-server:
-  port: 8080
-  servlet:
-    encoding:
-      charset: UTF-8
-      enabled: true
-      force: true
-
 # [MyBatis] 설정 유지
 mybatis:
   mapper-locations: classpath:mapper/*.xml
@@ -97,3 +60,10 @@ logging:
     org.springframework.security: INFO
     org.springframework.web: INFO
 
+# [CORS] 프론트엔드 접근 허용 도메인 목록 (추가됨)
+app:
+  cors:
+    allowed-origins:
+      - "http://localhost:5173"      # React 로컬 개발용
+      - "http://localhost:3000"      # 예비용 포트
+      - "http://127.0.0.1:5500"      # Live Server 등

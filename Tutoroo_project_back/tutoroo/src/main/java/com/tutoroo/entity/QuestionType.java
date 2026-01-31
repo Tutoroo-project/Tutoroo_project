@@ -23,7 +23,10 @@ public enum QuestionType {
     // 3. 예체능 & 실습형 (입출력이 파일인 경우)
     DRAWING_SUBMISSION("그림 제출", "주제에 맞는 그림을 그려서 이미지로 제출 (미술, 도형)"),
     AUDIO_RECORDING("음성 녹음", "발음, 노래, 연주 등을 녹음하여 제출 (언어, 음악)"),
-    VIDEO_SUBMISSION("영상 제출", "운동 자세나 실습 과정을 촬영하여 제출 (체육)");
+    VIDEO_SUBMISSION("영상 제출", "운동 자세나 실습 과정을 촬영하여 제출 (체육)"),
+
+    // 4. 시각자료 분석형 (이미지/도표/그래프 보고 해석)
+    VISUAL_ANALYSIS("시각 자료 분석", "이미지/도표/그래프를 보고 해석/추론");
 
     private final String description;
     private final String detail;

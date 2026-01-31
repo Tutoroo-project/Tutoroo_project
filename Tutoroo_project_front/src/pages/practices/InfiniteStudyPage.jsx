@@ -1,262 +1,438 @@
 /** @jsxImportSource @emotion/react */
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Header from "../../components/layouts/Header";
-import SessionStatus from "../../components/studys/SessionStatus";
 import useStudyStore from "../../stores/useStudyStore";
-import { studyApi } from "../../apis/studys/studysApi";
+import { practiceApi } from "../../apis/practices/practiceApi";
 import * as s from "./styles";
-import tigerImg from "../../assets/images/mascots/logo_tiger.png";
-import turtleImg from "../../assets/images/mascots/logo_turtle.png";
-import rabbitImg from "../../assets/images/mascots/logo_rabbit.png";
-import kangarooImg from "../../assets/images/mascots/logo_icon.png";
-import dragonImg from "../../assets/images/mascots/logo_dragon.png";
-import { HiMiniSpeakerWave, HiMiniSpeakerXMark } from "react-icons/hi2";
-import { FaCircle } from "react-icons/fa";
-import { PiMicrophoneStageFill } from "react-icons/pi";
-
-const TUTOR_IMAGES = {
-    tiger: tigerImg,
-    turtle: turtleImg,
-    rabbit: rabbitImg,
-    kangaroo: kangarooImg,
-    eastern_dragon: dragonImg,
-    dragon: dragonImg
-};
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "";
 
+const QUESTION_TYPE_LABEL = {
+  MULTIPLE_CHOICE: "객관식",
+  SHORT_ANSWER: "단답형",
+  LONG_ANSWER: "서술형",
+  CODE_FILL_IN: "코드 빈칸",
+  CODE_IMPLEMENTATION: "코드 구현",
+  DRAWING_SUBMISSION: "그림 제출",
+  AUDIO_RECORDING: "음성 녹음",
+  VIDEO_SUBMISSION: "영상 제출",
+};
+
+function normalizeMediaUrl(url) {
+  if (!url) return null;
+  if (url.startsWith("http")) return url;
+  const cleanBase = API_BASE_URL.replace(/\/$/, "");
+  const cleanUrl = url.startsWith("/") ? url : `/${url}`;
+  return `${cleanBase}${cleanUrl}`;
+}
+
 function InfiniteStudyPage() {
+  const navigate = useNavigate();
 
+  const planId = useStudyStore((st) => st.planId);
+  const studyGoal = useStudyStore((st) => st.studyGoal);
+  const setInfinitePractice = useStudyStore((st) => st.setInfinitePractice);
 
-    const setInfinitePractice = useStudyStore((s) => s.setInfinitePractice);
+  const [questionCount, setQuestionCount] = useState(5);
+  const [difficulty, setDifficulty] = useState("NORMAL");
+  const [isWeaknessMode, setIsWeaknessMode] = useState(false);
 
-    useEffect(() => {
-        setInfinitePractice(true);
-        return () => setInfinitePractice(false); // 다른 페이지에 영향 없게 원복
-    }, [setInfinitePractice]);
-    const {
-        messages,
-        sendMessage,
-        isChatLoading,
-        selectedTutorId,
-        isSpeakerOn,
-        toggleSpeaker,
-        currentMode,
+  const [test, setTest] = useState(null);
+  const [answers, setAnswers] = useState({});
+  const [grading, setGrading] = useState(null);
+  const [weakness, setWeakness] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // 무한 모드 플래그 (타이머/세션 영향 방지)
+  useEffect(() => {
+    setInfinitePractice(true);
+    return () => setInfinitePractice(false);
+  }, [setInfinitePractice]);
+
+  // planId 없으면 대시보드로
+  useEffect(() => {
+    if (!planId) {
+      alert("학습을 선택해주세요.");
+      navigate("/");
+      return;
+    }
+    // 최초 진입 시 자동 생성
+    handleGenerate(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [planId]);
+
+  const questionList = test?.questions ?? [];
+
+  const questionIndexById = useMemo(() => {
+    const map = new Map();
+    questionList.forEach((q, idx) => map.set(q.questionId, idx));
+    return map;
+  }, [questionList]);
+
+  const handleGenerate = async (silent = false) => {
+    if (!planId) return;
+    setLoading(true);
+    try {
+      const data = await practiceApi.generateTest({
         planId,
-        studyDay,
-        initializeStudySession
-    } = useStudyStore();
+        questionCount: Number(questionCount),
+        difficulty,
+        isWeaknessMode,
+      });
+      setTest(data);
+      setAnswers({});
+      setGrading(null);
+      setWeakness(null);
 
-    const [inputText, setInputText] = useState("");
-    const [isRecording, setIsRecording] = useState(false);
-    const scrollRef = useRef(null);
-    const audioRef = useRef(new Audio());
-    const mediaRecorderRef = useRef(null);
-    const audioChunksRef = useRef([]);
+      if (!silent) window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (e) {
+      console.error(e);
+      alert("문제 생성에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
+  const setTextAnswer = (questionId, value) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: { ...prev[questionId], answerText: value },
+    }));
+  };
 
-    // [수정] 페이지 진입 및 이탈 시 처리
-    useEffect(() => {
-        // 1. 세션 초기화 (Store에 메시지가 있으면 무시됨 -> 이어하기)
-        initializeStudySession();
+  const setChoiceAnswer = (questionId, selectedIndex, optionText) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: {
+        ...prev[questionId],
+        selectedIndex,
+        // 백엔드가 answerText를 참고할 수도 있어 같이 채움
+        answerText: optionText ?? "",
+      },
+    }));
+  };
 
-        // 2. 페이지를 떠날 때(대시보드 이동 등) 오디오/녹음만 중지하고 상태는 유지
-        return () => {
-            if (audioRef.current) {
-                audioRef.current.pause();
-                audioRef.current.currentTime = 0;
-            }
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
-                mediaRecorderRef.current.stop();
-            }
-        };
-    }, [initializeStudySession]);
+  const handleSubmit = async () => {
+    if (!planId) return;
+    if (!questionList.length) {
+      alert("먼저 문제를 생성해주세요.");
+      return;
+    }
 
-    useEffect(() => {
-        if (scrollRef.current) scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
-    }, [messages, isChatLoading, isRecording]);
+    const payloadAnswers = questionList.map((q) => {
+      const a = answers[q.questionId] || {};
+      return {
+        questionId: q.questionId,
+        answerText: (a.answerText ?? "").toString(),
+        selectedIndex: a.selectedIndex ?? null,
+      };
+    });
 
-    useEffect(() => {
-        if (messages.length > 0 && isSpeakerOn) {
-            const lastMsg = messages[messages.length - 1];
-
-            if (lastMsg.type === 'AI' && lastMsg.audioUrl) {
-                audioRef.current.pause();
-
-                const fullUrl = lastMsg.audioUrl.startsWith("http")
-                    ? lastMsg.audioUrl
-                    : `${API_BASE_URL}${lastMsg.audioUrl}`;
-
-                audioRef.current.src = fullUrl;
-                audioRef.current.play().catch(e => {
-                    console.log("Audio play blocked:", e);
-                });
-            }
-        } else {
-            audioRef.current.pause();
-        }
-    }, [messages, isSpeakerOn]);
-
-    const handleSend = () => {
-        if (!inputText.trim() || isChatLoading) return;
-        sendMessage(inputText);
-        setInputText("");
-    };
-
-    const handleKeyDown = (e) => {
-        if (e.key === "Enter" && !e.nativeEvent.isComposing) handleSend();
-    };
-
-    const getImageSource = (url) => {
-        if (!url) return null;
-        if (url.startsWith("http")) return url;
-        if (url.includes('/tutors/')) {
-            const filename = url.split('/').pop().split('.')[0].toLowerCase();
-            return TUTOR_IMAGES[filename] || kangarooImg;
-        }
-        if (url.includes('break_time') || url.includes('quiz_bg')) {
-            return currentTutorImage;
-        }
-        const cleanBase = API_BASE_URL.replace(/\/$/, "");
-        const cleanUrl = url.startsWith("/") ? url : `/${url}`;
-        return `${cleanBase}${cleanUrl}`;
-    };
-
-    const startRecording = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const mimeType = MediaRecorder.isTypeSupported("audio/webm") ? "audio/webm" : "";
-            mediaRecorderRef.current = new MediaRecorder(stream, { mimeType });
-
-            audioChunksRef.current = [];
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) audioChunksRef.current.push(event.data);
-            };
-
-            mediaRecorderRef.current.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
-                setIsRecording(false);
-                try {
-                    const text = await studyApi.uploadAudio(audioBlob);
-                    if (text) setInputText(text);
-                } catch (e) {
-                    alert("음성 인식에 실패했습니다.");
-                }
-                stream.getTracks().forEach(track => track.stop());
-            };
-
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
-        } catch (e) {
-            alert("마이크 접근 권한이 필요합니다.");
-        }
-    };
-
-    const stopRecording = () => {
-        if (mediaRecorderRef.current && isRecording) mediaRecorderRef.current.stop();
-    };
-
-    const handleDownloadPdf = async () => {
-        try {
-            const blob = await studyApi.downloadReviewPdf(planId, studyDay);
-            const url = window.URL.createObjectURL(new Blob([blob]));
-            const link = document.createElement('a');
-            link.href = url;
-            link.setAttribute('download', `Study_Review_Day${studyDay}.pdf`);
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            window.URL.revokeObjectURL(url);
-        } catch (e) {
-            console.error(e);
-            alert("다운로드에 실패했습니다.");
-        }
-    };
-
-    return (
-        <>
-            <Header />
-            <div css={s.pageContainer}>
-                <main css={s.chatArea} ref={scrollRef}>
-                    {messages.length === 0 ? (
-                        <div css={s.placeholder}>
-                            <p>학습 정보를 불러오는 중입니다...</p>
-                        </div>
-                    ) : (
-                        messages.map((msg, index) => {
-                            const isUser = msg.type === "USER";
-                            const imgSrc = getImageSource(msg.imageUrl);
-
-                            return (
-                                <div key={index} css={s.messageRow(isUser)}>
-                                    {!isUser && (
-                                        <div css={s.aiProfileIcon}>
-                                            <img src={currentTutorImage} alt="tutor" />
-                                        </div>
-                                    )}
-                                    <div css={s.bubble(isUser)}>
-                                        {imgSrc && (
-                                            <img
-                                                src={imgSrc}
-                                                alt="session-visual"
-                                                onError={(e) => e.target.style.display = 'none'}
-                                            />
-                                        )}
-                                        {msg.content}
-                                    </div>
-                                </div>
-                            );
-                        })
-                    )}
-                    {(isChatLoading || isRecording) && (
-                        <div css={s.messageRow(false)}>
-                            <div css={s.aiProfileIcon}>
-                                <img src={currentTutorImage} alt="tutor" />
-                            </div>
-                            <div css={s.bubble(false)}>
-                                {isRecording ? <span css={s.recordingPulse}>🎤 듣고 있어요...</span> : <span className="dot-flashing">...</span>}
-                            </div>
-                        </div>
-                    )}
-                </main>
-                <footer css={s.bottomArea}>
-                    <div css={s.bottomInner}>
-                        <SessionStatus />
-                        <div css={s.controlToolbar}>
-                            <button css={s.iconBtn(isSpeakerOn)} onClick={toggleSpeaker}>
-                                {isSpeakerOn ? <HiMiniSpeakerWave /> : <HiMiniSpeakerXMark />}
-                            </button>
-                            <button
-                                css={s.iconBtn(isRecording)}
-                                onMouseDown={startRecording} onMouseUp={stopRecording}
-                                onTouchStart={startRecording} onTouchEnd={stopRecording}
-                            >
-                                {isRecording ? <FaCircle /> : <PiMicrophoneStageFill />}
-                            </button>
-                            {currentMode === 'REVIEW' && (
-                                <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>📄 자료 다운</button>
-                            )}
-                        </div>
-                        <div css={s.inputWrapper}>
-                            <input
-                                type="text"
-                                placeholder={isRecording ? "듣고 있습니다..." : "질문해보세요."}
-                                css={s.inputBox}
-                                value={inputText}
-                                onChange={(e) => setInputText(e.target.value)}
-                                onKeyDown={handleKeyDown}
-                                disabled={isChatLoading || isRecording}
-                                autoFocus
-                            />
-                        </div>
-                        <button css={s.sendBtn} onClick={handleSend} disabled={isChatLoading || isRecording}>전송</button>
-                    </div>
-                </footer>
-            </div>
-        </>
+    const hasAny = payloadAnswers.some(
+      (a) =>
+        (a.answerText && a.answerText.trim().length > 0) ||
+        a.selectedIndex != null
     );
+    if (!hasAny) {
+      alert("하나 이상 답안을 작성/선택해주세요.");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const res = await practiceApi.submitTest({
+        planId,
+        answers: payloadAnswers,
+      });
+      setGrading(res);
+
+      setTimeout(() => {
+        const el = document.getElementById("practice-result");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } catch (e) {
+      console.error(e);
+      alert("제출/채점에 실패했습니다. 잠시 후 다시 시도해주세요.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleLoadWeakness = async () => {
+    if (!planId) return;
+    setLoading(true);
+    try {
+      const res = await practiceApi.getWeaknessAnalysis(planId);
+      setWeakness(res);
+
+      setTimeout(() => {
+        const el = document.getElementById("weakness-result");
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 0);
+    } catch (e) {
+      console.error(e);
+      alert("약점 분석을 불러오지 못했습니다.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <>
+      <Header />
+      <div css={s.pageContainer}>
+        <main css={s.chatArea}>
+          <section css={s.headerPanel}>
+            <div>
+              <h2 css={s.pageTitle}>무한 반복 실습</h2>
+              <p css={s.pageSubTitle}>
+                {studyGoal
+                  ? `선택된 학습: ${studyGoal}`
+                  : "선택된 학습으로 문제를 생성해 연습하세요."}
+              </p>
+            </div>
+            <div css={s.badgeRow}>
+              <span css={s.badge}>planId: {planId ?? "-"}</span>
+              {test?.testSessionId != null && (
+                <span css={s.badge}>session: {test.testSessionId}</span>
+              )}
+            </div>
+          </section>
+
+          {loading && (
+            <div css={s.placeholder}>
+              <p>처리 중입니다...</p>
+            </div>
+          )}
+
+          {!loading && questionList.length === 0 && (
+            <div css={s.placeholder}>
+              <p>아래에서 설정을 고르고 “문제 생성”을 눌러 시작하세요.</p>
+            </div>
+          )}
+
+          {questionList.map((q, idx) => {
+            const qid = q.questionId;
+            const type = q.type;
+            const typeLabel = QUESTION_TYPE_LABEL[type] || type;
+            const mediaUrl = normalizeMediaUrl(q.referenceMediaUrl);
+            const a = answers[qid] || {};
+
+            return (
+              <section key={qid ?? idx} css={s.questionCard}>
+                <div css={s.questionHeader}>
+                  <div css={s.questionTitleRow}>
+                    <span css={s.qNo}>Q{idx + 1}</span>
+                    <span css={s.typeTag}>{typeLabel}</span>
+                    {q.topic && <span css={s.topicTag}>{q.topic}</span>}
+                  </div>
+                </div>
+
+                <div css={s.questionText}>{q.questionText}</div>
+
+                {mediaUrl && (
+                  <img
+                    css={s.referenceImage}
+                    src={mediaUrl}
+                    alt="reference"
+                    onError={(e) => {
+                      e.currentTarget.style.display = "none";
+                    }}
+                  />
+                )}
+
+                {type === "MULTIPLE_CHOICE" &&
+                Array.isArray(q.options) &&
+                q.options.length > 0 ? (
+                  <div css={s.optionsWrapper}>
+                    {q.options.map((opt, optIdx) => {
+                      const checked = a.selectedIndex === optIdx;
+                      return (
+                        <label key={optIdx} css={s.optionItem(checked)}>
+                          <input
+                            type="radio"
+                            name={`q-${qid}`}
+                            checked={checked}
+                            onChange={() => setChoiceAnswer(qid, optIdx, opt)}
+                          />
+                          <span>{opt}</span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <textarea
+                    css={s.answerTextarea}
+                    placeholder="답안을 입력하세요"
+                    value={a.answerText ?? ""}
+                    onChange={(e) => setTextAnswer(qid, e.target.value)}
+                  />
+                )}
+              </section>
+            );
+          })}
+
+          {grading && (
+            <section id="practice-result" css={s.resultCard}>
+              <div css={s.resultHeader}>
+                <h3>채점 결과</h3>
+                <span css={s.scorePill}>
+                  총점 {grading.totalScore ?? 0}점
+                </span>
+              </div>
+
+              {grading.summaryReview && (
+                <p css={s.resultSummary}>{grading.summaryReview}</p>
+              )}
+
+              {Array.isArray(grading.results) && grading.results.length > 0 && (
+                <div css={s.resultList}>
+                  {grading.results.map((r, i) => {
+                    const qIdx = questionIndexById.get(r.questionId);
+                    const label =
+                      qIdx != null ? `Q${qIdx + 1}` : `Q${i + 1}`;
+
+                    return (
+                      <div key={`${r.questionId}-${i}`} css={s.resultItem}>
+                        <div css={s.resultItemHeader}>
+                          <span css={s.resultQNo}>{label}</span>
+                          <span
+                            css={r.isCorrect ? s.correctPill : s.wrongPill}
+                          >
+                            {r.isCorrect ? "정답" : "오답"}
+                          </span>
+                          {r.weaknessTag && (
+                            <span css={s.weakTag}>{r.weaknessTag}</span>
+                          )}
+                        </div>
+
+                        {r.userAnswer && (
+                          <div css={s.resultRow}>
+                            <b>내 답:</b> <span>{r.userAnswer}</span>
+                          </div>
+                        )}
+
+                        {r.explanation && (
+                          <div css={s.resultRow}>
+                            <b>해설:</b> <span>{r.explanation}</span>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
+
+          {weakness && (
+            <section id="weakness-result" css={s.resultCard}>
+              <div css={s.resultHeader}>
+                <h3>오답 클리닉</h3>
+              </div>
+
+              {Array.isArray(weakness.weakPoints) &&
+              weakness.weakPoints.length > 0 ? (
+                <div css={s.weakList}>
+                  {weakness.weakPoints.map((w, idx) => (
+                    <div key={idx} css={s.weakItem}>
+                      <div css={s.weakTopic}>{w.topic}</div>
+                      <div css={s.weakMeta}>
+                        오답 {w.wrongCount}회 · 오류율{" "}
+                        {Math.round((w.errorRate ?? 0) * 100)}%
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p css={s.resultSummary}>아직 분석할 데이터가 없어요.</p>
+              )}
+
+              {Array.isArray(weakness.recommendedQuestions) &&
+                weakness.recommendedQuestions.length > 0 && (
+                  <div css={s.recoBox}>
+                    <h4 css={s.recoTitle}>추천 문제</h4>
+                    {weakness.recommendedQuestions.map((q, idx) => (
+                      <div key={q.questionId ?? idx} css={s.recoItem}>
+                        <b>• {q.topic || "추천"}</b> {q.questionText}
+                      </div>
+                    ))}
+                  </div>
+                )}
+            </section>
+          )}
+        </main>
+
+        <footer css={s.bottomArea}>
+          <div css={s.bottomInner}>
+            <div css={s.controlGroup}>
+              <label css={s.controlLabel}>
+                문제 수
+                <select
+                  css={s.selectBox}
+                  value={questionCount}
+                  onChange={(e) => setQuestionCount(Number(e.target.value))}
+                  disabled={loading}
+                >
+                  <option value={5}>5</option>
+                  <option value={10}>10</option>
+                </select>
+              </label>
+
+              <label css={s.controlLabel}>
+                난이도
+                <select
+                  css={s.selectBox}
+                  value={difficulty}
+                  onChange={(e) => setDifficulty(e.target.value)}
+                  disabled={loading}
+                >
+                  <option value="EASY">EASY</option>
+                  <option value="NORMAL">NORMAL</option>
+                  <option value="HARD">HARD</option>
+                </select>
+              </label>
+
+              <label css={s.checkboxLabel}>
+                <input
+                  type="checkbox"
+                  checked={isWeaknessMode}
+                  onChange={(e) => setIsWeaknessMode(e.target.checked)}
+                  disabled={loading}
+                />
+                약점 모드
+              </label>
+            </div>
+
+            <div css={s.actionGroup}>
+              <button
+                css={s.actionBtnPrimary}
+                onClick={() => handleGenerate(false)}
+                disabled={loading}
+              >
+                문제 생성
+              </button>
+              <button
+                css={s.actionBtn}
+                onClick={handleSubmit}
+                disabled={loading || questionList.length === 0}
+              >
+                제출/채점
+              </button>
+              <button
+                css={s.actionBtn}
+                onClick={handleLoadWeakness}
+                disabled={loading}
+              >
+                오답 클리닉
+              </button>
+            </div>
+          </div>
+        </footer>
+      </div>
+    </>
+  );
 }
 
 export default InfiniteStudyPage;

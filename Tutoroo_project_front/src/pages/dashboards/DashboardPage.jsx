@@ -2,6 +2,7 @@
 import { useMutation } from "@tanstack/react-query";
 import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import Swal from "sweetalert2";
 import { studyApi } from "../../apis/studys/studysApi";
 import { userApi } from "../../apis/users/usersApi";
 import { rankingApi } from "../../apis/ranking/rankingApi";
@@ -11,6 +12,7 @@ import StudyChart from "../../components/charts/StudyChart";
 import useAuthStore from "../../stores/useAuthStore";
 import useModalStore from "../../stores/modalStore";
 import useStudyStore from "../../stores/useStudyStore";
+import { FaTrash } from "react-icons/fa";
 
 import * as s from "./styles";
 
@@ -48,8 +50,6 @@ function getWeekDates(offset = 0) {
   });
 }
 
-/** * 로그인 후 사용자 메인 대시보드 페이지
- */
 function DashboardPage() {
   const navigate = useNavigate();
 
@@ -58,9 +58,8 @@ function DashboardPage() {
   const openLogin = useModalStore((state) => state.openLogin);
   const openStudyPlan = useModalStore((state) => state.openStudyPlan);
 
-  // [New] 학습 정보 설정을 위한 액션 및 상태 가져오기
+  // 학습 정보 설정 액션 및 상태
   const setPlanInfo = useStudyStore((state) => state.setPlanInfo);
-  // 현재 진행 중인(메모리에 있는) 플랜 ID와 메시지 확인
   const currentPlanId = useStudyStore((state) => state.planId);
   const currentMessages = useStudyStore((state) => state.messages);
 
@@ -90,7 +89,7 @@ function DashboardPage() {
     ? Math.min(100, Math.max(0, weeklyRate))
     : 0;
 
-  const aiReport = dashboardData?.aiAnalysisReport; // 백엔드 대시보드 DTO 필드
+  const aiReport = dashboardData?.aiAnalysisReport;
 
   const planIdForFeedback = selectedStudyId ? Number(selectedStudyId) : null;
 
@@ -102,6 +101,63 @@ function DashboardPage() {
       );
     },
   });
+
+  const handleDeleteStudy = async () => {
+    if (!selectedStudyId) {
+        Swal.fire("알림", "삭제할 학습을 선택해주세요.", "warning");
+        return;
+    }
+
+    // 1. 비밀번호 입력 받기
+    const { value: password } = await Swal.fire({
+        title: '학습 삭제',
+        html: '정말 삭제하시겠습니까?<br/>본인 확인을 위해 <b>비밀번호</b>를 입력해주세요.',
+        input: 'password',
+        inputPlaceholder: '비밀번호 입력',
+        showCancelButton: true,
+        confirmButtonText: '삭제',
+        cancelButtonText: '취소',
+        confirmButtonColor: '#ff4d4f', 
+        preConfirm: async (password) => {
+            if (!password) {
+                Swal.showValidationMessage('비밀번호를 입력해주세요.');
+            }
+            return password;
+        }
+    });
+
+    if (password) {
+        try {
+            // 2. 비밀번호 검증 API 호출
+            await userApi.verifyPassword(password);
+            
+            // 3. 검증 성공 시 삭제 API 호출
+            await studyApi.deleteStudyPlan(selectedStudyId);
+
+            await Swal.fire("삭제 완료", "학습 플랜이 정상적으로 삭제되었습니다.", "success");
+            
+            // 4. 리스트 갱신 및 선택값 초기화
+            const newList = await studyApi.getStudyList();
+            setStudyList(newList);
+            
+            if (newList.length > 0) {
+                // 남은 학습 중 첫 번째 선택
+                setSelectedStudyId(String(newList[0].id));
+            } else {
+                // 남은 학습이 없으면 초기화
+                setSelectedStudyId("");
+                setDashboardData(null);
+                setChartData([]);
+                setPlanDetail(null);
+            }
+
+        } catch (error) {
+            console.error(error);
+            const msg = error.response?.data?.message || "비밀번호가 일치하지 않거나 삭제 중 오류가 발생했습니다.";
+            Swal.fire("삭제 실패", msg, "error");
+        }
+    }
+  };
 
   useEffect(() => {
     const todayIso = toYmd(new Date());
@@ -324,9 +380,8 @@ function DashboardPage() {
   const todayIso = toYmd(new Date());
   const isTodayDone = !!doneByIso[todayIso]?.isDone;
 
-  // [핵심] 학습 시작 핸들러 (이어하기 로직 추가)
+  // 학습 시작 핸들러
   const handleStartStudy = () => {
-    // 1. 오늘 이미 완료했으면 차단
     if (isTodayDone) {
       alert("오늘의 학습을 이미 완료했습니다! 내일 또 만나요.");
       return;
@@ -339,21 +394,19 @@ function DashboardPage() {
 
     const targetId = Number(selectedStudyId);
 
-    // [New] 2. 이어하기 체크
-    // 선택한 플랜이 현재 진행 중인 플랜과 같고, 대화 내용이 남아있다면 바로 이동
+    // 이어하기 체크: 현재 플랜과 같고 메시지가 있으면 바로 이동
     if (targetId === currentPlanId && currentMessages.length > 0) {
         navigate("/study");
         return;
     }
 
-    // 3. 새로운 학습 시작 (또는 진행 내역이 없는 경우)
     const selectedStudy = studyList.find(
       (s) => String(s.id) === String(selectedStudyId),
     );
     const studyName = selectedStudy ? selectedStudy.name : "학습";
 
-    setPlanInfo(targetId, studyName); // Store 상태 설정 (planId 변경 시 리셋됨)
-    navigate(`/tutor`); // 튜터 선택 페이지로 이동
+    setPlanInfo(targetId, studyName);
+    navigate(`/tutor`);
   };
 
   const point = myDash?.totalPoint ?? dashboardData?.currentPoint ?? 0;
@@ -394,6 +447,15 @@ function DashboardPage() {
                   </option>
                 ))}
               </select>
+
+              <button 
+                  css={s.deleteBtn}
+                  onClick={handleDeleteStudy}
+                  disabled={!selectedStudyId}
+                  title="현재 선택된 학습 삭제"
+              >
+                <FaTrash />
+              </button>
 
               {/* 학습 추가 버튼 */}
               <button
@@ -467,7 +529,7 @@ function DashboardPage() {
             <div css={s.calendarRow}>
               {dates.map((date, i) => {
                 const isToday = date.iso === toYmd(new Date());
-                const done = doneByIso[date.iso]; // { isDone, maxScore, topic }
+                const done = doneByIso[date.iso];
 
                 return (
                   <div

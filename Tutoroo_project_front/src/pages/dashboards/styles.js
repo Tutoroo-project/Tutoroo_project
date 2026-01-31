@@ -96,6 +96,46 @@ export const studyBtn = css`
   background: #ff8a3d;
   color: #fff;
   font-weight: 600;
+  cursor: pointer;
+  
+  &:hover {
+    background: #e0702b;
+  }
+`;
+
+export const disabledBtn = css`
+  background: #cccccc !important;
+  cursor: not-allowed !important;
+  color: #888 !important;
+`;
+
+export const deleteBtn = css`
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  border: 1px solid #ff4d4f;
+  background: #fff;
+  color: #707070;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &:hover {
+    background: #ff4d4f;
+    color: #fff;
+  }
+  
+  &:disabled {
+    border-color: #ddd;
+    color: #ddd;
+    background: #f9f9f9;
+    cursor: not-allowed;
+  }
 `;
 
 /* =========================

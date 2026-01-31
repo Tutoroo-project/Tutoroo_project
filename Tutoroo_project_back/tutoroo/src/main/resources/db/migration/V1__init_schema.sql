@@ -247,7 +247,7 @@ CREATE TABLE IF NOT EXISTS `notifications` (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- [NEW] 13. 실전 문제 은행 (Practice Questions)
+-- 13. 실전 문제 은행 (Practice Questions)
 -- [매핑]: PracticeQuestionEntity.java
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `practice_questions` (
@@ -266,7 +266,7 @@ CREATE TABLE IF NOT EXISTS `practice_questions` (
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- =====================================================
--- [NEW] 14. 실전 풀이 기록 (Practice Logs)
+-- 14. 실전 풀이 기록 (Practice Logs)
 -- [매핑]: PracticeLogEntity.java
 -- =====================================================
 CREATE TABLE IF NOT EXISTS `practice_logs` (
@@ -280,6 +280,20 @@ CREATE TABLE IF NOT EXISTS `practice_logs` (
 
                                                FOREIGN KEY (`question_id`) REFERENCES `practice_questions`(`id`) ON DELETE CASCADE,
     INDEX `idx_practice_log_user` (`user_id`)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- =====================================================
+-- [NEW] 15. 수업 대화 기록 (Chat History) - 영구 기억장치
+-- [매핑]: ChatMapper 내부 DTO
+-- =====================================================
+CREATE TABLE IF NOT EXISTS `chat_messages` (
+                                               `id`            BIGINT AUTO_INCREMENT PRIMARY KEY,
+                                               `plan_id`       BIGINT NOT NULL,
+                                               `sender`        VARCHAR(10) NOT NULL COMMENT 'USER or AI',
+    `message`       TEXT NOT NULL,
+    `created_at`    DATETIME DEFAULT CURRENT_TIMESTAMP,
+
+    INDEX `idx_chat_plan` (`plan_id`, `created_at`) -- 시간순 조회 최적화
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 

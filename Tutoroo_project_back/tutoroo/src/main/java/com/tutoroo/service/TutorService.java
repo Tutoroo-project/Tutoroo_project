@@ -1,18 +1,21 @@
 package com.tutoroo.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.tutoroo.dto.TutorDTO;
 import com.tutoroo.entity.*;
 import com.tutoroo.event.StudyCompletedEvent;
 import com.tutoroo.exception.ErrorCode;
 import com.tutoroo.exception.TutorooException;
+import com.tutoroo.mapper.ChatMapper;
 import com.tutoroo.mapper.CommonMapper;
 import com.tutoroo.mapper.StudyMapper;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.audio.transcription.AudioTranscriptionPrompt;
+import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.UserMessage;
@@ -49,6 +52,7 @@ public class TutorService {
 
     private final StudyMapper studyMapper;
     private final CommonMapper commonMapper;
+    private final ChatMapper chatMapper; // DB 기반 영구 기억 장치
     private final OpenAiChatModel chatModel;
     private final OpenAiAudioSpeechModel speechModel;
     private final OpenAiAudioTranscriptionModel transcriptionModel;
@@ -58,9 +62,8 @@ public class TutorService {
     private final RedisTemplate<String, String> redisTemplate;
 
     // =================================================================================
-    // 1. 수업 진행 (로드맵 절대 준수 스케줄링)
+    // 1. 수업 시작 (로드맵 정밀 분석 & 어제 내용 복습 연계)
     // =================================================================================
-
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
@@ -68,33 +71,36 @@ public class TutorService {
 
         updatePersonaIfChanged(plan, request.personaName());
 
-        // [프롬프트: 학습 총량 보존의 법칙]
+        // [1] 로드맵 분석: 오늘 주제 & 어제 주제 추출
+        String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount());
+        String yesterdayTopic = (request.dayCount() > 1) ? getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount() - 1) : "기초 오리엔테이션";
+
+        // [2] 프롬프트 전략 수립: 단순 시작이 아니라 '연결'과 '목표 설정'
         String userPrompt = String.format("""
-                [학습 컨텍스트]
-                - 과목: %s
-                - 오늘의 미션: %d일차 커리큘럼 완주 (타협 불가)
+                [수업 컨텍스트]
+                - 과목: %s (현재 레벨: %s)
+                - **오늘의 핵심 주제**: %s
+                - **어제 배운 내용**: %s
                 - 학생 기분: %s
                 - 학생 요청: "%s"
                 
-                [지시사항: 페이스메이커 역할 수행]
-                1. **목표 고수**: 학생이 힘들다고 해도 "오늘은 조금만 하자"는 안 돼. 대신 "쉬는 시간을 쪼개서라도 끝내자"라고 독려해.
-                2. **전략적 스케줄링**:
-                   - 기분이 좋음: 50분 풀타임 집중 (CLASS: 3000, BREAK: 600)
-                   - 기분이 나쁨/지침: 뽀모도로 기법 적용 (CLASS: 1500, BREAK: 300 반복 제안)
-                   - **어떤 경우에도 총 학습량(CLASS 합계)은 줄이지 마.**
-                3. **오프닝 멘트**: 학생의 감정에 공감하되, 오늘 학습의 중요성을 강조하며 비장하게 시작해.
+                [지시사항: 세계 최고의 강사처럼 오프닝]
+                1. **브릿지(Bridge)**: 어제 배운 내용(%s)을 짧게 언급하며 오늘 내용(%s)과의 연관성을 설명해. (예: "어제 변수를 배웠죠? 오늘은 그 변수를 계산하는 연산자입니다.")
+                2. **동기 부여**: 오늘 배울 내용이 왜 중요한지 실무적/학문적 가치를 한 문장으로 강조해.
+                3. **스케줄링**: 학생 기분에 맞춰 학습 밀도(CLASS 시간)를 조절해. (좋음: 3000초, 나쁨: 1800초+휴식)
                 
                 [응답 형식]
-                주제 | 멘트 | {"CLASS": 3000, "BREAK": 600}
+                주제 | 오프닝 멘트 | {"CLASS": 3000, "BREAK": 600}
                 """,
-                plan.getGoal(),
-                request.dayCount(),
+                plan.getGoal(), plan.getCurrentLevel(),
+                todaysTopic, yesterdayTopic,
                 request.dailyMood(),
-                request.customOption() != null ? request.customOption() : "없음"
+                request.customOption() != null ? request.customOption() : "없음",
+                extractTopicKeyword(yesterdayTopic), extractTopicKeyword(todaysTopic)
         );
 
         String systemPrompt = buildBaseSystemPrompt(plan, request.customOption()) +
-                "\n너는 학생의 목표 달성을 최우선으로 여기는 최고의 코치야. 감정에 휘둘려 목표를 포기하게 두지 마.";
+                "\n너는 체계적이고 논리적인 '1타 강사'야. 흐름이 끊기지 않게 수업을 연결해.";
 
         String response = chatModel.call(new Prompt(List.of(
                 new SystemMessage(systemPrompt),
@@ -111,18 +117,21 @@ public class TutorService {
         );
     }
 
+    // =================================================================================
+    // 2. 세션 관리 (상황별 코칭)
+    // =================================================================================
     @Transactional
     public TutorDTO.SessionStartResponse startSession(Long userId, TutorDTO.SessionStartRequest request) {
         String mode = request.sessionMode();
         String personaName = request.personaName();
 
-        // [프롬프트: 상황별 동기부여]
+        // 상황별 멘트 고도화
         String situation = switch (mode) {
-            case "BREAK" -> "상황: 휴식. '뇌가 쉴 시간을 줘야 다음 지식이 들어와. 잠깐 눈 좀 붙여.'라고 과학적으로 조언해.";
-            case "TEST" -> "상황: 테스트. '지금까지 배운 건 네 것이 되었을까? 확인해보자.'라며 도전 의식을 자극해.";
-            case "GRADING" -> "상황: 채점. '결과보다 과정이 중요해. 꼼꼼히 봐줄게.'라고 안심시켜.";
-            case "AI_FEEDBACK" -> "상황: 종료. 오늘 배운 핵심을 한 줄 요약해주고, 성취감을 느끼게 해줘.";
-            default -> "상황: 수업 중. 집중력이 흐트러지지 않게 주의를 환기해.";
+            case "BREAK" -> "상황: 휴식 시간. 뇌과학적으로 휴식이 왜 기억 저장에 도움이 되는지 짧게 언급하며 쉬라고 해.";
+            case "TEST" -> "상황: 테스트 시작. '틀려도 괜찮아, 모르는 걸 찾는 과정이야'라고 부담을 덜어주되 긴장감은 줘.";
+            case "GRADING" -> "상황: 채점 중. AI가 꼼꼼하게 분석 중이라는 신뢰감을 주는 멘트를 해.";
+            case "AI_FEEDBACK" -> "상황: 수업 종료. 오늘 배운 키워드 3가지를 해시태그처럼 말해주고, 내일 내용을 예고해줘.";
+            default -> "상황: 수업 집중. 딴짓하지 말고 화면을 보라고 주의를 환기해.";
         };
 
         String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + personaName);
@@ -140,29 +149,94 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 2. 데일리 테스트 생성
+    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답)
+    // =================================================================================
+    @Transactional
+    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+
+        // 1. 유저 메시지 DB 저장 (영구 기억 확보)
+        chatMapper.saveMessage(planId, "USER", message);
+
+        // 2. 대화 맥락 로드 (최근 50턴 - 충분한 컨텍스트)
+        List<ChatMapper.ChatMessage> history = chatMapper.findRecentMessages(planId, 50);
+
+        // 3. 교수법 전략 수립 (Adaptive Pedagogy)
+        // 학생 레벨에 따라 설명의 깊이와 어조를 자동 조절
+        String pedagogyStrategy = plan.getCurrentLevel().equalsIgnoreCase("BEGINNER")
+                ? "쉬운 비유와 실생활 예시를 들어 설명해. 전문 용어는 최소화해."
+                : "정확한 기술 용어를 사용하고, 원리와 내부 구조(Under the hood)를 깊게 설명해.";
+
+        String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
+        if (basePrompt == null) basePrompt = "너는 열정적인 AI 선생님이야.";
+
+        String teacherPrompt = String.format("""
+            %s
+            
+            [현재 수업 정보]
+            - 과목: %s
+            - 학생 레벨: %s (목표: %s)
+            - **교수법 전략**: %s
+            
+            [절대 규칙: World-Class Tutoring System]
+            1. **문맥 완벽 유지**: 위 [대화 내역]을 분석해. 학생이 이전에 했던 질문이나 실수를 기억해서 "아까 말씀드린 것처럼~" 하고 연결해.
+            2. **소크라테스식 검증**: 단순히 정답만 알려주지 마. 설명을 마친 후엔 반드시 **"그럼 이 경우에는 어떻게 될까요?"**라고 역질문을 던져 이해도를 체크해.
+            3. **코드/예시 필수**: 코딩 질문이면 반드시 코드를, 이론 질문이면 반드시 예시를 들어.
+            4. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
+            """,
+                basePrompt, plan.getGoal(), plan.getCurrentLevel(), plan.getTargetLevel(), pedagogyStrategy);
+
+        List<Message> messages = new ArrayList<>();
+        messages.add(new SystemMessage(teacherPrompt));
+
+        // 과거 대화 주입
+        for (ChatMapper.ChatMessage chat : history) {
+            if ("USER".equals(chat.sender())) {
+                messages.add(new UserMessage(chat.message()));
+            } else {
+                messages.add(new AssistantMessage(chat.message()));
+            }
+        }
+
+        // 4. AI 호출
+        String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
+
+        // 5. AI 응답 DB 저장
+        chatMapper.saveMessage(planId, "AI", aiResponse);
+
+        String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
+        return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
+    }
+
+    // =================================================================================
+    // 4. 데일리 테스트 생성 (로드맵 내용 정밀 타격)
     // =================================================================================
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
         StudyPlanEntity plan = studyMapper.findById(planId);
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
+        String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), dayCount);
+
         String prompt = String.format("""
-                [데일리 테스트 생성]
+                [데일리 테스트 출제]
                 - 과목: %s
-                - 진도: %d일차
-                - 페르소나: %s
+                - 오늘 학습한 내용: %s
+                - 난이도: %s 수준
                 
-                오늘 학습한 내용을 확인하는 가벼운 4지선다 퀴즈 1개를 JSON으로 만들어줘.
+                오늘 배운 '%s'의 핵심 개념을 확인하는 4지선다 퀴즈 1개를 JSON으로 출제해.
+                단순 암기보다는 '이해했는지'를 묻는 함정 문제를 선호해.
+                
                 형식:
                 {
                     "type": "QUIZ",
-                    "question": "문제 내용 (재미있게)",
+                    "question": "문제 지문",
                     "imageUrl": null,
-                    "options": ["보기1", "보기2", "보기3", "보기4"],
+                    "options": ["A", "B", "C", "D"],
                     "answerIndex": 0
                 }
-                """, plan.getGoal(), dayCount, plan.getPersona());
+                """, plan.getGoal(), todaysTopic, plan.getCurrentLevel(), todaysTopic);
 
         String response = chatModel.call(prompt);
         String cleaned = cleanJson(response);
@@ -170,18 +244,16 @@ public class TutorService {
         try {
             return objectMapper.readValue(cleaned, TutorDTO.DailyTestResponse.class);
         } catch (Exception e) {
-            // 파싱 실패 시 기본 응답 반환 (안전장치)
             return new TutorDTO.DailyTestResponse(
-                    "QUIZ", "오늘 배운 내용을 스스로 정리해보세요!", null,
+                    "QUIZ", "오늘 배운 내용을 복습해볼까요?", null,
                     List.of("네", "아니오", "글쎄요", "모르겠어요"), 0
             );
         }
     }
 
     // =================================================================================
-    // 3. 범용 멀티모달 시험 (Universal Exam Engine)
+    // 5. 실전 시험 및 채점 (전문가적 피드백)
     // =================================================================================
-
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -190,195 +262,97 @@ public class TutorService {
         StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(planId);
         String topic = (lastLog != null) ? lastLog.getContentSummary() : "기초 입문";
 
+        // 멀티모달(이미지/코드) 시험 생성
         String promptText = String.format("""
-            [Role] You are a world-class expert tutor in '%s'.
-            [Topic] %s
+            Role: Senior Examiner in %s.
+            Topic: %s.
             
-            [Mission: Universal Assessment]
-            Analyze the subject nature and generate 3 specialized questions to verify the student's capability.
-            
-            1. **Analyze Domain**: Is this subject about Logic (Coding), Visuals (Art), Audio (Music), or Knowledge (History)?
-            2. **Select Question Types**:
-               - Use 'CODE_FILL_IN' or 'SHORT_ANSWER' for logic/implementation.
-               - Use 'VISUAL_ANALYSIS' for subjects requiring observation (Art, Biology, Architecture).
-               - Use 'MULTIPLE_CHOICE' for checking conceptual understanding.
-            3. **Generate Questions**:
-               - Q1: Conceptual Trap (Must be tricky).
-               - Q2: Visual/Structural Analysis (Description based, no image url needed yet).
-               - Q3: Practical Application (Real-world scenario).
-            
-            [JSON Output Format (Strict)]
-            {
-                "title": "%s 실전 역량 평가",
-                "questions": [
-                    {
-                        "number": 1,
-                        "type": "MULTIPLE_CHOICE", 
-                        "question": "...",
-                        "options": ["..."],
-                        "referenceMediaUrl": null,
-                        "codeTemplate": null
-                    },
-                    {
-                        "number": 2,
-                        "type": "VISUAL_ANALYSIS", 
-                        "question": "Scenario description...",
-                        "referenceMediaUrl": null,
-                        "codeTemplate": null
-                    }
-                ]
-            }
-            """, plan.getGoal(), topic, plan.getGoal());
+            Generate 2 high-quality questions in JSON format.
+            - Question 1: Conceptual understanding (Multiple Choice).
+            - Question 2: Practical application or Visual Analysis (Visual Analysis if Art/Bio, otherwise Code/Short Answer).
+            """, plan.getGoal(), topic);
 
         String jsonResponse = chatModel.call(promptText);
-        String cleanedJson = cleanJson(jsonResponse);
-
         try {
-            return objectMapper.readValue(cleanedJson, TutorDTO.ExamGenerateResponse.class);
+            return objectMapper.readValue(cleanJson(jsonResponse), TutorDTO.ExamGenerateResponse.class);
         } catch (JsonProcessingException e) {
-            log.error("시험 생성 JSON 파싱 실패", e);
             return createFallbackExam(topic);
         }
     }
 
-    // 주간/월간 시험 생성 (오버로딩)
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId, int startDay, int endDay) {
         return generateExam(userId, planId);
     }
 
-    // =================================================================================
-    // 4. 범용 채점 (Universal Grading)
-    // =================================================================================
+    public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
+        return evaluateExam(userId, request);
+    }
 
     @Transactional
     public TutorDTO.ExamResultResponse evaluateExam(Long userId, TutorDTO.ExamSubmitRequest request) {
         StringBuilder summary = new StringBuilder();
         for (TutorDTO.ExamSubmitRequest.SubmittedAnswer ans : request.answers()) {
-            summary.append(String.format("- Q%d: ", ans.number()));
-            if (ans.textAnswer() != null) summary.append(ans.textAnswer());
-            if (ans.selectedOptionIndex() != null) summary.append("선택: ").append(ans.selectedOptionIndex());
-            if (ans.attachmentUrl() != null) summary.append(" [파일 제출: ").append(ans.attachmentUrl()).append("]");
-            summary.append("\n");
+            summary.append(String.format("Q%d: %s ", ans.number(), ans.textAnswer()));
         }
 
-        String promptText = String.format("""
-            학생 답안 채점 요청.
-            이 과목의 **최고 전문가 관점**에서 채점해.
+        String prompt = String.format("""
+            [채점 요청]
+            학생 답안: %s
             
-            [평가 기준]
-            1. **통찰력**: 단순 정답 여부를 넘어, 학생이 원리를 이해하고 있는지 파악해.
-            2. **창의성**: (예체능 계열일 경우) 독창적인 접근 방식을 높게 평가해.
-            3. **효율성**: (공학 계열일 경우) 더 나은 해결책이 있다면 'Correction'에 제시해.
-            
-            [답안 데이터]
-            %s
-            
-            [JSON 응답]
-            {"totalScore": 0, "isPassed": false, "aiComment": "...", "feedbacks": []}
+            엄격하게 채점하고, 틀린 부분은 '왜 틀렸는지'와 '올바른 접근법'을 구체적으로 피드백해.
+            JSON: {"totalScore": 0, "isPassed": boolean, "aiComment": "총평", "feedbacks": []}
             """, summary.toString());
 
-        String jsonResponse = chatModel.call(promptText);
-        String cleanedJson = cleanJson(jsonResponse);
-
+        String json = chatModel.call(prompt);
         try {
-            TutorDTO.ExamResultResponse result = objectMapper.readValue(cleanedJson, TutorDTO.ExamResultResponse.class);
-            if (result.isPassed()) {
-                eventPublisher.publishEvent(new StudyCompletedEvent(userId, result.totalScore()));
+            return objectMapper.readValue(cleanJson(json), TutorDTO.ExamResultResponse.class);
+        } catch(Exception e) {
+            throw new TutorooException("채점 시스템 오류", ErrorCode.AI_PROCESSING_ERROR);
+        }
+    }
+
+    // =================================================================================
+    // 6. 유틸리티 및 헬퍼 메서드
+    // =================================================================================
+
+    // [New] 로드맵 파싱 로직 (정밀도 향상)
+    private String getTopicFromRoadmap(String json, int dayCount) {
+        if (!StringUtils.hasText(json)) return "심화 학습";
+        try {
+            JsonNode root = objectMapper.readTree(json);
+            // detailedCurriculum이 Map 형태인지 Array 형태인지 유연하게 처리
+            JsonNode curriculum = root.path("detailedCurriculum");
+
+            if (curriculum.isObject()) {
+                // "1주차": [...] 형태일 때
+                for (JsonNode week : curriculum) {
+                    if (week.isArray()) {
+                        for (JsonNode dayPlan : week) {
+                            String dayStr = dayPlan.path("day").asText();
+                            // "3일차", "Day 3" 등의 문자열에서 숫자만 추출하여 비교
+                            if (extractNumber(dayStr) == dayCount) {
+                                return dayPlan.path("topic").asText() + " (" + dayPlan.path("method").asText() + ")";
+                            }
+                        }
+                    }
+                }
             }
-            return result;
-        } catch (JsonProcessingException e) {
-            log.error("채점 JSON 파싱 실패", e);
-            // [Fix] ErrorCode.AI_SERVICE_ERROR -> ErrorCode.AI_PROCESSING_ERROR (변수명 일치시킴)
-            throw new TutorooException("채점 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
-        }
-    }
-
-    // [New] 컨트롤러의 submitExam 호출과 매핑되는 메서드
-    public TutorDTO.ExamResultResponse submitExam(Long userId, TutorDTO.ExamSubmitRequest request) {
-        return evaluateExam(userId, request);
-    }
-
-    // [Legacy] 데일리 테스트 (기존 유지)
-    @Transactional
-    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
-        StudyPlanEntity plan = studyMapper.findById(planId);
-        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백 줘.";
-        String res = chatModel.call(prompt);
-        int score = parseScore(res);
-
-        studyMapper.saveLog(StudyLogEntity.builder()
-                .planId(planId).dayCount(0).testScore(score).aiFeedback(res)
-                .isCompleted(score >= 60).pointChange(score >= 60 ? 50 : 10).build());
-
-        return new TutorDTO.TestFeedbackResponse(
-                score, res, "요약", requestTts(res, plan.getPersona()),
-                "/images/feedback.png", "화이팅", score >= 60
-        );
-    }
-
-    // =================================================================================
-    // 5. 상담 및 STT
-    // =================================================================================
-
-    @Transactional
-    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts) {
-        StudyPlanEntity plan = studyMapper.findById(planId);
-        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
-
-        String historyKey = "chat:history:" + planId;
-        List<Message> messages = loadHistory(historyKey);
-
-        String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
-
-        String counselingPrompt = basePrompt + """
-            \n[모드: 학습 조율 상담]
-            1. 학생의 감정은 충분히 공감해줘. ("힘들었겠구나")
-            2. 하지만 **목표는 타협하지 마.** ("그래도 이 부분은 중요하니까 내가 더 쉽게 설명해줄게")
-            3. 포기하려는 학생을 다시 책상에 앉히는 것이 너의 임무야.
-            """;
-
-        messages.add(0, new SystemMessage(counselingPrompt));
-        messages.add(new UserMessage(message));
-
-        String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
-        saveHistory(historyKey, message, aiResponse);
-
-        String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
-        return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
-    }
-
-    public String convertSpeechToText(MultipartFile audio) {
-        try {
-            File tempFile = File.createTempFile("stt_", ".webm");
-            audio.transferTo(tempFile);
-            String text = transcriptionModel.call(new AudioTranscriptionPrompt(new FileSystemResource(tempFile))).getResult().getOutput();
-            tempFile.delete();
-            return text;
         } catch (Exception e) {
-            log.error("STT Error", e);
-            throw new TutorooException(ErrorCode.STT_PROCESSING_ERROR);
+            log.warn("로드맵 파싱 중 오류 (기본값 반환): {}", e.getMessage());
         }
+        return "현재 진도에 맞는 심화 내용";
     }
 
-    @Transactional
-    public void saveStudentFeedback(TutorDTO.TutorReviewRequest request) {
-        studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
+    // 숫자 추출 유틸
+    private int extractNumber(String text) {
+        Matcher m = Pattern.compile("\\d+").matcher(text);
+        return m.find() ? Integer.parseInt(m.group()) : -1;
     }
 
-    // [New] 커스텀 튜터 이름 변경
-    @Transactional
-    public void renameCustomTutor(Long planId, String newName) {
-        StudyPlanEntity plan = studyMapper.findById(planId);
-        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
-
-        plan.setCustomTutorName(newName);
-        studyMapper.updatePlan(plan);
+    private String extractTopicKeyword(String info) {
+        return info.contains("(") ? info.substring(0, info.indexOf("(")).trim() : info;
     }
-
-    // =================================================================================
-    // 6. Private Helpers
-    // =================================================================================
 
     private void updatePersonaIfChanged(StudyPlanEntity plan, String newPersona) {
         if (!plan.getPersona().equalsIgnoreCase(newPersona)) {
@@ -390,7 +364,6 @@ public class TutorService {
     private String buildBaseSystemPrompt(StudyPlanEntity plan, String customOption) {
         String base = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
         if (base == null) base = "너는 열정적인 AI 선생님이야.";
-
         StringBuilder sb = new StringBuilder(base);
         if (StringUtils.hasText(plan.getCustomTutorName())) {
             sb.append("\n이름은 '").append(plan.getCustomTutorName()).append("'로 연기해.");
@@ -430,18 +403,7 @@ public class TutorService {
     }
 
     private TutorDTO.ExamGenerateResponse createFallbackExam(String topic) {
-        return new TutorDTO.ExamGenerateResponse(
-                topic + " 기초 평가",
-                List.of(new TutorDTO.ExamGenerateResponse.ExamQuestion(
-                        1,
-                        QuestionType.MULTIPLE_CHOICE,
-                        topic + "의 개념은?",
-                        null,
-                        null,
-                        List.of("A", "B", "C", "D"),
-                        null
-                ))
-        );
+        return new TutorDTO.ExamGenerateResponse(topic + " 평가", List.of(new TutorDTO.ExamGenerateResponse.ExamQuestion(1, QuestionType.MULTIPLE_CHOICE, "개념 확인", null, null, List.of("O","X"), null)));
     }
 
     private String cleanJson(String text) {
@@ -465,8 +427,39 @@ public class TutorService {
         return m.find() ? Integer.parseInt(m.group(1)) : 50;
     }
 
+    @Transactional
+    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백.";
+        String res = chatModel.call(prompt);
+        int score = parseScore(res);
+        studyMapper.saveLog(StudyLogEntity.builder().planId(planId).dayCount(0).testScore(score).aiFeedback(res).isCompleted(score >= 60).pointChange(score >= 60 ? 50 : 10).build());
+        return new TutorDTO.TestFeedbackResponse(score, res, "요약", requestTts(res, plan.getPersona()), null, "화이팅", score >= 60);
+    }
+
+    public String convertSpeechToText(MultipartFile audio) {
+        try {
+            File temp = File.createTempFile("stt", ".webm");
+            audio.transferTo(temp);
+            String text = transcriptionModel.call(new AudioTranscriptionPrompt(new FileSystemResource(temp))).getResult().getOutput();
+            temp.delete();
+            return text;
+        } catch (Exception e) { throw new TutorooException(ErrorCode.STT_PROCESSING_ERROR); }
+    }
+
+    @Transactional
+    public void saveStudentFeedback(TutorDTO.TutorReviewRequest request) {
+        studyMapper.updateStudentFeedback(request.planId(), request.dayCount(), request.feedback());
+    }
+
+    @Transactional
+    public void renameCustomTutor(Long planId, String newName) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+        plan.setCustomTutorName(newName);
+        studyMapper.updatePlan(plan);
+    }
+
     private record ParsedResponse(String topic, String aiMessage, Map<String, Integer> schedule) {}
     private String requestTts(String text, String persona) { return generateTtsAudio(text, persona); }
-    private List<Message> loadHistory(String key) { return new ArrayList<>(); }
-    private void saveHistory(String key, String u, String a) {}
 }

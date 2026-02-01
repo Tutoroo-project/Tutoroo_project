@@ -14,6 +14,7 @@ import Payments from "../pages/payments/Payments";
 import PaymentPage from "../pages/payments/PaymentPage";
 import OAuth2RedirectPage from "../pages/auths/OAuth2RedirectPage";
 import Pet from "../pages/pet/Pet";
+import InfiniteStudyPage from "../pages/practices/InfiniteStudyPage";
 
 function Router() {
   return (
@@ -32,7 +33,7 @@ function Router() {
       <Route path="/tutor" element={<TutorSelectionPage />} />
       <Route path="/study" element={<StudyPage />} />
       <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
-
+      <Route path="/practice/infinite" element={<InfiniteStudyPage />} />
       <Route path="/pet" element={<Pet />} />
     </Routes>
   );

@@ -103,6 +103,62 @@ export const studyBtn = css`
   }
 `;
 
+export const studyMenuWrap = css`
+  position: relative;
+  display: inline-flex;
+`;
+
+export const caret = css`
+  display: inline-block;
+  margin-left: 8px;
+  transition: transform 0.15s ease;
+`;
+
+export const caretOpen = css`
+  transform: rotate(180deg);
+`;
+
+//  오늘 완료 스타일(회색이지만 클릭은 가능)
+export const completedBtn = css`
+  background: #cccccc !important;
+  color: #888 !important;
+`;
+
+//  드롭다운 박스
+export const studyMenu = css`
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  width: 180px;
+  padding: 8px;
+  border: 1px solid #dbdbdb;
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  z-index: 60;
+`;
+
+export const studyMenuItem = css`
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border: none;
+  background: transparent;
+  border-radius: 10px;
+  text-align: left;
+  font-size: 14px;
+  cursor: pointer;
+
+  &:hover {
+    background: #fff1e0;
+  }
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+`;
+
 export const disabledBtn = css`
   background: #cccccc !important;
   cursor: not-allowed !important;
@@ -406,10 +462,8 @@ export const chartPlaceholder = css`
   height: 200px;
   border-radius: 8px;
   background: #f5f5f5;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: #999;
+  overflow: hidden;
+  min-width: 0;
 `;
 
 export const progressFooter = css`

@@ -59,6 +59,11 @@ const useStudyStore = create((set, get) => ({
   userTestAnswer: "",
   testResult: null,
 
+  
+  // [INFINITE] 무한 실습 모드 상태/액션 추가
+  isInfinitePractice: false,
+  setInfinitePractice: (flag) => set({ isInfinitePractice: !!flag }),
+
   studentRating: 0,
   studentFeedbackText: "",
 
@@ -132,13 +137,17 @@ const useStudyStore = create((set, get) => ({
      }
   },
 
-  startClassSession: async (tutorInfo, navigate) => {
-    if (get().isStudyCompletedToday) {
+  // 5. 수업 시작 (TutorSelectionPage에서 호출)
+  startClassSession: async (tutorInfo, navigate, options = {}) => {
+    const isInfinite = !!options?.isInfinite;
+    const navigateTo = options?.navigateTo || "/study";
+
+    if (!isInfinite && get().isStudyCompletedToday) {
         alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
         return;
     }
 
-    set({ isLoading: true, messages: [] });
+    set({ isLoading: true, messages: [], isInfinitePractice: isInfinite, });
     
     const { planId, studyDay, isSpeakerOn } = get();
 
@@ -174,7 +183,7 @@ const useStudyStore = create((set, get) => ({
 
       get().setupMode("CLASS", res.schedule || {}, false);
       
-      navigate("/study");
+      navigate(navigateTo);
 
     } catch (error) {
       console.error("수업 시작 실패:", error);
@@ -187,11 +196,12 @@ const useStudyStore = create((set, get) => ({
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
+    const infinite = get().isInfinitePractice;
 
     set({ 
       currentMode: mode, 
       timeLeft: duration,
-      isTimerRunning: duration > 0,
+      isTimerRunning: !infinite && duration > 0,
       isChatLoading: shouldFetchMessage 
     });
 
@@ -233,6 +243,8 @@ const useStudyStore = create((set, get) => ({
   },
 
   tick: () => {
+    if (get().isInfinitePractice) return;
+    
     const { timeLeft, nextSessionStep } = get();
     if (timeLeft > 0) {
       set({ timeLeft: timeLeft - 1 });
@@ -350,6 +362,19 @@ const useStudyStore = create((set, get) => ({
       get().setupMode(nextMode, sessionSchedule, true);
 
       if (nextMode === "REVIEW") {
+        if (get().isInfinitePractice) {
+          set((state) => ({
+            messages: [
+              ...state.messages,
+              {
+                type: "AI",
+                content:
+                  "무한 실습 모드에서는 시간 제한 없이 학습할 수 있어요. 필요하면 다음 단계로 계속 진행하거나 질문을 이어가세요!",
+              },
+            ],
+          }));
+          return;
+        }
           try {
               set({ isChatLoading: true });
               const feedbackText = await studyApi.generateAiFeedback(planId);
@@ -441,5 +466,6 @@ const useStudyStore = create((set, get) => ({
       }
   },
 }));
+
 
 export default useStudyStore;

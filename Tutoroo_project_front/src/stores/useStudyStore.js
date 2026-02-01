@@ -353,7 +353,7 @@ const useStudyStore = create((set, get) => ({
   },
 
   nextSessionStep: async () => {
-    const { currentStepIndex, sessionSchedule, planId } = get();
+    const { currentStepIndex, sessionSchedule, planId, todayTopic, testResult } = get();
     const nextIndex = currentStepIndex + 1;
 
     if (nextIndex < SESSION_SEQUENCE.length) {
@@ -376,38 +376,52 @@ const useStudyStore = create((set, get) => ({
           }));
           return;
         }
-          try {
-              set({ isChatLoading: true });
-              const feedbackText = await studyApi.generateAiFeedback(planId);
-              
-              set({ isStudyCompletedToday: true });
 
-              set((state) => ({
-                  messages: [
-                      ...state.messages,
-                      { 
-                          type: 'AI', 
-                          content: feedbackText || "오늘의 학습 분석 결과를 불러오지 못했습니다.",
-                      },
-                      {
-                          type: 'AI',
-                          content: "오늘 학습하느라 정말 고생 많았어요! 아래 버튼을 눌러 복습 자료를 다운로드 받으세요."
-                      }
-                  ],
-                  isChatLoading: false
-              }));
+        try {
+          set({ isChatLoading: true });
 
-          } catch (e) {
-              console.error("학습 마무리(AI 피드백 생성) 실패:", e);
-              set((state) => ({
-                  messages: [
-                      ...state.messages, 
-                      { type: 'AI', content: "학습은 완료되었지만 피드백 생성에 실패했습니다. 잠시 후 다시 시도해주세요." }
-                  ],
-                  isChatLoading: false,
-                  isStudyCompletedToday: true
-              }));
-          }
+          // ✅ 1. 학습 로그 저장 (DB에 기록)
+          const logData = {
+            planId: planId,
+            score: testResult?.score || 0,
+            contentSummary: todayTopic || "오늘의 학습",
+            isCompleted: true
+          };
+
+          await studyApi.saveStudyLog(logData);
+          console.log("✅ 학습 로그 저장 완료:", logData);
+
+          // ✅ 2. AI 피드백 생성
+          const feedbackText = await studyApi.generateAiFeedback(planId);
+          
+          set({ isStudyCompletedToday: true });
+
+          set((state) => ({
+              messages: [
+                  ...state.messages,
+                  { 
+                      type: 'AI', 
+                      content: feedbackText || "오늘의 학습 분석 결과를 불러오지 못했습니다.",
+                  },
+                  {
+                      type: 'AI',
+                      content: "오늘 학습하느라 정말 고생 많았어요! 아래 버튼을 눌러 복습 자료를 다운로드 받으세요."
+                  }
+              ],
+              isChatLoading: false
+          }));
+
+        } catch (e) {
+          console.error("학습 마무리 실패:", e);
+          set((state) => ({
+              messages: [
+                  ...state.messages, 
+                  { type: 'AI', content: "학습은 완료되었지만 기록 저장에 실패했습니다. 잠시 후 다시 시도해주세요." }
+              ],
+              isChatLoading: false,
+              isStudyCompletedToday: true
+          }));
+        }
       }
 
     } else {

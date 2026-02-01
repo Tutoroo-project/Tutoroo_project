@@ -146,7 +146,7 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답) - 이미지 지원 추가
+    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답) - 이미지 지원 추가 (M6 버전)
     // =================================================================================
     @Transactional
     public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts, MultipartFile image) {
@@ -156,17 +156,6 @@ public class TutorService {
         chatMapper.saveMessage(planId, "USER", message);
 
         List<ChatMapper.ChatMessage> history = chatMapper.findRecentMessages(planId, 50);
-
-        // 이미지 처리
-        String imageContext = "";
-        if (image != null && !image.isEmpty()) {
-            try {
-                String imageUrl = fileStore.storeFile(image.getBytes(), ".jpg");
-                imageContext = "\n[학생이 이미지를 첨부했습니다: " + imageUrl + "]\n이미지 내용을 참고하여 답변해주세요.";
-            } catch (Exception e) {
-                log.error("이미지 처리 실패", e);
-            }
-        }
 
         String pedagogyStrategy = plan.getCurrentLevel().equalsIgnoreCase("BEGINNER")
                 ? "쉬운 비유와 실생활 예시를 들어 설명해. 전문 용어는 최소화해."
@@ -188,7 +177,7 @@ public class TutorService {
             2. **소크라테스식 검증**: 단순히 정답만 알려주지 마. 설명을 마친 후엔 반드시 **"그럼 이 경우에는 어떻게 될까요?"**라고 역질문을 던져 이해도를 체크해.
             3. **코드/예시 필수**: 코딩 질문이면 반드시 코드를, 이론 질문이면 반드시 예시를 들어.
             4. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
-            5. **이미지 참고**: 학생이 이미지를 첨부했다면, 이미지 내용을 참고하여 답변해.
+            5. **이미지 분석**: 학생이 이미지를 첨부했다면, 이미지 파일명과 컨텍스트를 참고하여 답변해줘.
             """,
                 basePrompt, plan.getGoal(), plan.getCurrentLevel(), plan.getTargetLevel(), pedagogyStrategy);
 
@@ -203,14 +192,44 @@ public class TutorService {
             }
         }
 
-        messages.add(new UserMessage(message + imageContext));
+        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
+        if (image != null && !image.isEmpty()) {
+            try {
+                // 이미지를 파일로 저장
+                String imageUrl = fileStore.storeFile(image.getBytes(),
+                        getFileExtension(image.getOriginalFilename()));
 
-        String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
+                log.info("📷 이미지 저장 완료: {}", imageUrl);
 
-        chatMapper.saveMessage(planId, "AI", aiResponse);
+                // 이미지 URL과 함께 메시지 구성
+                String messageWithImage = message + "\n\n[학생이 이미지를 첨부했습니다]\n" +
+                        "이미지 파일: " + imageUrl + "\n" +
+                        "학생의 이미지와 질문을 바탕으로 답변해주세요. " +
+                        "이미지의 내용을 추론하여 설명하거나, 이미지 관련 질문에 답변해주세요.";
 
-        String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
-        return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
+                messages.add(new UserMessage(messageWithImage));
+
+                String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
+
+                chatMapper.saveMessage(planId, "AI", aiResponse);
+
+                String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
+                return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
+
+            } catch (Exception e) {
+                log.error("이미지 처리 실패", e);
+                throw new TutorooException("이미지 처리 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
+            }
+        } else {
+            // 이미지 없는 일반 메시지
+            messages.add(new UserMessage(message));
+            String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
+
+            chatMapper.saveMessage(planId, "AI", aiResponse);
+
+            String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
+            return new TutorDTO.FeedbackChatResponse(aiResponse, audioUrl);
+        }
     }
 
     // =================================================================================
@@ -316,7 +335,80 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 6. 유틸리티 및 헬퍼 메서드
+    // 6. 테스트 제출 및 채점 - 이미지 지원 추가 (M6 버전)
+    // =================================================================================
+    @Transactional
+    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
+        StudyPlanEntity plan = studyMapper.findById(planId);
+        if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
+
+        String prompt = String.format("""
+            [답안 채점]
+            과목: %s
+            학생 답안(텍스트): %s
+            
+            학생의 답변을 분석하고 100점 만점으로 채점해줘.
+            점수와 함께 구체적인 피드백을 제공해줘.
+            
+            응답 형식:
+            점수: [0-100]
+            피드백: [상세한 설명]
+            """,
+                plan.getGoal(),
+                textAnswer != null ? textAnswer : "텍스트 답변 없음"
+        );
+
+        String aiResponse;
+
+        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
+        if (image != null && !image.isEmpty()) {
+            try {
+                String imageUrl = fileStore.storeFile(image.getBytes(),
+                        getFileExtension(image.getOriginalFilename()));
+
+                log.info("📷 테스트 이미지 저장 완료: {}", imageUrl);
+
+                String promptWithImage = prompt + "\n\n[학생이 답안을 이미지로 제출했습니다]\n" +
+                        "이미지 파일: " + imageUrl + "\n" +
+                        "학생이 이미지로 제출한 답안을 평가해주세요. " +
+                        "이미지의 내용을 추론하여 채점하고, 피드백을 제공해주세요.";
+
+                aiResponse = chatModel.call(promptWithImage);
+
+            } catch (Exception e) {
+                log.error("테스트 이미지 처리 실패", e);
+                throw new TutorooException("이미지 처리 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
+            }
+        } else {
+            aiResponse = chatModel.call(prompt);
+        }
+
+        int score = parseScore(aiResponse);
+
+        studyMapper.saveLog(StudyLogEntity.builder()
+                .planId(planId)
+                .dayCount(0)
+                .testScore(score)
+                .aiFeedback(aiResponse)
+                .isCompleted(score >= 60)
+                .pointChange(score >= 60 ? 50 : 10)
+                .build());
+
+        String audioUrl = requestTts(aiResponse, plan.getPersona());
+
+        return new TutorDTO.TestFeedbackResponse(
+                score,
+                aiResponse,
+                "요약",
+                audioUrl,
+                null,
+                score >= 60 ? "잘했어요!" : "조금 더 노력해봐요!",
+                score >= 60
+        );
+    }
+
+    // =================================================================================
+    // 7. 유틸리티 및 헬퍼 메서드
     // =================================================================================
 
     private String getTopicFromRoadmap(String json, int dayCount) {
@@ -397,7 +489,10 @@ public class TutorService {
             String url = fileStore.storeFile(res.getResult().getOutput(), ".mp3");
             commonMapper.saveTtsCache(TtsCacheEntity.builder().textHash(hash).audioPath(url).build());
             return url;
-        } catch (Exception e) { return null; }
+        } catch (Exception e) {
+            log.error("TTS 생성 실패", e);
+            return null;
+        }
     }
 
     private TutorDTO.ExamGenerateResponse createFallbackExam(String topic) {
@@ -421,18 +516,23 @@ public class TutorService {
     }
 
     private int parseScore(String text) {
-        Matcher m = Pattern.compile("(\\d{1,3})").matcher(text);
-        return m.find() ? Integer.parseInt(m.group(1)) : 50;
+        // "점수: 85" 형식 찾기
+        Matcher m = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
+        if (m.find()) return Integer.parseInt(m.group(1));
+
+        // "85점" 형식 찾기
+        m = Pattern.compile("([0-9]{1,3})점").matcher(text);
+        if (m.find()) return Integer.parseInt(m.group(1));
+
+        // 기본값
+        return 50;
     }
 
-    @Transactional
-    public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
-        StudyPlanEntity plan = studyMapper.findById(planId);
-        String prompt = "문제: " + plan.getGoal() + ". 답안: " + textAnswer + ". 점수(0~100)와 피드백.";
-        String res = chatModel.call(prompt);
-        int score = parseScore(res);
-        studyMapper.saveLog(StudyLogEntity.builder().planId(planId).dayCount(0).testScore(score).aiFeedback(res).isCompleted(score >= 60).pointChange(score >= 60 ? 50 : 10).build());
-        return new TutorDTO.TestFeedbackResponse(score, res, "요약", requestTts(res, plan.getPersona()), null, "화이팅", score >= 60);
+    private String getFileExtension(String filename) {
+        if (filename == null || !filename.contains(".")) {
+            return ".jpg";
+        }
+        return filename.substring(filename.lastIndexOf("."));
     }
 
     public String convertSpeechToText(MultipartFile audio) {
@@ -442,7 +542,10 @@ public class TutorService {
             String text = transcriptionModel.call(new AudioTranscriptionPrompt(new FileSystemResource(temp))).getResult().getOutput();
             temp.delete();
             return text;
-        } catch (Exception e) { throw new TutorooException(ErrorCode.STT_PROCESSING_ERROR); }
+        } catch (Exception e) {
+            log.error("STT 처리 실패", e);
+            throw new TutorooException(ErrorCode.STT_PROCESSING_ERROR);
+        }
     }
 
     @Transactional

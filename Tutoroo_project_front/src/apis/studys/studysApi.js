@@ -26,12 +26,22 @@ export const studyApi = {
     return response.data;
   },
 
-  // 5. 메시지 전송 (채팅)
-  sendChatMessage: async ({ planId, message, needsTts }) => {
-    const response = await api.post("/api/tutor/feedback/chat", {
-      planId,
-      message,
-      needsTts,
+  // 5. 메시지 전송 (채팅) - 이미지 지원 추가
+  sendChatMessage: async ({ planId, message, needsTts, imageFile }) => {
+    const formData = new FormData();
+    
+    const requestData = { planId, message, needsTts };
+    formData.append(
+      "data",
+      new Blob([JSON.stringify(requestData)], { type: "application/json" })
+    );
+
+    if (imageFile) {
+      formData.append("image", imageFile);
+    }
+
+    const response = await api.post("/api/tutor/feedback/chat", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
     });
     return response.data;
   },
@@ -121,7 +131,7 @@ export const studyApi = {
     return response.data;
   },
 
-  // 12. [NEW] 학생 피드백 제출 (튜터 평가)
+  // 12. 학생 피드백 제출 (튜터 평가)
   submitStudentFeedback: async ({ planId, dayCount, feedback, rating }) => {
     const response = await api.post("/api/tutor/review", {
       planId,

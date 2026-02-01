@@ -13,6 +13,7 @@ import dragonImg from "../../assets/images/mascots/logo_dragon.png";
 import { HiMiniSpeakerWave, HiMiniSpeakerXMark } from "react-icons/hi2";
 import { FaCircle } from "react-icons/fa";
 import { PiMicrophoneStageFill } from "react-icons/pi";
+import { MdImage, MdClose } from "react-icons/md";
 
 const TUTOR_IMAGES = {
   tiger: tigerImg,
@@ -47,6 +48,8 @@ function StudyPage() {
 
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false); 
+  const [chatImageFile, setChatImageFile] = useState(null);
+  const [chatImagePreview, setChatImagePreview] = useState(null);
   const [testImageFile, setTestImageFile] = useState(null);
   const [localRating, setLocalRating] = useState(0);
   const [localFeedback, setLocalFeedback] = useState("");
@@ -55,7 +58,8 @@ function StudyPage() {
   const audioRef = useRef(new Audio());
   const mediaRecorderRef = useRef(null); 
   const audioChunksRef = useRef([]);
-  const fileInputRef = useRef(null);
+  const chatImageInputRef = useRef(null);
+  const testImageInputRef = useRef(null);
 
   const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
 
@@ -98,10 +102,25 @@ function StudyPage() {
     }
   }, [messages, isSpeakerOn]);
 
+  // 이미지 파일 선택 시 미리보기 생성
+  useEffect(() => {
+    if (chatImageFile) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setChatImagePreview(reader.result);
+      };
+      reader.readAsDataURL(chatImageFile);
+    } else {
+      setChatImagePreview(null);
+    }
+  }, [chatImageFile]);
+
   const handleSend = () => {
-    if (!inputText.trim() || isChatLoading) return;
-    sendMessage(inputText);
+    if ((!inputText.trim() && !chatImageFile) || isChatLoading) return;
+    sendMessage(inputText, chatImageFile);
     setInputText("");
+    setChatImageFile(null);
+    setChatImagePreview(null);
   };
 
   const handleKeyDown = (e) => {
@@ -174,7 +193,6 @@ function StudyPage() {
     }
   };
 
-  // [NEW] 테스트 제출 핸들러
   const handleTestSubmit = () => {
     if (!inputText.trim() && !testImageFile) {
         alert("답안을 입력하거나 이미지를 첨부해주세요.");
@@ -186,7 +204,6 @@ function StudyPage() {
     setTestImageFile(null);
   };
 
-  // [NEW] 학생 피드백 제출 핸들러
   const handleFeedbackSubmit = () => {
     if (localRating === 0) {
         alert("별점을 선택해주세요!");
@@ -201,7 +218,6 @@ function StudyPage() {
     submitStudentFeedback();
   };
 
-  // [NEW] 별점 렌더링
   const renderStars = () => {
     return (
       <div css={s.starContainer}>
@@ -247,9 +263,9 @@ function StudyPage() {
                             onError={(e) => e.target.style.display = 'none'} 
                         />
                     )}
+                    {msg.hasImage && <span css={s.imageAttachedBadge}>📷 이미지 첨부됨</span>}
                     {msg.content}
                     
-                    {/* 테스트 객관식 옵션 표시 */}
                     {msg.testData && msg.testData.options && (
                       <div css={s.testOptions}>
                         {msg.testData.options.map((option, idx) => (
@@ -284,7 +300,6 @@ function StudyPage() {
             <div css={s.bottomInner}>
                 <SessionStatus />
                 
-                {/* TEST 모드: 이미지 첨부 + 제출 버튼 */}
                 {currentMode === 'TEST' ? (
                   <>
                     <div css={s.controlToolbar}>
@@ -293,13 +308,13 @@ function StudyPage() {
                         </button>
                         <button 
                             css={s.textBtn} 
-                            onClick={() => fileInputRef.current?.click()}
+                            onClick={() => testImageInputRef.current?.click()}
                         >
                             📎 이미지
                         </button>
                         <input
                             type="file"
-                            ref={fileInputRef}
+                            ref={testImageInputRef}
                             hidden
                             accept="image/*"
                             onChange={(e) => {
@@ -330,7 +345,6 @@ function StudyPage() {
                     </button>
                   </>
                 ) : currentMode === 'STUDENT_FEEDBACK' ? (
-                  /* STUDENT_FEEDBACK 모드: 별점 + 피드백 입력 */
                   <div css={s.feedbackContainer}>
                     <div css={s.feedbackSection}>
                         <p css={s.feedbackLabel}>오늘 수업은 어떠셨나요?</p>
@@ -352,7 +366,6 @@ function StudyPage() {
                     </div>
                   </div>
                 ) : (
-                  /* 일반 모드: 기존 채팅 UI */
                   <>
                     <div css={s.controlToolbar}>
                         <button css={s.iconBtn(isSpeakerOn)} onClick={toggleSpeaker}>
@@ -365,16 +378,49 @@ function StudyPage() {
                         >
                             {isRecording ? <FaCircle /> : <PiMicrophoneStageFill />}
                         </button>
+                        <button 
+                            css={s.iconBtn(!!chatImageFile)} 
+                            onClick={() => chatImageInputRef.current?.click()}
+                            title="이미지 첨부"
+                        >
+                            <MdImage />
+                        </button>
+                        <input
+                            type="file"
+                            ref={chatImageInputRef}
+                            hidden
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setChatImageFile(file);
+                            }}
+                        />
                         {currentMode === 'REVIEW' && (
                             <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>
                                 📄 자료 다운
                             </button>
                         )}
                     </div>
+                    
+                    {chatImagePreview && (
+                      <div css={s.imagePreviewContainer}>
+                        <img src={chatImagePreview} alt="preview" css={s.imagePreview} />
+                        <button 
+                          css={s.removeImageBtn}
+                          onClick={() => {
+                            setChatImageFile(null);
+                            setChatImagePreview(null);
+                          }}
+                        >
+                          <MdClose />
+                        </button>
+                      </div>
+                    )}
+                    
                     <div css={s.inputWrapper}>
                         <input 
                           type="text" 
-                          placeholder={isRecording ? "듣고 있습니다..." : "질문해보세요."}
+                          placeholder={isRecording ? "듣고 있습니다..." : chatImageFile ? "이미지에 대해 질문하세요" : "질문해보세요."}
                           css={s.inputBox}
                           value={inputText}
                           onChange={(e) => setInputText(e.target.value)}

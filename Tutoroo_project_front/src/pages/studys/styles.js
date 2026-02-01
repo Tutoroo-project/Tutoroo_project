@@ -349,3 +349,51 @@ export const submitFeedbackBtn = css`
     cursor: not-allowed;
   }
 `;
+
+export const imageAttachedBadge = css`
+  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 4px;
+  background-color: rgba(255, 255, 255, 0.2);
+  font-size: 12px;
+  margin-bottom: 8px;
+  color: inherit;
+`;
+
+export const imagePreviewContainer = css`
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin-right: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid ${theme.colors.primary};
+  flex-shrink: 0;
+`;
+
+export const imagePreview = css`
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+`;
+
+export const removeImageBtn = css`
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: none;
+  font-size: 16px;
+  
+  &:hover {
+    background-color: rgba(0, 0, 0, 0.8);
+  }
+`;

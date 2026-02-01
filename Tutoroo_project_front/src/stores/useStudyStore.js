@@ -55,12 +55,10 @@ const useStudyStore = create((set, get) => ({
 
   isSpeakerOn: false,
   
-  // [NEW] 테스트 관련 상태
   currentTestQuestion: null,
   userTestAnswer: "",
   testResult: null,
 
-  // [NEW] 학생 피드백 관련 상태
   studentRating: 0,
   studentFeedbackText: "",
 
@@ -197,13 +195,11 @@ const useStudyStore = create((set, get) => ({
       isChatLoading: shouldFetchMessage 
     });
 
-    // TEST 모드 진입 시 문제 생성
     if (mode === "TEST") {
         await get().generateTestQuestion();
         return;
     }
 
-    // STUDENT_FEEDBACK 모드 진입 시 평가 UI 준비
     if (mode === "STUDENT_FEEDBACK") {
         set({ studentRating: 0, studentFeedbackText: "" });
     }
@@ -245,7 +241,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // [NEW] 테스트 문제 생성
   generateTestQuestion: async () => {
     set({ isChatLoading: true });
     try {
@@ -272,7 +267,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // [NEW] 테스트 답안 제출
   submitTest: async (answer, imageFile = null) => {
     set({ isChatLoading: true });
     try {
@@ -299,7 +293,6 @@ const useStudyStore = create((set, get) => ({
             }]
         }));
 
-        // 채점 완료 후 자동으로 다음 단계로
         setTimeout(() => {
             get().nextSessionStep();
         }, 3000);
@@ -310,7 +303,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // [NEW] 학생 피드백 제출
   submitStudentFeedback: async () => {
     const { planId, studyDay, studentRating, studentFeedbackText } = get();
     
@@ -337,7 +329,6 @@ const useStudyStore = create((set, get) => ({
             isChatLoading: false
         }));
 
-        // 피드백 제출 후 자동으로 다음 단계로
         setTimeout(() => {
             get().nextSessionStep();
         }, 2000);
@@ -401,9 +392,17 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  sendMessage: async (text) => {
+  // [수정] 이미지 지원 추가
+  sendMessage: async (text, imageFile = null) => {
+      // 사용자 메시지에 이미지 첨부 표시
+      const userMessage = {
+          type: 'USER',
+          content: text,
+          hasImage: !!imageFile
+      };
+
       set((state) => ({ 
-          messages: [...state.messages, { type: 'USER', content: text }], 
+          messages: [...state.messages, userMessage], 
           isChatLoading: true 
       }));
       
@@ -412,7 +411,8 @@ const useStudyStore = create((set, get) => ({
           const res = await studyApi.sendChatMessage({ 
               planId, 
               message: text, 
-              needsTts: isSpeakerOn 
+              needsTts: isSpeakerOn,
+              imageFile 
           });
           
           set((state) => ({ 

@@ -85,6 +85,7 @@ const useStudyStore = create((set, get) => ({
             testResult: null,
             studentRating: 0,
             studentFeedbackText: "",
+            isInfinitePractice: false,
         });
     } else {
         set({ studyGoal: goal });

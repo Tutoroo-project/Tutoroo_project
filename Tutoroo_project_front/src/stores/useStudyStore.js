@@ -1,7 +1,6 @@
 import { create } from "zustand";
 import { studyApi } from "../apis/studys/studysApi";
 
-// 순차적 진행을 위한 세션 순서 정의
 const SESSION_SEQUENCE = [
   "CLASS",           
   "BREAK",            
@@ -13,7 +12,6 @@ const SESSION_SEQUENCE = [
   "REVIEW"            
 ];
 
-// 모드별 라벨 및 기본 시간 설정
 export const SESSION_MODES = {
   CLASS: { label: "수업", defaultTime: 5 * 60 },
   BREAK: { label: "쉬는 시간", defaultTime: 1 * 60 },
@@ -25,7 +23,6 @@ export const SESSION_MODES = {
   REVIEW: { label: "복습 자료", defaultTime: 0 },
 };
 
-// [Helper] 날짜 비교 함수 (YYYY-MM-DD)
 const isSameDate = (dateString) => {
   if (!dateString) return false;
   const today = new Date();
@@ -50,7 +47,6 @@ const useStudyStore = create((set, get) => ({
   isLoading: false,     
   isChatLoading: false, 
 
-  // 세션 상태
   currentMode: "CLASS",  
   timeLeft: 0,           
   isTimerRunning: false, 
@@ -58,38 +54,43 @@ const useStudyStore = create((set, get) => ({
   currentStepIndex: 0,   
 
   isSpeakerOn: false,
+  
+  currentTestQuestion: null,
+  userTestAnswer: "",
+  testResult: null,
 
   
   // [INFINITE] 무한 실습 모드 상태/액션 추가
   isInfinitePractice: false,
   setInfinitePractice: (flag) => set({ isInfinitePractice: !!flag }),
 
-  // --- [Actions] 동작 함수들 ---
+  studentRating: 0,
+  studentFeedbackText: "",
 
-  // 1. 플랜 기본 정보 설정 (이어하기 지원)
   setPlanInfo: (planId, goal) => {
     const currentPlanId = get().planId;
 
-    // 다른 플랜을 선택했을 때만 초기화
     if (currentPlanId !== planId) {
         set({ 
             planId, 
             studyGoal: goal,
-            messages: [],           // 메시지 초기화
-            currentMode: "CLASS",   // 모드 초기화
+            messages: [],
+            currentMode: "CLASS",
             currentStepIndex: 0,
             isTimerRunning: false,
             timeLeft: SESSION_MODES["CLASS"].defaultTime,
-            isStudyCompletedToday: false, // 완료 상태 초기화
-            isInfinitePractice: false,
+            isStudyCompletedToday: false,
+            currentTestQuestion: null,
+            userTestAnswer: "",
+            testResult: null,
+            studentRating: 0,
+            studentFeedbackText: "",
         });
     } else {
-        // 같은 플랜이면 목표 텍스트만 업데이트하고 나머지는 유지
         set({ studyGoal: goal });
     }
   },
 
-  // 2. 사용자 학습 상태 로드
   loadUserStatus: async (specificPlanId = null) => {
     set({ isLoading: true });
     try {
@@ -120,21 +121,17 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 3. 스피커 토글
   toggleSpeaker: () => {
     set((state) => ({ isSpeakerOn: !state.isSpeakerOn }));
   },
 
-  // 4. 초기 세션 데이터 로드 (이어하기 로직 포함)
   initializeStudySession: async () => {
      const state = get();
      
-     // 이미 메시지가 있거나 진행 중이면 초기화하지 않고 리턴 (이어하기)
      if (state.messages.length > 0) {
          return; 
      }
      
-     // 데이터가 없을 때만 서버에서 상태 로드
      if (!state.planId) {
          await state.loadUserStatus();
      }
@@ -196,7 +193,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 6. 모드 설정 및 AI 멘트 요청
   setupMode: async (mode, scheduleMap, shouldFetchMessage = true) => {
     const config = SESSION_MODES[mode] || SESSION_MODES.CLASS;
     const duration = scheduleMap[mode] !== undefined ? scheduleMap[mode] : config.defaultTime;
@@ -208,6 +204,15 @@ const useStudyStore = create((set, get) => ({
       isTimerRunning: !infinite && duration > 0,
       isChatLoading: shouldFetchMessage 
     });
+
+    if (mode === "TEST") {
+        await get().generateTestQuestion();
+        return;
+    }
+
+    if (mode === "STUDENT_FEEDBACK") {
+        set({ studentRating: 0, studentFeedbackText: "" });
+    }
 
     if (shouldFetchMessage) {
         try {
@@ -237,7 +242,6 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 7. 타이머 틱
   tick: () => {
     if (get().isInfinitePractice) return;
     
@@ -249,20 +253,114 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 8. 다음 단계로 전환 및 학습 완료 처리 (피드백 출력 포함)
+  generateTestQuestion: async () => {
+    set({ isChatLoading: true });
+    try {
+        const { planId, studyDay } = get();
+        const question = await studyApi.generateDailyTest(planId, studyDay);
+        
+        set({ 
+            currentTestQuestion: question,
+            userTestAnswer: "",
+            isChatLoading: false
+        });
+
+        set((state) => ({
+            messages: [...state.messages, {
+                type: 'AI',
+                content: question.question,
+                testData: question
+            }]
+        }));
+
+    } catch (error) {
+        console.error("테스트 문제 생성 실패:", error);
+        set({ isChatLoading: false });
+    }
+  },
+
+  submitTest: async (answer, imageFile = null) => {
+    set({ isChatLoading: true });
+    try {
+        const { planId } = get();
+        const result = await studyApi.submitDailyTest({
+            planId,
+            textAnswer: answer,
+            imageFile
+        });
+
+        set({ 
+            testResult: result,
+            isChatLoading: false
+        });
+
+        set((state) => ({
+            messages: [...state.messages, {
+                type: 'USER',
+                content: answer
+            }, {
+                type: 'AI',
+                content: `점수: ${result.score}점\n\n${result.feedback}`,
+                audioUrl: result.audioUrl
+            }]
+        }));
+
+        setTimeout(() => {
+            get().nextSessionStep();
+        }, 3000);
+
+    } catch (error) {
+        console.error("테스트 제출 실패:", error);
+        set({ isChatLoading: false });
+    }
+  },
+
+  submitStudentFeedback: async () => {
+    const { planId, studyDay, studentRating, studentFeedbackText } = get();
+    
+    if (studentRating === 0) {
+        alert("별점을 선택해주세요!");
+        return;
+    }
+
+    set({ isChatLoading: true });
+    
+    try {
+        await studyApi.submitStudentFeedback({
+            planId,
+            dayCount: studyDay,
+            feedback: studentFeedbackText,
+            rating: studentRating
+        });
+
+        set((state) => ({
+            messages: [...state.messages, {
+                type: 'AI',
+                content: "소중한 의견 감사합니다! 더 나은 수업을 위해 노력하겠습니다."
+            }],
+            isChatLoading: false
+        }));
+
+        setTimeout(() => {
+            get().nextSessionStep();
+        }, 2000);
+
+    } catch (error) {
+        console.error("피드백 제출 실패:", error);
+        set({ isChatLoading: false });
+    }
+  },
+
   nextSessionStep: async () => {
     const { currentStepIndex, sessionSchedule, planId } = get();
     const nextIndex = currentStepIndex + 1;
 
-    // 다음 단계가 남아있을 경우
     if (nextIndex < SESSION_SEQUENCE.length) {
       const nextMode = SESSION_SEQUENCE[nextIndex];
       set({ currentStepIndex: nextIndex });
       
-      // 모드 설정 (기본 멘트 로드 등)
       get().setupMode(nextMode, sessionSchedule, true);
 
-      // [핵심] 마지막 단계인 'REVIEW' (복습) 모드로 진입하면 서버에 완료 요청 및 피드백 수신
       if (nextMode === "REVIEW") {
         if (get().isInfinitePractice) {
           set((state) => ({
@@ -278,16 +376,11 @@ const useStudyStore = create((set, get) => ({
           return;
         }
           try {
-              set({ isChatLoading: true }); // 로딩 표시
-
-              // 1. 서버에 AI 피드백 생성 및 완료 처리 요청
-              // (백엔드가 생성된 피드백 텍스트를 반환함)
+              set({ isChatLoading: true });
               const feedbackText = await studyApi.generateAiFeedback(planId);
               
-              // 2. 상태 업데이트: 오늘 완료 처리
               set({ isStudyCompletedToday: true });
 
-              // 3. 받아온 피드백을 채팅창에 AI 메시지로 추가
               set((state) => ({
                   messages: [
                       ...state.messages,
@@ -311,13 +404,12 @@ const useStudyStore = create((set, get) => ({
                       { type: 'AI', content: "학습은 완료되었지만 피드백 생성에 실패했습니다. 잠시 후 다시 시도해주세요." }
                   ],
                   isChatLoading: false,
-                  isStudyCompletedToday: true // 실패했더라도 학습은 끝난 것으로 처리
+                  isStudyCompletedToday: true
               }));
           }
       }
 
     } else {
-      // 모든 시퀀스가 완전히 종료되었을 때
       set({ isTimerRunning: false });
       set((state) => ({
         messages: [...state.messages, { type: 'AI', content: "모든 과정이 종료되었습니다. 안녕히 가세요!" }]
@@ -325,20 +417,52 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // 9. 사용자 메시지 전송
-  sendMessage: async (text) => {
-      set((state) => ({ messages: [...state.messages, { type: 'USER', content: text }], isChatLoading: true }));
+  // [수정] 이미지 지원 추가
+  sendMessage: async (text, imageFile = null) => {
+      // 사용자 메시지에 이미지 첨부 표시
+      const userMessage = {
+          type: 'USER',
+          content: text,
+          hasImage: !!imageFile
+      };
+
+      set((state) => ({ 
+          messages: [...state.messages, userMessage], 
+          isChatLoading: true 
+      }));
+      
       try {
           const { planId, isSpeakerOn } = get(); 
           const res = await studyApi.sendChatMessage({ 
               planId, 
               message: text, 
-              needsTts: isSpeakerOn 
+              needsTts: isSpeakerOn,
+              imageFile 
           });
-          set((state) => ({ messages: [...state.messages, { type: 'AI', content: res.aiResponse, audioUrl: res.audioUrl }], isChatLoading: false }));
+          
+          set((state) => ({ 
+              messages: [...state.messages, { 
+                  type: 'AI', 
+                  content: res.aiResponse, 
+                  audioUrl: res.audioUrl 
+              }], 
+              isChatLoading: false 
+          }));
+          
       } catch (e) {
-          console.error(e);
-          set((state) => ({ messages: [...state.messages, { type: 'AI', content: "오류가 발생했습니다." }], isChatLoading: false }));
+          console.error("메시지 전송 실패:", e);
+          
+          const errorMessage = e.response?.status === 500 
+              ? "서버에 일시적인 문제가 발생했습니다. 잠시 후 다시 시도해주세요."
+              : "메시지 전송 중 오류가 발생했습니다.";
+          
+          set((state) => ({ 
+              messages: [...state.messages, { 
+                  type: 'AI', 
+                  content: errorMessage 
+              }], 
+              isChatLoading: false 
+          }));
       }
   },
 }));

@@ -1,23 +1,5 @@
-import { css, keyframes } from "@emotion/react";
+import { css } from "@emotion/react";
 import { theme } from "../../styles/theme"; 
-
-// --- 애니메이션 정의 ---
-const pulse = keyframes`
-  0% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(255, 77, 77, 0.7);
-  }
-  70% {
-    transform: scale(1);
-    box-shadow: 0 0 0 6px rgba(255, 77, 77, 0);
-  }
-  100% {
-    transform: scale(0.95);
-    box-shadow: 0 0 0 0 rgba(255, 77, 77, 0);
-  }
-`;
-
-// --- 스타일 정의 ---
 
 export const pageContainer = css`
   display: flex;
@@ -29,7 +11,6 @@ export const pageContainer = css`
 
 export const chatArea = css`
   flex: 1;
-  /* Footer에 툴바가 추가되어 높이가 커졌으므로 하단 여백을 넉넉히 줍니다 */
   padding: 40px 20px 160px; 
   overflow-y: auto;
   display: flex;
@@ -113,7 +94,6 @@ export const placeholder = css`
   font-size: 16px;
 `;
 
-// [수정] Bottom Area: 높이 유동적 대응 및 패딩 조정
 export const bottomArea = css`
   position: fixed;
   bottom: 0;
@@ -132,10 +112,9 @@ export const bottomInner = css`
   display: flex;
   align-items: center;
   gap: 12px;
-  flex-wrap: wrap; /* 화면이 좁을 때 줄바꿈 허용 */
+  flex-wrap: wrap;
 `;
 
-// [New] 컨트롤 툴바 (스피커, 마이크, 다운로드 등)
 export const controlToolbar = css`
   display: flex;
   align-items: center;
@@ -143,7 +122,6 @@ export const controlToolbar = css`
   margin-right: 4px;
 `;
 
-// [New] 아이콘 버튼 스타일 (스피커, 마이크)
 export const iconBtn = (isActive) => css`
   width: 44px;
   height: 44px;
@@ -169,7 +147,6 @@ export const iconBtn = (isActive) => css`
   }
 `;
 
-// [New] 텍스트 버튼 (PDF 다운로드 등)
 export const textBtn = css`
   height: 44px;
   padding: 0 16px;
@@ -181,7 +158,7 @@ export const textBtn = css`
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
-  white-space: nowrap; /* 텍스트 줄바꿈 방지 */
+  white-space: nowrap;
 
   &:hover {
     border-color: ${theme.colors.primary};
@@ -198,7 +175,7 @@ export const textBtn = css`
 export const inputWrapper = css`
   flex: 1;
   position: relative;
-  min-width: 200px; /* 너무 줄어들지 않도록 최소 너비 설정 */
+  min-width: 200px;
 `;
 
 export const inputBox = css`
@@ -248,11 +225,9 @@ export const sendBtn = css`
   }
 `;
 
-// [New] 녹음 중 표시 (말풍선 안의 애니메이션 텍스트)
 export const recordingPulse = css`
   color: #ff4d4d;
   font-weight: bold;
-  animation: ${pulse} 1.5s infinite ease-in-out;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -261,5 +236,116 @@ export const recordingPulse = css`
   &::before {
     content: '●';
     font-size: 10px;
+    color: #ff4d4d;
+  }
+`;
+
+export const testOptions = css`
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+`;
+
+export const optionButton = css`
+  padding: 12px 16px;
+  border-radius: 8px;
+  border: 2px solid #e0e0e0;
+  background-color: #fff;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 15px;
+
+  &:hover {
+    border-color: ${theme.colors.primary};
+    background-color: #fffdf5;
+  }
+`;
+
+export const fileInfo = css`
+  font-size: 12px;
+  color: #666;
+  max-width: 150px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+export const feedbackContainer = css`
+  width: 100%;
+  display: flex;
+  justify-content: center;
+`;
+
+export const feedbackSection = css`
+  width: 600px;
+  padding: 24px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+`;
+
+export const feedbackLabel = css`
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  text-align: center;
+  color: #333;
+`;
+
+export const starContainer = css`
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 20px;
+`;
+
+export const star = (isActive) => css`
+  font-size: 40px;
+  cursor: pointer;
+  color: ${isActive ? '#FFD700' : '#ddd'};
+  transition: all 0.2s;
+  
+  &:hover {
+    transform: scale(1.2);
+  }
+`;
+
+export const feedbackTextarea = css`
+  width: 100%;
+  padding: 12px;
+  border-radius: 8px;
+  border: 1px solid #ddd;
+  font-size: 14px;
+  resize: vertical;
+  font-family: inherit;
+  
+  &:focus {
+    outline: none;
+    border-color: ${theme.colors.primary};
+  }
+`;
+
+export const submitFeedbackBtn = css`
+  width: 100%;
+  height: 48px;
+  margin-top: 16px;
+  border-radius: 8px;
+  background-color: ${theme.colors.primary};
+  color: #fff;
+  font-weight: 600;
+  font-size: 16px;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+
+  &:hover {
+    background-color: ${theme.colors.primaryDark || "#e0a800"};
+  }
+
+  &:disabled {
+    background-color: #ddd;
+    cursor: not-allowed;
   }
 `;

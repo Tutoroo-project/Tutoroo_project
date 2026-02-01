@@ -36,24 +36,32 @@ function StudyPage() {
     currentMode,
     planId,
     studyDay,
-    initializeStudySession 
+    initializeStudySession,
+    currentTestQuestion,
+    userTestAnswer,
+    submitTest,
+    studentRating,
+    studentFeedbackText,
+    submitStudentFeedback
   } = useStudyStore();
 
   const [inputText, setInputText] = useState("");
   const [isRecording, setIsRecording] = useState(false); 
+  const [testImageFile, setTestImageFile] = useState(null);
+  const [localRating, setLocalRating] = useState(0);
+  const [localFeedback, setLocalFeedback] = useState("");
+  
   const scrollRef = useRef(null);
   const audioRef = useRef(new Audio());
   const mediaRecorderRef = useRef(null); 
   const audioChunksRef = useRef([]);
+  const fileInputRef = useRef(null);
 
   const currentTutorImage = TUTOR_IMAGES[selectedTutorId] || kangarooImg;
 
-  // [수정] 페이지 진입 및 이탈 시 처리
   useEffect(() => {
-    // 1. 세션 초기화 (Store에 메시지가 있으면 무시됨 -> 이어하기)
     initializeStudySession();
     
-    // 2. 페이지를 떠날 때(대시보드 이동 등) 오디오/녹음만 중지하고 상태는 유지
     return () => {
         if (audioRef.current) {
             audioRef.current.pause();
@@ -166,6 +174,50 @@ function StudyPage() {
     }
   };
 
+  // [NEW] 테스트 제출 핸들러
+  const handleTestSubmit = () => {
+    if (!inputText.trim() && !testImageFile) {
+        alert("답안을 입력하거나 이미지를 첨부해주세요.");
+        return;
+    }
+    
+    submitTest(inputText, testImageFile);
+    setInputText("");
+    setTestImageFile(null);
+  };
+
+  // [NEW] 학생 피드백 제출 핸들러
+  const handleFeedbackSubmit = () => {
+    if (localRating === 0) {
+        alert("별점을 선택해주세요!");
+        return;
+    }
+    
+    useStudyStore.setState({ 
+        studentRating: localRating, 
+        studentFeedbackText: localFeedback 
+    });
+    
+    submitStudentFeedback();
+  };
+
+  // [NEW] 별점 렌더링
+  const renderStars = () => {
+    return (
+      <div css={s.starContainer}>
+        {[1, 2, 3, 4, 5].map((star) => (
+          <span
+            key={star}
+            css={s.star(star <= localRating)}
+            onClick={() => setLocalRating(star)}
+          >
+            ★
+          </span>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <>
       <Header />
@@ -196,6 +248,21 @@ function StudyPage() {
                         />
                     )}
                     {msg.content}
+                    
+                    {/* 테스트 객관식 옵션 표시 */}
+                    {msg.testData && msg.testData.options && (
+                      <div css={s.testOptions}>
+                        {msg.testData.options.map((option, idx) => (
+                          <button
+                            key={idx}
+                            css={s.optionButton}
+                            onClick={() => setInputText(option)}
+                          >
+                            {idx + 1}. {option}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -212,37 +279,115 @@ function StudyPage() {
             </div>
           )}
         </main>
+        
         <footer css={s.bottomArea}>
             <div css={s.bottomInner}>
                 <SessionStatus />
-                <div css={s.controlToolbar}>
-                    <button css={s.iconBtn(isSpeakerOn)} onClick={toggleSpeaker}>
-                        {isSpeakerOn ? <HiMiniSpeakerWave /> : <HiMiniSpeakerXMark />}
-                    </button>
+                
+                {/* TEST 모드: 이미지 첨부 + 제출 버튼 */}
+                {currentMode === 'TEST' ? (
+                  <>
+                    <div css={s.controlToolbar}>
+                        <button css={s.iconBtn(isSpeakerOn)} onClick={toggleSpeaker}>
+                            {isSpeakerOn ? <HiMiniSpeakerWave /> : <HiMiniSpeakerXMark />}
+                        </button>
+                        <button 
+                            css={s.textBtn} 
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            📎 이미지
+                        </button>
+                        <input
+                            type="file"
+                            ref={fileInputRef}
+                            hidden
+                            accept="image/*"
+                            onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) setTestImageFile(file);
+                            }}
+                        />
+                        {testImageFile && (
+                            <span css={s.fileInfo}>{testImageFile.name}</span>
+                        )}
+                    </div>
+                    <div css={s.inputWrapper}>
+                        <input 
+                          type="text" 
+                          placeholder="답안을 입력하세요"
+                          css={s.inputBox}
+                          value={inputText}
+                          onChange={(e) => setInputText(e.target.value)}
+                          disabled={isChatLoading}
+                        />
+                    </div>
                     <button 
-                        css={s.iconBtn(isRecording)} 
-                        onMouseDown={startRecording} onMouseUp={stopRecording}
-                        onTouchStart={startRecording} onTouchEnd={stopRecording}
+                        css={s.sendBtn} 
+                        onClick={handleTestSubmit} 
+                        disabled={isChatLoading}
                     >
-                        {isRecording ? <FaCircle /> : <PiMicrophoneStageFill />}
+                        제출
                     </button>
-                    {currentMode === 'REVIEW' && (
-                        <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>📄 자료 다운</button>
-                    )}
-                </div>
-                <div css={s.inputWrapper}>
-                    <input 
-                      type="text" 
-                      placeholder={isRecording ? "듣고 있습니다..." : "질문해보세요."}
-                      css={s.inputBox}
-                      value={inputText}
-                      onChange={(e) => setInputText(e.target.value)}
-                      onKeyDown={handleKeyDown}
-                      disabled={isChatLoading || isRecording}
-                      autoFocus
-                    />
-                </div>
-                <button css={s.sendBtn} onClick={handleSend} disabled={isChatLoading || isRecording}>전송</button>
+                  </>
+                ) : currentMode === 'STUDENT_FEEDBACK' ? (
+                  /* STUDENT_FEEDBACK 모드: 별점 + 피드백 입력 */
+                  <div css={s.feedbackContainer}>
+                    <div css={s.feedbackSection}>
+                        <p css={s.feedbackLabel}>오늘 수업은 어떠셨나요?</p>
+                        {renderStars()}
+                        <textarea
+                            css={s.feedbackTextarea}
+                            placeholder="선생님께 하고 싶은 말을 자유롭게 남겨주세요 (선택)"
+                            value={localFeedback}
+                            onChange={(e) => setLocalFeedback(e.target.value)}
+                            rows={4}
+                        />
+                        <button 
+                            css={s.submitFeedbackBtn} 
+                            onClick={handleFeedbackSubmit}
+                            disabled={isChatLoading}
+                        >
+                            평가 제출
+                        </button>
+                    </div>
+                  </div>
+                ) : (
+                  /* 일반 모드: 기존 채팅 UI */
+                  <>
+                    <div css={s.controlToolbar}>
+                        <button css={s.iconBtn(isSpeakerOn)} onClick={toggleSpeaker}>
+                            {isSpeakerOn ? <HiMiniSpeakerWave /> : <HiMiniSpeakerXMark />}
+                        </button>
+                        <button 
+                            css={s.iconBtn(isRecording)} 
+                            onMouseDown={startRecording} onMouseUp={stopRecording}
+                            onTouchStart={startRecording} onTouchEnd={stopRecording}
+                        >
+                            {isRecording ? <FaCircle /> : <PiMicrophoneStageFill />}
+                        </button>
+                        {currentMode === 'REVIEW' && (
+                            <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>
+                                📄 자료 다운
+                            </button>
+                        )}
+                    </div>
+                    <div css={s.inputWrapper}>
+                        <input 
+                          type="text" 
+                          placeholder={isRecording ? "듣고 있습니다..." : "질문해보세요."}
+                          css={s.inputBox}
+                          value={inputText}
+                          onChange={(e) => setInputText(e.target.value)}
+                          onKeyDown={handleKeyDown}
+                          disabled={isChatLoading || isRecording}
+                          autoFocus
+                        />
+                    </div>
+                    <button css={s.sendBtn} onClick={handleSend} disabled={isChatLoading || isRecording}>
+                        전송
+                    </button>
+                  </>
+                )}
             </div>
         </footer>
       </div>

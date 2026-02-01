@@ -2,72 +2,47 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "../../components/layouts/Header";
 import * as s from "./styles";
-import { adoptPet, getAdoptablePets, getPetStatus, interactWithPet } from "../../apis/pet/petApi";
+import { adoptPet, getAdoptablePets, getPetStatus, interactWithPet, getGraduationEggs, hatchEgg } from "../../apis/pet/petApi";
 
 import { ANIMATIONS } from "./petAnimations";
 import { PET_IMAGES } from "../../constants/petImages";
 import SpriteChar from "./SpriteChar";
-
 
 function Pet() {
 
   const [loading, setLoading] = useState(true);
   const [petStatus, setPetStatus] = useState(null);
   const [isNoPet, setIsNoPet] = useState(false);
-  const [adoptableList, setAdoptableList] = useState([]);
+  
+  // [수정됨 1] 변수명을 eggList로 통일 (기존 adoptableList 대체)
+  const [eggList, setEggList] = useState([]); 
+  
   const [actionStatus, setActionStatus ] = useState(null);
-
-  const [ frameIndex, setFrameIndex ]  = useState(0); //프레임 번호
+  const [frameIndex, setFrameIndex ]  = useState(0); 
 
   const getRenderInfo = () => {
     if (!petStatus || petStatus.stage <= 1) {
       return { src: PET_IMAGES.Egg.DEFAULT, sequence: ANIMATIONS.ROW1 };
     }
-    
 
     const type = petStatus.petType || "Fox";
     const images = PET_IMAGES[type] || PET_IMAGES.Fox;
 
-    if (actionStatus === "EATING") {
-        return { src: images.PART2, sequence: ANIMATIONS.ROW1 , isEgg: true};
-    }
-
-    // if (actionStatus === "PLAYING") {
-    //     return { src: images.PART2, sequence: ANIMATIONS.ROW2 }; // 주석상 ROW2가 '사랑'이라면 여기로 연결
-    // }
-
-    //  씻는 중 
-    if (actionStatus === "CLEANING") {
-        return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
-    }
-
-    //  자는 중 
-    if (petStatus.isSleeping) {
-        return { src: images.PART1, sequence: ANIMATIONS.ROW1 };
-    }
-
-    // 배고픔(슬픔) 
-    if (petStatus.fullness < 30) {
-        return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
-    }
-
-    // 기분 좋음
-    if (petStatus.intimacy >= 80) {
-        return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
-    }
+    if (actionStatus === "EATING") return { src: images.PART2, sequence: ANIMATIONS.ROW1 , isEgg: true};
+    if (actionStatus === "CLEANING") return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
+    if (petStatus.isSleeping) return { src: images.PART1, sequence: ANIMATIONS.ROW1 };
+    if (petStatus.fullness < 30) return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
+    if (petStatus.intimacy >= 80) return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
     
-    // [기본] 평상시
     return { src: images.PART2, sequence: ANIMATIONS.ROW1 };
   };
 
-  // 위 함수를 실행해서 현재 보여줄 정보를 뽑아냅니다.
   const { src, sequence } = getRenderInfo();
 
   useEffect(() => {
       const timer = setInterval(() => {
           setFrameIndex((prev) => (prev + 1)  % sequence.length);
       }, 500);
-
       return () => clearInterval(timer);
   }, [sequence]);
   
@@ -76,18 +51,38 @@ function Pet() {
     setLoading(true);
     try {
       const status = await getPetStatus();
-      if (status) {
+      
+      if (status && status.petId) { 
+        console.log("내 펫 정보 발견:", status); // 콘솔에서 확인용
         setPetStatus(status);
         setIsNoPet(false);
       } else {
-        setIsNoPet("ADOPT"); // [수정] "ADOPT" 문자열로 통일
+        // 펫 정보가 없거나 이상하면 없는 것으로 간주
         setPetStatus(null);
-        const listResponse = await getAdoptablePets();
-        setAdoptableList(listResponse.availablePets || []);
+        
+        // 1. 졸업 후 알 후보(Eggs)가 있는지 먼저 확인
+        try {
+            const eggResponse = await getGraduationEggs();
+            // 커스텀 알 제외
+            const pureEggs = eggResponse.candidates.filter(egg => egg.type !== "CUSTOM_EGG");
+            
+            if (pureEggs.length > 0) {
+                setIsNoPet("SELECT_EGG_GRADUATED"); 
+                setEggList(pureEggs); // [수정됨] 이제 에러 안 남
+                setLoading(false);
+                return;
+            }
+        } catch (e) {
+            // 졸업 알 없으면 패스
+        }
+
+        // 2. 초기 유저용 알 리스트
+        const initResponse = await getAdoptablePets();
+        setIsNoPet("SELECT_EGG_NEW");
+        setEggList(initResponse.availablePets || []); // [수정됨] 이제 에러 안 남
       }
     } catch (error) {
       console.error("데이터 로딩 실패: ", error);
-      // alert("데이터를 불러오는 중 문제가 발생했습니다."); // 귀찮으면 주석
     } finally {
       setLoading(false);
     }
@@ -95,28 +90,34 @@ function Pet() {
 
   useEffect(() => {
     fetchData();
-  }, [fetchData])
+  }, [fetchData]);
 
-  const handleAdopt = async (petType) => { 
-    if (!window.confirm("이 친구로 입양하시겠습니까?")) return;
+
+  // [중요] 알 선택 통합 핸들러
+  const handleEggSelect = async (pet) => { 
+   const inputName = window.prompt(`"${pet.name}"의 이름을 지어주세요!`, pet.name);
+
+    // 취소 버튼을 눌렀으면 아무 일도 안 하고 종료
+    if (inputName === null) return;
+
+    // 이름이 비어있으면 경고
+    if (inputName.trim() === "") {
+        alert("이름을 한 글자 이상 입력해주세요!");
+        return;
+    }
+
     try {
-      await adoptPet(petType);
-      alert("입양 성공! 새로운 친구가 생겼어요.");
-      fetchData();
+      if (isNoPet === "SELECT_EGG_GRADUATED") {
+        await hatchEgg(pet.type, inputName); 
+      } else {
+        await adoptPet(pet.type, inputName); 
+      }
+      
+      alert("알을 따뜻하게 품기 시작했습니다! 🥚");
+      fetchData(); 
     } catch (error) {
       console.error(error);
-      alert("입양 중 오류가 발생했습니다.")
-    }
-  };
-
-  const handleHatch = async (petType) => {
-    if (!window.confirm("이 알을 부화시키시겠습니까?")) return;
-    try {
-        await hatchEgg(petType);
-        alert("알이 부화했습니다! 🐣 새로운 여정을 시작하세요.");
-        fetchData(); // 상태 갱신 -> PET 모드로 변경됨
-    } catch (error) {
-        alert("부화에 실패했습니다.");
+      alert("알 선택 중 문제가 발생했습니다.");
     }
   };
 
@@ -134,18 +135,15 @@ function Pet() {
       }
     } catch (error) {
       console.log(error);
-
-      if (error.response && error.response.data && error.response.data.data.message) {
+      if (error.response?.data?.message) {
         alert(error.response.data.message);
       } else {
-        alert ("적용 실패!!")
+        alert ("적용 실패!!");
       }
     }
   };
 
-  // [New] 배경 이미지 결정
   const getBackgroundImage = () => {
-    // 나중에 레벨이나 펫 종류에 따라 배경을 바꿀 수 있음
     return "url('/assets/backgrounds/room_default.png')";
   };
 
@@ -158,19 +156,26 @@ function Pet() {
           <div css={s.mainContainer}>
             {loading && <div>로딩 중...</div>}
 
-            {/* [유지] 입양 화면 */}
-            {!loading && isNoPet === "ADOPT" && (
+            {/* [수정됨 2] 조건문을 isNoPet 상태에 맞게 변경 */}
+            {!loading && (isNoPet === "SELECT_EGG_NEW" || isNoPet === "SELECT_EGG_GRADUATED") && (
               <div css={s.innerGameArea}>
                 <div style={{ textAlign: "center", marginBottom: "30px" }}>
+                  {/* 문구도 알 선택에 맞게 변경 */}
                   <h2 style={{ fontSize: "28px", color: "#333", marginBottom: "10px" }}>
-                    새로운 파트너를 선택해주세요 🐾
+                    운명의 알을 선택해주세요 🥚
                   </h2>
+                  <p style={{color: "#666"}}>당신의 사랑으로 태어날 친구입니다.</p>
                 </div>
 
                 <div css={s.adoptionList}>
-                  {adoptableList.map((pet) => (
-                    <div key={pet.type} css={s.adoptionCard} onClick={() => handleAdopt(pet.type)}>
-                      
+                  {/* [수정됨] eggList 사용 */}
+                  {eggList.map((pet) => (
+                    <div 
+                        key={pet.type} 
+                        css={s.adoptionCard} 
+                        // [수정됨 3] 핸들러를 handleEggSelect로 교체
+                        onClick={() => handleEggSelect(pet)}
+                    >
                       <img
                         src={PET_IMAGES.Egg.DEFAULT} 
                         alt={pet.name}
@@ -197,11 +202,8 @@ function Pet() {
                   <div css={s.statusMsg}>"{petStatus.statusMessage}"</div>
                 </div>
 
-                
                 <div css={s.petImageArea}>
                   {petStatus.isSleeping && <div css={s.zzzText}>ZZZ...</div>}
-                  
-                  {/* SpriteChar 연결: getRenderInfo에서 받은 src, sequence 사용 */}
                   <SpriteChar 
                     src={src} 
                     index={sequence[frameIndex]} 
@@ -209,7 +211,6 @@ function Pet() {
                   />
                 </div>
 
-                {/* [유지] 컨트롤 패널 */}
                 <div css={s.controlPanel} style={{ backgroundColor: "rgba(255, 255, 255, 0.9)" }}>
                   <div css={s.statsGrid}>
                     <StatBar label="배고픔" value={petStatus.fullness} color="#FF9800" />
@@ -224,18 +225,10 @@ function Pet() {
                       </button>
                     ) : (
                       <>
-                        <button css={s.gameBtn} onClick={() => handleInteract("FEED")}>
-                          🍖 밥주기
-                        </button>
-                        <button css={s.gameBtn} onClick={() => handleInteract("PLAY")}>
-                          ⚽ 놀아주기
-                        </button>
-                        <button css={s.gameBtn} onClick={() => handleInteract("CLEAN")}>
-                          ✨ 씻겨주기
-                        </button>
-                        <button css={s.gameBtn} onClick={() => handleInteract("SLEEP")}>
-                          💤 재우기
-                        </button>
+                        <button css={s.gameBtn} onClick={() => handleInteract("FEED")}>🍖 밥주기</button>
+                        <button css={s.gameBtn} onClick={() => handleInteract("PLAY")}>⚽ 놀아주기</button>
+                        <button css={s.gameBtn} onClick={() => handleInteract("CLEAN")}>✨ 씻겨주기</button>
+                        <button css={s.gameBtn} onClick={() => handleInteract("SLEEP")}>💤 재우기</button>
                       </>
                     )}
                   </div>
@@ -250,7 +243,6 @@ function Pet() {
   );
 }
 
-// [유지] StatBar 컴포넌트
 const StatBar = ({ label, value, color }) => (
   <div style={{ display: "flex", alignItems: "center", gap: "10px", fontSize: "14px", fontWeight: "bold", color: "#555" }}>
     <span style={{ width: "50px" }}>{label}</span>

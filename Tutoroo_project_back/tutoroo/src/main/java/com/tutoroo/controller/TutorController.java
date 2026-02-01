@@ -62,18 +62,19 @@ public class TutorController {
         ));
     }
 
-    // 5. AI와 채팅 (커리큘럼 조정 및 질의응답)
-    @PostMapping("/feedback/chat")
+    // 5. AI와 채팅 (커리큘럼 조정 및 질의응답) - 이미지 지원 추가
+    @PostMapping(value = "/feedback/chat", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<TutorDTO.FeedbackChatResponse> chatWithTutor(
             @AuthenticationPrincipal CustomUserDetails user,
-            @RequestBody TutorDTO.FeedbackChatRequest request
+            @RequestPart("data") TutorDTO.FeedbackChatRequest request,
+            @RequestPart(value = "image", required = false) MultipartFile image
     ) {
-        // request.needsTts() 값이 서비스로 전달되어 오디오 생성 여부를 결정함
         return ResponseEntity.ok(tutorService.adjustCurriculum(
                 user.getId(),
                 request.planId(),
                 request.message(),
-                request.needsTts()
+                request.needsTts(),
+                image
         ));
     }
 

@@ -52,7 +52,7 @@ public class TutorService {
 
     private final StudyMapper studyMapper;
     private final CommonMapper commonMapper;
-    private final ChatMapper chatMapper; // DB 기반 영구 기억 장치
+    private final ChatMapper chatMapper;
     private final OpenAiChatModel chatModel;
     private final OpenAiAudioSpeechModel speechModel;
     private final OpenAiAudioTranscriptionModel transcriptionModel;
@@ -71,11 +71,9 @@ public class TutorService {
 
         updatePersonaIfChanged(plan, request.personaName());
 
-        // [1] 로드맵 분석: 오늘 주제 & 어제 주제 추출
         String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount());
         String yesterdayTopic = (request.dayCount() > 1) ? getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount() - 1) : "기초 오리엔테이션";
 
-        // [2] 프롬프트 전략 수립: 단순 시작이 아니라 '연결'과 '목표 설정'
         String userPrompt = String.format("""
                 [수업 컨텍스트]
                 - 과목: %s (현재 레벨: %s)
@@ -125,7 +123,6 @@ public class TutorService {
         String mode = request.sessionMode();
         String personaName = request.personaName();
 
-        // 상황별 멘트 고도화
         String situation = switch (mode) {
             case "BREAK" -> "상황: 휴식 시간. 뇌과학적으로 휴식이 왜 기억 저장에 도움이 되는지 짧게 언급하며 쉬라고 해.";
             case "TEST" -> "상황: 테스트 시작. '틀려도 괜찮아, 모르는 걸 찾는 과정이야'라고 부담을 덜어주되 긴장감은 줘.";
@@ -149,21 +146,28 @@ public class TutorService {
     }
 
     // =================================================================================
-    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답)
+    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답) - 이미지 지원 추가
     // =================================================================================
     @Transactional
-    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts) {
+    public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
-        // 1. 유저 메시지 DB 저장 (영구 기억 확보)
         chatMapper.saveMessage(planId, "USER", message);
 
-        // 2. 대화 맥락 로드 (최근 50턴 - 충분한 컨텍스트)
         List<ChatMapper.ChatMessage> history = chatMapper.findRecentMessages(planId, 50);
 
-        // 3. 교수법 전략 수립 (Adaptive Pedagogy)
-        // 학생 레벨에 따라 설명의 깊이와 어조를 자동 조절
+        // 이미지 처리
+        String imageContext = "";
+        if (image != null && !image.isEmpty()) {
+            try {
+                String imageUrl = fileStore.storeFile(image.getBytes(), ".jpg");
+                imageContext = "\n[학생이 이미지를 첨부했습니다: " + imageUrl + "]\n이미지 내용을 참고하여 답변해주세요.";
+            } catch (Exception e) {
+                log.error("이미지 처리 실패", e);
+            }
+        }
+
         String pedagogyStrategy = plan.getCurrentLevel().equalsIgnoreCase("BEGINNER")
                 ? "쉬운 비유와 실생활 예시를 들어 설명해. 전문 용어는 최소화해."
                 : "정확한 기술 용어를 사용하고, 원리와 내부 구조(Under the hood)를 깊게 설명해.";
@@ -184,13 +188,13 @@ public class TutorService {
             2. **소크라테스식 검증**: 단순히 정답만 알려주지 마. 설명을 마친 후엔 반드시 **"그럼 이 경우에는 어떻게 될까요?"**라고 역질문을 던져 이해도를 체크해.
             3. **코드/예시 필수**: 코딩 질문이면 반드시 코드를, 이론 질문이면 반드시 예시를 들어.
             4. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
+            5. **이미지 참고**: 학생이 이미지를 첨부했다면, 이미지 내용을 참고하여 답변해.
             """,
                 basePrompt, plan.getGoal(), plan.getCurrentLevel(), plan.getTargetLevel(), pedagogyStrategy);
 
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(teacherPrompt));
 
-        // 과거 대화 주입
         for (ChatMapper.ChatMessage chat : history) {
             if ("USER".equals(chat.sender())) {
                 messages.add(new UserMessage(chat.message()));
@@ -199,10 +203,10 @@ public class TutorService {
             }
         }
 
-        // 4. AI 호출
+        messages.add(new UserMessage(message + imageContext));
+
         String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
 
-        // 5. AI 응답 DB 저장
         chatMapper.saveMessage(planId, "AI", aiResponse);
 
         String audioUrl = needsTts ? generateTtsAudio(aiResponse, plan.getPersona()) : null;
@@ -262,7 +266,6 @@ public class TutorService {
         StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(planId);
         String topic = (lastLog != null) ? lastLog.getContentSummary() : "기초 입문";
 
-        // 멀티모달(이미지/코드) 시험 생성
         String promptText = String.format("""
             Role: Senior Examiner in %s.
             Topic: %s.
@@ -316,21 +319,17 @@ public class TutorService {
     // 6. 유틸리티 및 헬퍼 메서드
     // =================================================================================
 
-    // [New] 로드맵 파싱 로직 (정밀도 향상)
     private String getTopicFromRoadmap(String json, int dayCount) {
         if (!StringUtils.hasText(json)) return "심화 학습";
         try {
             JsonNode root = objectMapper.readTree(json);
-            // detailedCurriculum이 Map 형태인지 Array 형태인지 유연하게 처리
             JsonNode curriculum = root.path("detailedCurriculum");
 
             if (curriculum.isObject()) {
-                // "1주차": [...] 형태일 때
                 for (JsonNode week : curriculum) {
                     if (week.isArray()) {
                         for (JsonNode dayPlan : week) {
                             String dayStr = dayPlan.path("day").asText();
-                            // "3일차", "Day 3" 등의 문자열에서 숫자만 추출하여 비교
                             if (extractNumber(dayStr) == dayCount) {
                                 return dayPlan.path("topic").asText() + " (" + dayPlan.path("method").asText() + ")";
                             }
@@ -344,7 +343,6 @@ public class TutorService {
         return "현재 진도에 맞는 심화 내용";
     }
 
-    // 숫자 추출 유틸
     private int extractNumber(String text) {
         Matcher m = Pattern.compile("\\d+").matcher(text);
         return m.find() ? Integer.parseInt(m.group()) : -1;

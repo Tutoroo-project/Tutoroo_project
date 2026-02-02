@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import useStudyStore from "../../stores/useStudyStore";
+import { studyApi } from "../../apis/studys/studysApi";
 import * as s from "./styles";
 import tigerImg from "../../assets/images/mascots/logo_tiger.png";
 import turtleImg from "../../assets/images/mascots/logo_turtle.png";
@@ -17,36 +18,127 @@ const TUTORS = [
   { id: "DRAGON", name: "용 선생님", image: dragonImg, desc: <>깊은 깨달음을 주는 현자 스타일.<br/> 하오체를 사용해요.</> },
 ];
 
+// DashboardPage의 헬퍼 함수들을 가져옴
+function toYmd(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function parseYmdToDate(ymd) {
+  if (!ymd) return null;
+  const [y, m, d] = ymd.split("-").map(Number);
+  return new Date(y, m - 1, d);
+}
+
+function getDayNo(dayStr) {
+  const m = String(dayStr ?? "").match(/(\d+)/);
+  return m ? Number(m[1]) : null;
+}
+
+function flattenCurriculum(detailedCurriculum) {
+  const list = [];
+  if (!detailedCurriculum) return list;
+
+  const sortedWeeks = Object.keys(detailedCurriculum).sort((a, b) => {
+    const weekNoA = parseInt(a.match(/\d+/)?.[0] || "0");
+    const weekNoB = parseInt(b.match(/\d+/)?.[0] || "0");
+    return weekNoA - weekNoB;
+  });
+
+  let cumulativeDayNo = 0;
+
+  sortedWeeks.forEach((week) => {
+    const days = detailedCurriculum[week];
+    if (!Array.isArray(days)) return;
+
+    days.forEach((d) => {
+      const dayNo = getDayNo(d.day);
+      if (!dayNo) return;
+
+      cumulativeDayNo++;
+      list.push({ ...d, dayNo: cumulativeDayNo, week });
+    });
+  });
+
+  return list;
+}
+
 const TutorSelectionPage = () => {
   const navigate = useNavigate();
   
-  // store에서 messages와 기타 상태 가져오기
   const { 
       studyDay, loadUserStatus, startClassSession, isLoading, planId,
-      todayTopic, isStudyCompletedToday, messages 
+      isStudyCompletedToday, messages 
   } = useStudyStore();
   
   const [activeTutorId, setActiveTutorId] = useState("TIGER");
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInput, setCustomInput] = useState("");
+  const [todayTopic, setTodayTopic] = useState("");
 
   // [New] 진행 중인 학습(메시지)이 있으면 튜터 선택 건너뛰기
   useEffect(() => {
-    // 메시지가 있다는 것은 이미 세션이 시작되었다는 의미이므로 바로 이동
     if (messages && messages.length > 0) {
-        navigate("/study", { replace: true }); // 뒤로가기 방지를 위해 replace 사용
+        navigate("/study", { replace: true });
     }
   }, [messages, navigate]);
 
   useEffect(() => {
-    // planId가 있다면 상태 로드
-    // (단, 위 useEffect에 의해 messages가 있으면 리다이렉트가 먼저 발생함)
     if (planId) {
         loadUserStatus(planId);
     } else {
         loadUserStatus();
     }
   }, [loadUserStatus, planId]);
+
+  // [New] 오늘 날짜의 커리큘럼 주제 가져오기
+  useEffect(() => {
+    const fetchTodayTopic = async () => {
+      if (!planId) return;
+
+      try {
+        const planDetail = await studyApi.getPlanDetail(planId);
+        
+        if (!planDetail?.roadmap?.detailedCurriculum || !planDetail?.startDate) {
+          setTodayTopic("");
+          return;
+        }
+
+        const detailed = planDetail.roadmap.detailedCurriculum;
+        const startYmd = planDetail.startDate;
+        const start = parseYmdToDate(startYmd);
+        
+        if (!start) {
+          setTodayTopic("");
+          return;
+        }
+
+        const flat = flattenCurriculum(detailed);
+        const todayIso = toYmd(new Date());
+        
+        // 오늘 날짜에 해당하는 커리큘럼 찾기
+        const todayCurriculum = flat.find((item) => {
+          const d = new Date(start);
+          d.setDate(start.getDate() + (item.dayNo - 1));
+          return toYmd(d) === todayIso;
+        });
+
+        if (todayCurriculum) {
+          setTodayTopic(todayCurriculum.topic || "");
+        } else {
+          setTodayTopic("");
+        }
+
+      } catch (error) {
+        console.error("오늘의 주제 가져오기 실패:", error);
+        setTodayTopic("");
+      }
+    };
+
+    fetchTodayTopic();
+  }, [planId]);
 
   const activeTutor = TUTORS.find((t) => t.id === activeTutorId);
   const isDayOne = studyDay === 1;
@@ -58,14 +150,13 @@ const TutorSelectionPage = () => {
 
   const handleToggleCustom = () => {
     if (isDayOne) {
-      alert(" 커스텀 선생님은 학습 2일차부터 선택할 수 있습니다!\n1일차는 기본 선생님과 함께 기초를 다져보세요.");
+      alert("🎓 커스텀 선생님은 학습 2일차부터 선택할 수 있습니다!\n1일차는 기본 선생님과 함께 기초를 다져보세요.");
       return;
     }
     setIsCustomMode((prev) => !prev);
   };
 
   const handleStart = () => {
-    // 오늘 학습 완료 여부 체크
     if (isStudyCompletedToday) {
         alert("오늘 학습을 이미 완료하셨습니다. 내일 다시 도전해주세요!");
         return;
@@ -81,7 +172,6 @@ const TutorSelectionPage = () => {
     startClassSession(tutorInfo, navigate);
   };
 
-  // 버튼 렌더링 헬퍼 함수
   const renderStartButton = () => {
     if (isStudyCompletedToday) {
         return (
@@ -122,7 +212,7 @@ const TutorSelectionPage = () => {
             onClick={handleToggleCustom}
           >
             <div className="name">
-              {isDayOne ? " 커스텀 설정 (2일차부터 가능)" : " 커스텀 설정으로 변경"}
+              {isDayOne ? "🔒 커스텀 설정 (2일차부터 가능)" : "⚙️ 커스텀 설정으로 변경"}
             </div>
           </div>
         </div>

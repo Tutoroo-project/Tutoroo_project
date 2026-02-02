@@ -47,7 +47,6 @@ public class PetService {
     private static final int EXP_CLEAN = 5;
 
     // --- [1] 펫 상태 조회 ---
-    @Transactional(readOnly = true)
     public PetDTO.PetStatusResponse getPetStatus(Long userId) {
         PetInfoEntity pet = petMapper.findByUserId(userId);
         if (pet == null) return null;
@@ -79,7 +78,7 @@ public class PetService {
 
     // --- [3] 초기 펫 입양 ---
     @Transactional
-    public void adoptInitialPet(Long userId, String petTypeStr) {
+    public void adoptInitialPet(Long userId, String petTypeStr, String inputName) {
         if (petMapper.findByUserId(userId) != null) {
             throw new TutorooException(ErrorCode.ALREADY_HAS_PET);
         }
@@ -95,8 +94,8 @@ public class PetService {
         if (!user.getEffectiveTier().getAllowedPets().contains(type)) {
             throw new TutorooException(ErrorCode.MEMBERSHIP_PET_RESTRICTION);
         }
-
-        createPetEntity(userId, type, type.getName(), null, null);
+        String finalName = (inputName == null || inputName.isBlank()) ? type.getName() : inputName;
+        createPetEntity(userId, type, finalName, null, null);
     }
 
     // --- [4] 상호작용 ---
@@ -198,7 +197,7 @@ public class PetService {
     }
 
     @Transactional
-    public void hatchEgg(Long userId, String selectedPetType) {
+    public void hatchEgg(Long userId, String selectedPetType, String inputName) {
         if (petMapper.findByUserId(userId) != null) throw new TutorooException(ErrorCode.ALREADY_HAS_PET);
         if ("CUSTOM_EGG".equals(selectedPetType)) throw new TutorooException("커스텀 펫 생성 API를 이용해주세요.", ErrorCode.INVALID_INPUT_VALUE);
 
@@ -208,7 +207,10 @@ public class PetService {
         } catch (IllegalArgumentException e) {
             throw new TutorooException(ErrorCode.INVALID_PET_TYPE);
         }
-        createPetEntity(userId, type, type.getName(), null, null);
+
+        String finalName = (inputName == null || inputName.isBlank()) ? type.getName() : inputName;
+
+        createPetEntity(userId, type, finalName, null, null);
     }
 
     // --- [6] 커스텀 펫 생성 (Step 20) ---

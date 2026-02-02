@@ -46,7 +46,8 @@ public class PetDTO {
 
     // 4. 초기 입양 요청
     public record InitialAdoptRequest(
-            String petType
+            String petType,
+            String petName
     ) {}
 
     // 5. 졸업 후 랜덤 알 후보 응답
@@ -58,7 +59,8 @@ public class PetDTO {
 
     // 6. 알 선택 및 부화 요청
     public record EggSelectRequest(
-            String selectedPetType
+            String selectedPetType,
+            String petName
     ) {}
 
     // 7. [수정] 커스텀 펫 생성 요청 (변수명 Entity와 통일)

@@ -1,7 +1,10 @@
-import axios from 'axios';
+// [중요] axiosConfig가 있는 경로로 맞춰주세요. 
+// 보통 같은 apis 폴더 안에 있다면 "../axiosConfig" 입니다.
+import { api } from "../configs/axiosConfig";
 
-// 백엔드 API 기본 URL 설정 (환경 변수 또는 하드코딩)
-const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/pet`;
+// axiosConfig에 이미 도메인(VITE_API_BASE_URL)이 설정되어 있으므로
+// 여기서는 뒷부분 경로만 적어주면 됩니다.
+const PET_URL = "/api/pet";
 
 /**
  * 1. 현재 내 펫 상태 조회
@@ -9,10 +12,11 @@ const BASE_URL = `${import.meta.env.VITE_API_BASE_URL}/api/pet`;
  */
 export const getPetStatus = async () => {
     try {
-        const response = await axios.get(`${BASE_URL}/status`);
+        // api.get을 쓰면 토큰이 자동으로 들어갑니다.
+        const response = await api.get(`${PET_URL}/status`);
         return response.data;
     } catch (error) {
-        // 404는 펫이 없는 경우이므로 에러가 아닌 null 처리를 위해 throw
+        // 404는 펫이 없는 경우이므로 에러가 아닌 null 처리를 위해 throw 방지
         if (error.response && error.response.status === 404) {
             return null;
         }
@@ -25,17 +29,17 @@ export const getPetStatus = async () => {
  * @returns {Promise<Object>} PetDTO.AdoptableListResponse
  */
 export const getAdoptablePets = async () => {
-    const response = await axios.get(`${BASE_URL}/adoptable`);
+    const response = await api.get(`${PET_URL}/adoptable`);
     return response.data;
 };
 
 /**
- * 3. 펫 입양하기
- * @param {string} petType - 'TIGER', 'RABBIT' 등
+ * 3. 펫 입양하기 (신규 유저용)
+ * @param {string} petType - 'FOX', 'RABBIT' 등
  * @returns {Promise<string>} 성공 메시지
  */
 export const adoptPet = async (petType) => {
-    const response = await axios.post(`${BASE_URL}/adopt`, { petType });
+    const response = await api.post(`${PET_URL}/adopt`, { petType, petName });
     return response.data;
 };
 
@@ -45,7 +49,7 @@ export const adoptPet = async (petType) => {
  * @returns {Promise<Object>} 갱신된 PetDTO.PetStatusResponse
  */
 export const interactWithPet = async (actionType) => {
-    const response = await axios.post(`${BASE_URL}/interact`, { actionType });
+    const response = await api.post(`${PET_URL}/interact`, { actionType });
     return response.data;
 };
 
@@ -54,31 +58,18 @@ export const interactWithPet = async (actionType) => {
  * @returns {Promise<Object>} PetDTO.RandomEggResponse
  */
 export const getGraduationEggs = async () => {
-    const response = await axios.get(`${BASE_URL}/eggs`);
+    const response = await api.get(`${PET_URL}/eggs`);
     return response.data;
 };
 
 /**
- * 6. 알 부화시키기
+ * 6. 알 부화시키기 (졸업 유저용)
  * @param {string} selectedPetType 
  * @returns {Promise<string>} 성공 메시지
  */
 export const hatchEgg = async (selectedPetType) => {
-    const response = await axios.post(`${BASE_URL}/hatch`, { selectedPetType });
+    const response = await api.post(`${PET_URL}/hatch`, { selectedPetType, petName });
     return response.data;
 };
 
-/**
- * 7. 커스텀 펫 생성 (Step 20)
- * @param {string} name 
- * @param {string} description 
- * @returns {Promise<string>} 성공 메시지
- */
-export const createCustomPet = async (name, description) => {
-    const response = await axios.post(`${BASE_URL}/create-custom`, { 
-        name, 
-        description 
-    });
-    return response.data;
-};
-
+// 7. 커스텀 펫 생성은 사용 안 하므로 제외 (필요 시 동일하게 api.post 사용)

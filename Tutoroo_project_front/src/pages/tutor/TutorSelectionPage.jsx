@@ -18,7 +18,7 @@ const TUTORS = [
   { id: "DRAGON", name: "용 선생님", image: dragonImg, desc: <>깊은 깨달음을 주는 현자 스타일.<br/> 하오체를 사용해요.</> },
 ];
 
-// DashboardPage의 헬퍼 함수들을 가져옴
+// DashboardPage의 헬퍼 함수들
 function toYmd(date) {
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, "0");
@@ -77,6 +77,7 @@ const TutorSelectionPage = () => {
   const [isCustomMode, setIsCustomMode] = useState(false);
   const [customInput, setCustomInput] = useState("");
   const [todayTopic, setTodayTopic] = useState("");
+  const [todayDayNo, setTodayDayNo] = useState(null);
 
   // [New] 진행 중인 학습(메시지)이 있으면 튜터 선택 건너뛰기
   useEffect(() => {
@@ -93,9 +94,9 @@ const TutorSelectionPage = () => {
     }
   }, [loadUserStatus, planId]);
 
-  // [New] 오늘 날짜의 커리큘럼 주제 가져오기
+  // [수정] 오늘 날짜의 커리큘럼 주제와 Day 번호 함께 가져오기
   useEffect(() => {
-    const fetchTodayTopic = async () => {
+    const fetchTodayInfo = async () => {
       if (!planId) return;
 
       try {
@@ -103,6 +104,7 @@ const TutorSelectionPage = () => {
         
         if (!planDetail?.roadmap?.detailedCurriculum || !planDetail?.startDate) {
           setTodayTopic("");
+          setTodayDayNo(null);
           return;
         }
 
@@ -112,6 +114,7 @@ const TutorSelectionPage = () => {
         
         if (!start) {
           setTodayTopic("");
+          setTodayDayNo(null);
           return;
         }
 
@@ -127,21 +130,27 @@ const TutorSelectionPage = () => {
 
         if (todayCurriculum) {
           setTodayTopic(todayCurriculum.topic || "");
+          setTodayDayNo(todayCurriculum.dayNo);
         } else {
           setTodayTopic("");
+          setTodayDayNo(null);
         }
 
       } catch (error) {
-        console.error("오늘의 주제 가져오기 실패:", error);
+        console.error("오늘의 정보 가져오기 실패:", error);
         setTodayTopic("");
+        setTodayDayNo(null);
       }
     };
 
-    fetchTodayTopic();
+    fetchTodayInfo();
   }, [planId]);
 
   const activeTutor = TUTORS.find((t) => t.id === activeTutorId);
-  const isDayOne = studyDay === 1;
+  
+  // [수정] todayDayNo가 있으면 그것을 사용, 없으면 studyDay 사용
+  const displayDayNo = todayDayNo !== null ? todayDayNo : studyDay;
+  const isDayOne = displayDayNo === 1;
 
   const handleTutorClick = (id) => {
     setActiveTutorId(id);
@@ -190,7 +199,9 @@ const TutorSelectionPage = () => {
   return (
     <div css={s.container}>
       <h2 css={s.title}>
-        {todayTopic ? `Day ${studyDay}. ${todayTopic}` : `오늘 함께할 선생님을 선택해주세요 (${studyDay}일차)`}
+        {todayTopic 
+          ? `Day ${displayDayNo}. ${todayTopic}` 
+          : `오늘 함께할 선생님을 선택해주세요 (${displayDayNo}일차)`}
       </h2>
 
       <div css={s.contentWrap}>

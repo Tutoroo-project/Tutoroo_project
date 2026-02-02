@@ -18,4 +18,6 @@ public interface PetMapper {
     Integer findRequiredExpForNextStage(int stage);
     void saveDiary(PetDiaryEntity diary);
     Double findSkillEffect(@Param("petType") String petType, @Param("skillCode") String skillCode);
+    void deleteByUserId(Long userId);
+    List<PetDiaryEntity> findAllDiariesByUserId(Long userId);
 }

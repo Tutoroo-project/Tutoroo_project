@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PetDiaryEntity {
-    private Long id;
+    private Long diaryid;
     private Long petId;
     private LocalDate date;
     private String content; // AI가 생성한 일기 내용

@@ -31,6 +31,7 @@ public class TutorooScheduler {
      * 최적화: 가상 스레드를 사용하여 수천 명의 요청을 병렬로 처리합니다.
      */
     @Scheduled(cron = "0 0 0 * * *")
+//    @Scheduled(fixedRate = 60000)
     public void runMidnightDiaryRoutine() {
         log.info("🌙 [스케줄러] 펫들의 한밤중 일기 쓰기 시작...");
 

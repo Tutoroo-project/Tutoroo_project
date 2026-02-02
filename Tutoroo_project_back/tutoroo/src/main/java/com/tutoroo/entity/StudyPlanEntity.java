@@ -23,7 +23,7 @@ public class StudyPlanEntity {
     private String persona;
 
     private String customTutorName; // 사용자가 지어준 선생님 애칭
-
+    private String customOption;
     // --- [AI 진단 & 로드맵 (핵심)] ---
     // MySQL: LONGTEXT, Postgres: TEXT (매우 긴 JSON 데이터 저장)
     private String roadmapJson;

@@ -38,7 +38,8 @@ const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
-  selectedTutorId: "kangaroo", 
+  selectedTutorId: "kangaroo",
+  customOption: null, // ✅ 추가
   
   todayTopic: "", 
   isStudyCompletedToday: false, 
@@ -84,6 +85,7 @@ const useStudyStore = create((set, get) => ({
             studentRating: 0,
             studentFeedbackText: "",
             isInfinitePractice: false,
+            customOption: null,
         });
     } else {
         set({ studyGoal: goal });
@@ -136,11 +138,10 @@ const useStudyStore = create((set, get) => ({
      }
   },
 
-  // ✅ 수정: dayCount를 options에서 받도록 변경
   startClassSession: async (tutorInfo, navigate, options = {}) => {
     const isInfinite = !!options?.isInfinite;
     const navigateTo = options?.navigateTo || "/study";
-    const dayCount = options?.dayCount; // ✅ dayCount 추가
+    const dayCount = options?.dayCount;
 
     if (!isInfinite && get().isStudyCompletedToday) {
         alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
@@ -157,23 +158,23 @@ const useStudyStore = create((set, get) => ({
         return;
     }
 
-    // ✅ dayCount가 전달되면 그것을 사용, 아니면 studyDay 사용
     const effectiveDayCount = dayCount !== undefined ? dayCount : studyDay;
 
     try {
       const res = await studyApi.startClass({
         planId,
-        dayCount: effectiveDayCount, // ✅ 수정된 dayCount 사용
+        dayCount: effectiveDayCount,
         personaName: tutorInfo.id.toUpperCase(),
         dailyMood: "NORMAL",
         customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null,
         needsTts: isSpeakerOn 
       });
 
-      // ✅ studyDay도 업데이트
+      // ✅ customOption 저장
       set({ 
         studyDay: effectiveDayCount,
         selectedTutorId: tutorInfo.id.toLowerCase(),
+        customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null,
         messages: [{ 
             type: 'AI', 
             content: res.aiMessage, 

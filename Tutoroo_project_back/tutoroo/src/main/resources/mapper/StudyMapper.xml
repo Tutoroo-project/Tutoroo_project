@@ -4,11 +4,11 @@
 
     <insert id="savePlan" parameterType="com.tutoroo.entity.StudyPlanEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO study_plans (
-            user_id, goal, persona, custom_tutor_name, roadmap_json,
+            user_id, goal, persona, custom_tutor_name, custom_option, roadmap_json,
             start_date, end_date, progress_rate, status, is_paid,
             current_level, target_level, created_at, updated_at
         ) VALUES (
-                     #{userId}, #{goal}, #{persona}, #{customTutorName}, #{roadmapJson},
+                     #{userId}, #{goal}, #{persona}, #{customTutorName}, #{customOption}, #{roadmapJson},
                      #{startDate}, #{endDate}, #{progressRate}, #{status}, #{isPaid},
                      #{currentLevel}, #{targetLevel}, NOW(), NOW()
                  )
@@ -39,6 +39,7 @@
             goal = #{goal},
             persona = #{persona},
             custom_tutor_name = #{customTutorName},
+            custom_option = #{customOption},
             roadmap_json = #{roadmapJson},
             progress_rate = #{progressRate},
             current_level = #{currentLevel},
@@ -60,7 +61,6 @@
     <delete id="deletePlan">
         DELETE FROM study_plans WHERE id = #{id}
     </delete>
-
 
     <insert id="saveLog" parameterType="com.tutoroo.entity.StudyLogEntity" useGeneratedKeys="true" keyProperty="id">
         INSERT INTO study_logs (
@@ -137,6 +137,6 @@
         FROM study_logs
         WHERE plan_id = #{planId}
         ORDER BY study_date DESC, id DESC
-        LIMIT 1
+            LIMIT 1
     </select>
 </mapper>

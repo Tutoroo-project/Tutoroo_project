@@ -61,15 +61,17 @@ public class TutorService {
     private final FileStore fileStore;
     private final RedisTemplate<String, String> redisTemplate;
 
-    // =================================================================================
-    // 1. 수업 시작 (로드맵 정밀 분석 & 어제 내용 복습 연계)
-    // =================================================================================
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
+        // ✅ 커스텀 옵션 저장
         updatePersonaIfChanged(plan, request.personaName());
+        if (request.customOption() != null) {
+            plan.setCustomOption(request.customOption());
+            studyMapper.updatePlan(plan);
+        }
 
         String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount());
         String yesterdayTopic = (request.dayCount() > 1) ? getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount() - 1) : "기초 오리엔테이션";
@@ -115,13 +117,14 @@ public class TutorService {
         );
     }
 
-    // =================================================================================
-    // 2. 세션 관리 (상황별 코칭)
-    // =================================================================================
     @Transactional
     public TutorDTO.SessionStartResponse startSession(Long userId, TutorDTO.SessionStartRequest request) {
         String mode = request.sessionMode();
         String personaName = request.personaName();
+
+        // ✅ 플랜 조회하여 customOption 가져오기
+        StudyPlanEntity plan = studyMapper.findById(request.planId());
+        String customOption = plan != null ? plan.getCustomOption() : null;
 
         String situation = switch (mode) {
             case "BREAK" -> "상황: 휴식 시간. 뇌과학적으로 휴식이 왜 기억 저장에 도움이 되는지 짧게 언급하며 쉬라고 해.";
@@ -134,6 +137,11 @@ public class TutorService {
         String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + personaName);
         if (basePrompt == null) basePrompt = "너는 유능한 AI 튜터야.";
 
+        // ✅ customOption 적용
+        if (StringUtils.hasText(customOption)) {
+            basePrompt += "\n[커스텀 요청]: " + customOption;
+        }
+
         String aiMessage = chatModel.call(new Prompt(List.of(
                 new SystemMessage(basePrompt),
                 new UserMessage(situation)
@@ -145,9 +153,6 @@ public class TutorService {
         return new TutorDTO.SessionStartResponse(aiMessage, audioUrl, imageUrl);
     }
 
-    // =================================================================================
-    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답) - 이미지 지원 추가 (M6 버전)
-    // =================================================================================
     @Transactional
     public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -171,6 +176,7 @@ public class TutorService {
             - 과목: %s
             - 학생 레벨: %s (목표: %s)
             - **교수법 전략**: %s
+            %s
             
             [절대 규칙: World-Class Tutoring System]
             1. **문맥 완벽 유지**: 위 [대화 내역]을 분석해. 학생이 이전에 했던 질문이나 실수를 기억해서 "아까 말씀드린 것처럼~" 하고 연결해.
@@ -179,7 +185,15 @@ public class TutorService {
             4. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
             5. **이미지 분석**: 학생이 이미지를 첨부했다면, 이미지 파일명과 컨텍스트를 참고하여 답변해줘.
             """,
-                basePrompt, plan.getGoal(), plan.getCurrentLevel(), plan.getTargetLevel(), pedagogyStrategy);
+                basePrompt,
+                plan.getGoal(),
+                plan.getCurrentLevel(),
+                plan.getTargetLevel(),
+                pedagogyStrategy,
+                StringUtils.hasText(plan.getCustomOption())
+                        ? "\n- **[커스텀 요청]**: " + plan.getCustomOption()
+                        : ""
+        );
 
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(teacherPrompt));
@@ -192,16 +206,13 @@ public class TutorService {
             }
         }
 
-        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
         if (image != null && !image.isEmpty()) {
             try {
-                // 이미지를 파일로 저장
                 String imageUrl = fileStore.storeFile(image.getBytes(),
                         getFileExtension(image.getOriginalFilename()));
 
                 log.info("📷 이미지 저장 완료: {}", imageUrl);
 
-                // 이미지 URL과 함께 메시지 구성
                 String messageWithImage = message + "\n\n[학생이 이미지를 첨부했습니다]\n" +
                         "이미지 파일: " + imageUrl + "\n" +
                         "학생의 이미지와 질문을 바탕으로 답변해주세요. " +
@@ -221,7 +232,6 @@ public class TutorService {
                 throw new TutorooException("이미지 처리 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
             }
         } else {
-            // 이미지 없는 일반 메시지
             messages.add(new UserMessage(message));
             String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
 
@@ -232,9 +242,6 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 4. 데일리 테스트 생성 (로드맵 내용 정밀 타격)
-    // =================================================================================
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -274,9 +281,6 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 5. 실전 시험 및 채점 (전문가적 피드백)
-    // =================================================================================
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -334,9 +338,6 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 6. 테스트 제출 및 채점 - 이미지 지원 추가 (M6 버전)
-    // =================================================================================
     @Transactional
     public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -360,7 +361,6 @@ public class TutorService {
 
         String aiResponse;
 
-        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
         if (image != null && !image.isEmpty()) {
             try {
                 String imageUrl = fileStore.storeFile(image.getBytes(),
@@ -407,10 +407,6 @@ public class TutorService {
         );
     }
 
-    // =================================================================================
-    // 7. 유틸리티 및 헬퍼 메서드
-    // =================================================================================
-
     private String getTopicFromRoadmap(String json, int dayCount) {
         if (!StringUtils.hasText(json)) return "심화 학습";
         try {
@@ -451,13 +447,22 @@ public class TutorService {
         }
     }
 
+    // ✅ 수정: customOption을 실제로 프롬프트에 추가
     private String buildBaseSystemPrompt(StudyPlanEntity plan, String customOption) {
         String base = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
         if (base == null) base = "너는 열정적인 AI 선생님이야.";
+
         StringBuilder sb = new StringBuilder(base);
+
         if (StringUtils.hasText(plan.getCustomTutorName())) {
             sb.append("\n이름은 '").append(plan.getCustomTutorName()).append("'로 연기해.");
         }
+
+        // ✅ customOption 추가
+        if (StringUtils.hasText(customOption)) {
+            sb.append("\n[커스텀 요청]: ").append(customOption);
+        }
+
         return sb.toString();
     }
 
@@ -516,15 +521,12 @@ public class TutorService {
     }
 
     private int parseScore(String text) {
-        // "점수: 85" 형식 찾기
         Matcher m = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
         if (m.find()) return Integer.parseInt(m.group(1));
 
-        // "85점" 형식 찾기
         m = Pattern.compile("([0-9]{1,3})점").matcher(text);
         if (m.find()) return Integer.parseInt(m.group(1));
 
-        // 기본값
         return 50;
     }
 

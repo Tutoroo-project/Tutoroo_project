@@ -36,9 +36,10 @@ export const getAdoptablePets = async () => {
 /**
  * 3. 펫 입양하기 (신규 유저용)
  * @param {string} petType - 'FOX', 'RABBIT' 등
+ * @param {string} petName
  * @returns {Promise<string>} 성공 메시지
  */
-export const adoptPet = async (petType) => {
+export const adoptPet = async (petType, petName) => {
     const response = await api.post(`${PET_URL}/adopt`, { petType, petName });
     return response.data;
 };
@@ -65,10 +66,23 @@ export const getGraduationEggs = async () => {
 /**
  * 6. 알 부화시키기 (졸업 유저용)
  * @param {string} selectedPetType 
+ * @param {string} petName
  * @returns {Promise<string>} 성공 메시지
  */
-export const hatchEgg = async (selectedPetType) => {
+export const hatchEgg = async (selectedPetType, petName) => {
     const response = await api.post(`${PET_URL}/hatch`, { selectedPetType, petName });
+    return response.data;
+};
+
+export const getMyDiaries = async () => {
+    const response = await api.get(`${PET_URL}/diaries`);
+    return response.data;
+};
+
+
+export const testWriteDiary = async () => {
+    // api.get을 쓰면 토큰이 자동으로 같이 갑니다!
+    const response = await api.get(`${PET_URL}/test/diary`);
     return response.data;
 };
 

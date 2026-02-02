@@ -76,4 +76,15 @@
         WHERE pet_type = #{petType} AND skill_code = #{skillCode}
     </select>
 
+    <delete id="deleteByUserId">
+        DELETE FROM pet_info WHERE user_id = #{userId}
+    </delete>
+
+    <select id="findAllDiariesByUserId" resultType="com.tutoroo.entity.PetDiaryEntity">
+        SELECT d.*
+        FROM pet_diary d
+                 JOIN pet_info p ON d.pet_id = p.pet_id
+        WHERE p.user_id = #{userId}
+        ORDER BY d.date DESC
+    </select>
 </mapper>

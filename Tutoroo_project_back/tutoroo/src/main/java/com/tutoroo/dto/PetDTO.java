@@ -69,4 +69,13 @@ public class PetDTO {
             String customDescription, // 기존 description -> customDescription 수정
             String baseType           // 프롬프트 보조용 (예: CAT)
     ) {}
+
+    // 8. [New] 일기 목록 조회용 응답 DTO
+    @Builder
+    public record PetDiaryResponse(
+            Long diaryId,
+            String date,     // 날짜 (2026-02-02)
+            String content,  // 일기 내용
+            String mood      // 기분 (HAPPY 등)
+    ) {}
 }

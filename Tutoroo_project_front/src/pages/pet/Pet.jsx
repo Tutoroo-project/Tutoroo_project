@@ -2,7 +2,14 @@
 import { useState, useEffect, useCallback } from "react";
 import Header from "../../components/layouts/Header";
 import * as s from "./styles";
-import { adoptPet, getAdoptablePets, getPetStatus, interactWithPet, getGraduationEggs, hatchEgg } from "../../apis/pet/petApi";
+import { adoptPet, 
+  getAdoptablePets, 
+  getPetStatus, 
+  interactWithPet, 
+  getGraduationEggs, 
+  hatchEgg, 
+  getMyDiaries,
+  testWriteDiary } from "../../apis/pet/petApi";
 
 import { ANIMATIONS } from "./petAnimations";
 import { PET_IMAGES } from "../../constants/petImages";
@@ -10,11 +17,13 @@ import SpriteChar from "./SpriteChar";
 
 function Pet() {
 
+  const [diaries, setDiaries] = useState([]);      
+  const [isDiaryOpen, setIsDiaryOpen] = useState(false);
+
   const [loading, setLoading] = useState(true);
   const [petStatus, setPetStatus] = useState(null);
   const [isNoPet, setIsNoPet] = useState(false);
   
-  // [수정됨 1] 변수명을 eggList로 통일 (기존 adoptableList 대체)
   const [eggList, setEggList] = useState([]); 
   
   const [actionStatus, setActionStatus ] = useState(null);
@@ -52,34 +61,27 @@ function Pet() {
     try {
       const status = await getPetStatus();
       
-      if (status && status.petId) { 
-        console.log("내 펫 정보 발견:", status); // 콘솔에서 확인용
+      if (status && status.petId && status.status !== "RUNAWAY") { 
+        console.log("내 펫 정보 발견:", status);
         setPetStatus(status);
         setIsNoPet(false);
       } else {
-        // 펫 정보가 없거나 이상하면 없는 것으로 간주
         setPetStatus(null);
-        
-        // 1. 졸업 후 알 후보(Eggs)가 있는지 먼저 확인
         try {
             const eggResponse = await getGraduationEggs();
-            // 커스텀 알 제외
             const pureEggs = eggResponse.candidates.filter(egg => egg.type !== "CUSTOM_EGG");
             
             if (pureEggs.length > 0) {
                 setIsNoPet("SELECT_EGG_GRADUATED"); 
-                setEggList(pureEggs); // [수정됨] 이제 에러 안 남
+                setEggList(pureEggs);
                 setLoading(false);
                 return;
             }
         } catch (e) {
-            // 졸업 알 없으면 패스
         }
-
-        // 2. 초기 유저용 알 리스트
         const initResponse = await getAdoptablePets();
         setIsNoPet("SELECT_EGG_NEW");
-        setEggList(initResponse.availablePets || []); // [수정됨] 이제 에러 안 남
+        setEggList(initResponse.availablePets || []);
       }
     } catch (error) {
       console.error("데이터 로딩 실패: ", error);
@@ -93,14 +95,10 @@ function Pet() {
   }, [fetchData]);
 
 
-  // [중요] 알 선택 통합 핸들러
   const handleEggSelect = async (pet) => { 
    const inputName = window.prompt(`"${pet.name}"의 이름을 지어주세요!`, pet.name);
 
-    // 취소 버튼을 눌렀으면 아무 일도 안 하고 종료
     if (inputName === null) return;
-
-    // 이름이 비어있으면 경고
     if (inputName.trim() === "") {
         alert("이름을 한 글자 이상 입력해주세요!");
         return;
@@ -108,6 +106,7 @@ function Pet() {
 
     try {
       if (isNoPet === "SELECT_EGG_GRADUATED") {
+        // [중요] 여기에 petName이 꼭 들어가야 합니다!
         await hatchEgg(pet.type, inputName); 
       } else {
         await adoptPet(pet.type, inputName); 
@@ -148,19 +147,30 @@ function Pet() {
   };
 
 
+  const handleOpenDiary = async () => {
+        try {
+            const data = await getMyDiaries();
+            setDiaries(data);
+            setIsDiaryOpen(true);
+        } catch (error) {
+            alert("일기장을 불러오지 못했어요 ㅠㅠ");
+        }
+    };
+
+
  return (
     <>
       <Header />
       <div css={s.wrapper}>
         <div css={s.contentBox}>
+          
+          {/* 1. 게임 화면 영역 */}
           <div css={s.mainContainer}>
             {loading && <div>로딩 중...</div>}
 
-            {/* [수정됨 2] 조건문을 isNoPet 상태에 맞게 변경 */}
             {!loading && (isNoPet === "SELECT_EGG_NEW" || isNoPet === "SELECT_EGG_GRADUATED") && (
               <div css={s.innerGameArea}>
                 <div style={{ textAlign: "center", marginBottom: "30px" }}>
-                  {/* 문구도 알 선택에 맞게 변경 */}
                   <h2 style={{ fontSize: "28px", color: "#333", marginBottom: "10px" }}>
                     운명의 알을 선택해주세요 🥚
                   </h2>
@@ -168,12 +178,10 @@ function Pet() {
                 </div>
 
                 <div css={s.adoptionList}>
-                  {/* [수정됨] eggList 사용 */}
                   {eggList.map((pet) => (
                     <div 
                         key={pet.type} 
                         css={s.adoptionCard} 
-                        // [수정됨 3] 핸들러를 handleEggSelect로 교체
                         onClick={() => handleEggSelect(pet)}
                     >
                       <img
@@ -188,7 +196,6 @@ function Pet() {
                 </div>
               </div>
             )}
-
             
             {!loading && !isNoPet && petStatus && (
               <div
@@ -236,9 +243,47 @@ function Pet() {
               </div>
             )}
           </div>
-          <button css={s.btn}>👜 상점</button>
-        </div>
-      </div>
+
+          {/* 2. 버튼 영역 (게임화면 아래에 위치) */}
+          <div css={s.btnArea}>            
+            {/* 상점 버튼 */}
+            <button css={s.btn} style={{width: '200px', height: '50px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
+                👜 상점 가기
+            </button>
+            
+            {/* 일기장 버튼 (위아래 배치) */}
+            <button css={s.diaryBtn} onClick={handleOpenDiary} style={{width: '200px', height: '50px', border: 'none'}}>
+              📖 비밀 일기장
+            </button>
+          </div>
+
+   
+          {isDiaryOpen && (
+            <div css={s.modalOverlay} onClick={() => setIsDiaryOpen(false)}>
+                <div css={s.diaryModalBox} onClick={(e) => e.stopPropagation()}>
+                    <div style={{display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:'10px'}}>
+                        <h2 style={{margin:0, fontSize:'20px'}}>📖 펫의 비밀일기</h2>
+                        <button onClick={() => setIsDiaryOpen(false)} style={{background:'none', border:'none', fontSize:'20px', cursor:'pointer'}}>❌</button>
+                    </div>
+                    
+                    <div css={s.diaryListArea}>
+                        {diaries.length === 0 ? (
+                            <p style={{textAlign:'center', color:'#999', marginTop:'50px'}}>아직 쓰여진 일기가 없어...<br/>오늘 밤을 기다려봐! 🌙</p>
+                        ) : (
+                            diaries.map((diary, index) => (
+                                <div key={diary.diaryId || index} css={s.diaryCard}>
+                                    <span>📅 {diary.date} | 기분: {diary.mood === 'HAPPY' ? '🥰' : '😢'}</span>
+                                    <p>{diary.content}</p>
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </div>
+            </div>
+          )}
+
+        </div> {/* contentBox 끝 */}
+      </div> {/* wrapper 끝 */}
     </>
   );
 }

@@ -5,6 +5,7 @@ import com.tutoroo.entity.*;
 import com.tutoroo.exception.ErrorCode;
 import com.tutoroo.exception.TutorooException;
 import com.tutoroo.mapper.PetMapper;
+import com.tutoroo.mapper.StudyMapper;
 import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
@@ -32,6 +33,7 @@ public class PetService {
 
     private final PetMapper petMapper;
     private final UserMapper userMapper;
+    private final StudyMapper studyMapper;
     private final ChatClient.Builder chatClientBuilder;
     private final ImageModel imageModel;
     private final FileStore fileStore;
@@ -49,7 +51,9 @@ public class PetService {
     // --- [1] 펫 상태 조회 ---
     public PetDTO.PetStatusResponse getPetStatus(Long userId) {
         PetInfoEntity pet = petMapper.findByUserId(userId);
-        if (pet == null) return null;
+        if (pet == null || "RUNAWAY".equals(pet.getStatus())) {
+            return null;
+        }
 
         updatePetStats(pet);
         petMapper.updatePet(pet);
@@ -79,10 +83,19 @@ public class PetService {
     // --- [3] 초기 펫 입양 ---
     @Transactional
     public void adoptInitialPet(Long userId, String petTypeStr, String inputName) {
-        if (petMapper.findByUserId(userId) != null) {
-            throw new TutorooException(ErrorCode.ALREADY_HAS_PET);
+        PetInfoEntity existingPet = petMapper.findByUserId(userId);
+
+        if (existingPet != null) {
+            //상태가 가출(RUNAWAY)이면 -> 기존 펫 삭제 후 진행
+            if ("RUNAWAY".equals(existingPet.getStatus())) {
+                petMapper.deleteByUserId(userId);
+            } else {
+                // 가출도 아닌데 또 만들려고 하면 에러 발생
+                throw new TutorooException(ErrorCode.ALREADY_HAS_PET);
+            }
         }
 
+        // 2. 펫 타입 확인 및 생성 로직 (기존 코드 유지)
         PetType type;
         try {
             type = PetType.valueOf(petTypeStr.toUpperCase());
@@ -94,6 +107,7 @@ public class PetService {
         if (!user.getEffectiveTier().getAllowedPets().contains(type)) {
             throw new TutorooException(ErrorCode.MEMBERSHIP_PET_RESTRICTION);
         }
+
         String finalName = (inputName == null || inputName.isBlank()) ? type.getName() : inputName;
         createPetEntity(userId, type, finalName, null, null);
     }
@@ -247,13 +261,40 @@ public class PetService {
         PetInfoEntity pet = petMapper.findByUserId(userId);
         if (pet == null) return;
 
-        // [수정] String(Entity) vs Enum(Code) 비교 안전하게 변경
-        String petDesc = pet.getPetType().equals(PetType.CUSTOM.name())
-                ? pet.getCustomDescription()
-                : PetType.valueOf(pet.getPetType()).getName();
+        // 1. 오늘 공부 기록 가져오기 (StudyMapper 사용)
+        List<StudyLogEntity> todayLogs = studyMapper.findLogsByUserIdAndDate(userId, LocalDate.now());
+
+        // 2. 공부 내용 요약하기
+        String dailyActivity;
+        if (todayLogs.isEmpty()) {
+            dailyActivity = "오늘은 공부 기록이 없어. 주인님이 바빴나봐.";
+        } else {
+            // 공부 내용과 AI 피드백 등을 콤마로 연결해서 문자열로 만듦
+            StringBuilder sb = new StringBuilder();
+            for (StudyLogEntity log : todayLogs) {
+                sb.append("[공부내용: ").append(log.getContentSummary()).append("] ");
+            }
+            dailyActivity = "오늘 공부 기록이야: " + sb.toString();
+        }
 
         try {
-            String prompt = String.format("너는 %s야. 오늘 주인님과 함께한 하루를 3줄 일기로 써줘.", pet.getPetName());
+            // 3. AI에게 상황극 시키기 (프롬프트 수정)
+            String prompt = String.format(
+                    "너는 지금부터 '%s'(이)라는 이름의 펫이야.\n" +
+                            "오늘 주인님의 하루 정보: [%s].\n\n" +
+                            "이 정보를 보고 너의 시점에서 '비밀 관찰 일기'를 써줘.\n" +
+                            "다음 규칙을 꼭 지켜:\n" +
+                            "1. 말투: 어린 아이처럼 아주 귀엽게, 반말로, 이모지(😊, 🔥)를 많이 섞어서.\n" +
+                            "2. 시점: 주인님한테 말을 거는 게 아니라, '오늘 주인님이 ~를 했다' 식의 혼잣말.\n" +
+                            "3. 형식:\n" +
+                            "   제목: [오늘 내용에 어울리는 엉뚱하고 귀여운 제목]\n" +
+                            "   날씨: [오늘 기분으로 날씨 표현]\n" +
+                            "   내용: [3~4줄 정도의 일기 본문]",
+                    pet.getPetName(),
+                    dailyActivity // <--- 여기에 공부 기록이 들어감!
+            );
+
+            // 4. AI 호출 및 저장 (기존 코드와 동일)
             String content = chatClientBuilder.build().prompt().user(prompt).call().content();
 
             PetDiaryEntity diary = PetDiaryEntity.builder()
@@ -264,6 +305,7 @@ public class PetService {
                     .createdAt(LocalDateTime.now())
                     .build();
             petMapper.saveDiary(diary);
+
         } catch (Exception e) {
             log.error("일기 작성 실패", e);
         }
@@ -340,5 +382,22 @@ public class PetService {
                 .status(pet.getStatus())
                 .statusMessage(pet.getStatus().equals("GRADUATED") ? "졸업을 축하합니다!" : "오늘도 행복해요!")
                 .build();
+    }
+
+    // --- [9] 내 일기장 목록 조회 ---
+    @Transactional(readOnly = true)
+    public List<PetDTO.PetDiaryResponse> getMyDiaries(Long userId) {
+        // 1. DB에서 내 펫의 일기 다 가져오기
+        List<PetDiaryEntity> diaries = petMapper.findAllDiariesByUserId(userId);
+
+        // 2. DTO로 변환해서 반환
+        return diaries.stream()
+                .map(diary -> PetDTO.PetDiaryResponse.builder()
+                        .diaryId(diary.getDiaryid())
+                        .date(diary.getDate().toString())
+                        .content(diary.getContent())
+                        .mood(diary.getMood())
+                        .build())
+                .toList();
     }
 }

@@ -79,7 +79,6 @@ const TutorSelectionPage = () => {
   const [todayTopic, setTodayTopic] = useState("");
   const [todayDayNo, setTodayDayNo] = useState(null);
 
-  // [New] 진행 중인 학습(메시지)이 있으면 튜터 선택 건너뛰기
   useEffect(() => {
     if (messages && messages.length > 0) {
         navigate("/study", { replace: true });
@@ -94,7 +93,6 @@ const TutorSelectionPage = () => {
     }
   }, [loadUserStatus, planId]);
 
-  // [수정] 오늘 날짜의 커리큘럼 주제와 Day 번호 함께 가져오기
   useEffect(() => {
     const fetchTodayInfo = async () => {
       if (!planId) return;
@@ -121,7 +119,6 @@ const TutorSelectionPage = () => {
         const flat = flattenCurriculum(detailed);
         const todayIso = toYmd(new Date());
         
-        // 오늘 날짜에 해당하는 커리큘럼 찾기
         const todayCurriculum = flat.find((item) => {
           const d = new Date(start);
           d.setDate(start.getDate() + (item.dayNo - 1));
@@ -147,8 +144,6 @@ const TutorSelectionPage = () => {
   }, [planId]);
 
   const activeTutor = TUTORS.find((t) => t.id === activeTutorId);
-  
-  // [수정] todayDayNo가 있으면 그것을 사용, 없으면 studyDay 사용
   const displayDayNo = todayDayNo !== null ? todayDayNo : studyDay;
   const isDayOne = displayDayNo === 1;
 
@@ -178,7 +173,10 @@ const TutorSelectionPage = () => {
         customRequirement: isCustomMode ? customInput : null
     };
 
-    startClassSession(tutorInfo, navigate);
+    // ✅ todayDayNo를 함께 전달
+    startClassSession(tutorInfo, navigate, { 
+      dayCount: displayDayNo 
+    });
   };
 
   const renderStartButton = () => {

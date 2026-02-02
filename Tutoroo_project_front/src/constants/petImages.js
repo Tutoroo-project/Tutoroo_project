@@ -1,5 +1,8 @@
 
 import foxEgg from "../assets/pets/fox_egg.png"; // 여우 알 상태
+import foxEgg1 from "../assets/pets/fox_egg1.png"; // 여우 알 감정1
+
+
 import foxBaby from "../assets/pets/fox_baby.png"; // 여우 아기 상태
 import foxIdle from "../assets/pets/fox_Idle.png"; // 여우 아이 상태
 // import foxStudent from "../assets/pets/fox_studnet.png"; // 여우 학생 상태
@@ -14,7 +17,7 @@ import foxPart3 from "../assets/pets/fox_baby3.png"; // 배고파요, 놀기, �
 export const PET_IMAGES = { //전체적으로 아기 상태로 설정
 
     Egg: {
-        DEFAULT: foxEgg
+        DEFAULT: foxEgg1
     },
    
     Fox: {

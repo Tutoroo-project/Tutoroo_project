@@ -226,3 +226,99 @@ export const wakeBtn = css`
         background-color: #4d59a1;
     }
 `;
+
+export const btnArea = css`
+    display: flex;
+   
+    flex-direction: column;
+    gap: 10px;         
+    margin-top: 20px;
+    align-items: center;
+`
+
+// ★ 일기장 전용 버튼 스타일
+export const diaryBtn = css`
+    width: 100%;               
+    height: 45px;
+    padding: 0 20px;
+    border: none;
+    border-radius: 12px;
+    background-color: #ede7f6; 
+    color: #5e35b1;            
+    font-weight: 700;
+    cursor: pointer;
+    font-size: 15px;
+    transition: all 0.2s ease;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;                 
+    box-shadow: 0 2px 8px rgba(94, 53, 177, 0.1);
+
+    &:hover {
+        background-color: #5e35b1; 
+        color: white;             
+        transform: translateY(-3px);
+        box-shadow: 0 5px 15px rgba(94, 53, 177, 0.3);
+    }
+
+    &:active {
+        transform: scale(0.97);
+    }
+`;
+
+//--------------일기장 모달---------------------------------------
+
+export const modalOverlay = css`
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+`;
+
+// 2. 일기장 박스 (하얀 종이)
+export const diaryModalBox = css`
+    width: 350px;
+    height: 500px;
+    background-color: #fff;
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+    animation: fadeIn 0.3s ease;
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+`;
+
+// 3. 일기 리스트 영역 (스크롤 가능)
+export const diaryListArea = css`
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 10px;
+    padding-right: 5px;
+
+    /* 스크롤바 꾸미기 */
+    &::-webkit-scrollbar { width: 6px; }
+    &::-webkit-scrollbar-thumb { background-color: #ddd; border-radius: 3px; }
+`;
+
+// 4. 개별 일기 카드
+export const diaryCard = css`
+    background-color: #f8f9fa;
+    border: 1px solid #eee;
+    border-radius: 10px;
+    padding: 15px;
+    margin-bottom: 15px;
+
+    h3 { margin: 0 0 5px 0; font-size: 16px; color: #333; }
+    p { margin: 0; font-size: 14px; color: #555; line-height: 1.5; white-space: pre-wrap; }
+    span { font-size: 12px; color: #888; display: block; margin-bottom: 8px;}
+`;

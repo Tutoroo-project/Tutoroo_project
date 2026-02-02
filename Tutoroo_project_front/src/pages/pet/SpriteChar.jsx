@@ -18,7 +18,7 @@ function SpriteChar({src, index = 0, size = 200}) {
         width:${size}px;
         height: ${size}px;
         background-image: url(${src});
-        background-size: 400% 450%;
+        background-size: 400% 400%;
         background-position: ${xPos}% ${yPos}%;
         image-rendering: pixelated; 
         image-rendering: crisp-edges;

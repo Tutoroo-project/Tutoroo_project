@@ -2,9 +2,9 @@ name: GCP-VM-CICD
 
 on:
   push: 
-    branches: [deploy_jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
+    branches: [deploy-jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
   pull_request: 
-    branches: [deploy_jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
+    branches: [deploy-jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
 
 jobs:
   build-deploy_jaewon:
@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: "환경변수 세팅"
         run: |
-          if [ ${{github.ref}} == 'refs/heads/deploy_jaewon' ]; then
+          if [ ${{github.ref}} == 'refs/heads/deploy-jaewon' ]; then
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_JAEWON}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_JAEWON}}" >> $GITHUB_ENV
@@ -68,7 +68,7 @@ jobs:
       - name: Springboot Build
         run: |
           cd Tutoroo_project_back/tutoroo
-          echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret.yml
+          echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret-prod.yml
           chmod 777 ./mvnw
           ./mvnw clean package -Dtestskip
 

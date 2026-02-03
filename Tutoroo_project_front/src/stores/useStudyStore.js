@@ -363,7 +363,7 @@ const useStudyStore = create((set, get) => ({
   },
 
   nextSessionStep: async () => {
-    const { currentStepIndex, sessionSchedule, planId, todayTopic, testResult } = get();
+    const { currentStepIndex, sessionSchedule, planId, todayTopic, testResult, studyDay } = get();
     const nextIndex = currentStepIndex + 1;
 
     if (nextIndex < SESSION_SEQUENCE.length) {
@@ -392,6 +392,7 @@ const useStudyStore = create((set, get) => ({
 
           const logData = {
             planId: planId,
+            dayCount: studyDay,  // ✅ dayCount 추가
             score: testResult?.score || 0,
             contentSummary: todayTopic || "오늘의 학습",
             isCompleted: true

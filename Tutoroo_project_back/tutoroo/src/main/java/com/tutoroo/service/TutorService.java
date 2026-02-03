@@ -11,6 +11,7 @@ import com.tutoroo.exception.TutorooException;
 import com.tutoroo.mapper.ChatMapper;
 import com.tutoroo.mapper.CommonMapper;
 import com.tutoroo.mapper.StudyMapper;
+import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class TutorService {
     private final StudyMapper studyMapper;
     private final CommonMapper commonMapper;
     private final ChatMapper chatMapper;
+    private final UserMapper userMapper;
     private final OpenAiChatModel chatModel;
     private final OpenAiAudioSpeechModel speechModel;
     private final OpenAiAudioTranscriptionModel transcriptionModel;
@@ -66,7 +68,6 @@ public class TutorService {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
-        // ✅ 커스텀 옵션 저장
         updatePersonaIfChanged(plan, request.personaName());
         if (request.customOption() != null) {
             plan.setCustomOption(request.customOption());
@@ -122,7 +123,6 @@ public class TutorService {
         String mode = request.sessionMode();
         String personaName = request.personaName();
 
-        // ✅ 플랜 조회하여 customOption 가져오기
         StudyPlanEntity plan = studyMapper.findById(request.planId());
         String customOption = plan != null ? plan.getCustomOption() : null;
 
@@ -137,7 +137,6 @@ public class TutorService {
         String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + personaName);
         if (basePrompt == null) basePrompt = "너는 유능한 AI 튜터야.";
 
-        // ✅ customOption 적용
         if (StringUtils.hasText(customOption)) {
             basePrompt += "\n[커스텀 요청]: " + customOption;
         }
@@ -386,26 +385,33 @@ public class TutorService {
             aiResponse = chatModel.call(prompt);
         }
 
-        // ✅ 점수 파싱
         int score = parseScore(aiResponse);
-
-        // ✅ 피드백에서 점수 부분 제거
         String cleanedFeedback = removeDuplicateScoreFromFeedback(aiResponse);
+        int pointChange = score >= 60 ? 50 : 10;
 
-        studyMapper.saveLog(StudyLogEntity.builder()
+        StudyLogEntity latestLog = studyMapper.findLatestLogByPlanId(planId);
+        int currentDayCount = (latestLog != null) ? latestLog.getDayCount() + 1 : 1;
+
+        StudyLogEntity logEntity = StudyLogEntity.builder()
                 .planId(planId)
-                .dayCount(0)
+                .dayCount(currentDayCount)
                 .testScore(score)
                 .aiFeedback(cleanedFeedback)
                 .isCompleted(score >= 60)
-                .pointChange(score >= 60 ? 50 : 10)
-                .build());
+                .pointChange(pointChange)
+                .contentSummary("데일리 테스트")
+                .build();
+
+        studyMapper.saveLog(logEntity);
+        userMapper.earnPoints(userId, pointChange);
+
+        log.info("✅ 테스트 제출 완료 - 사용자 {}에게 {}P 지급 (점수: {})", userId, pointChange, score);
 
         String audioUrl = requestTts(cleanedFeedback, plan.getPersona());
 
         return new TutorDTO.TestFeedbackResponse(
                 score,
-                cleanedFeedback,  // ✅ 정제된 피드백
+                cleanedFeedback,
                 "테스트 완료",
                 audioUrl,
                 null,
@@ -454,7 +460,6 @@ public class TutorService {
         }
     }
 
-    // ✅ 수정: customOption을 실제로 프롬프트에 추가
     private String buildBaseSystemPrompt(StudyPlanEntity plan, String customOption) {
         String base = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
         if (base == null) base = "너는 열정적인 AI 선생님이야.";
@@ -465,7 +470,6 @@ public class TutorService {
             sb.append("\n이름은 '").append(plan.getCustomTutorName()).append("'로 연기해.");
         }
 
-        // ✅ customOption 추가
         if (StringUtils.hasText(customOption)) {
             sb.append("\n[커스텀 요청]: ").append(customOption);
         }
@@ -527,28 +531,21 @@ public class TutorService {
         return s.toString();
     }
 
-    /**
-     * ✅ 개선된 점수 파싱 메서드
-     * AI 응답에서 점수를 추출합니다.
-     */
     private int parseScore(String text) {
         if (text == null || text.isEmpty()) return 0;
 
-        // "점수: 85" 형식 파싱 (우선순위 1)
         Matcher m1 = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
         if (m1.find()) {
             int score = Integer.parseInt(m1.group(1));
             return Math.min(100, Math.max(0, score));
         }
 
-        // "85점" 형식 파싱 (우선순위 2)
         Matcher m2 = Pattern.compile("([0-9]{1,3})점").matcher(text);
         if (m2.find()) {
             int score = Integer.parseInt(m2.group(1));
             return Math.min(100, Math.max(0, score));
         }
 
-        // "score: 85" 형식 파싱 (우선순위 3)
         Matcher m3 = Pattern.compile("score[:\\s]*([0-9]{1,3})", Pattern.CASE_INSENSITIVE).matcher(text);
         if (m3.find()) {
             int score = Integer.parseInt(m3.group(1));
@@ -556,25 +553,15 @@ public class TutorService {
         }
 
         log.warn("점수를 파싱할 수 없습니다. 응답: {}", text);
-        return 50; // 기본값
+        return 50;
     }
 
-    /**
-     * ✅ 새로 추가: 피드백에서 점수 관련 텍스트 제거
-     */
     private String removeDuplicateScoreFromFeedback(String feedback) {
         if (feedback == null || feedback.isEmpty()) return "";
 
-        // "점수: XX" 부분 제거
         String cleaned = feedback.replaceAll("점수[:\\s]*[0-9]{1,3}점?\\s*", "");
-
-        // "score: XX" 부분 제거
         cleaned = cleaned.replaceAll("(?i)score[:\\s]*[0-9]{1,3}\\s*", "");
-
-        // "XX점" 단독 표기 제거 (문장 시작이나 줄바꿈 뒤에 오는 경우)
         cleaned = cleaned.replaceAll("(^|\\n)\\s*[0-9]{1,3}점\\s*", "$1");
-
-        // "피드백:" 레이블만 남기고 정리
         cleaned = cleaned.replaceAll("피드백[:\\s]*", "").trim();
 
         return cleaned;

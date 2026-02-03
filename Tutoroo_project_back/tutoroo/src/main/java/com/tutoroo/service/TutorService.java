@@ -349,11 +349,14 @@ public class TutorService {
             학생 답안(텍스트): %s
             
             학생의 답변을 분석하고 100점 만점으로 채점해줘.
-            점수와 함께 구체적인 피드백을 제공해줘.
             
-            응답 형식:
-            점수: [0-100]
-            피드백: [상세한 설명]
+            **반드시 다음 형식으로만 답변해:**
+            점수: [0-100 사이의 숫자]
+            피드백: [구체적인 설명과 조언]
+            
+            예시:
+            점수: 85
+            피드백: 핵심 개념은 잘 이해하셨네요! 다만 구체적인 예시를 들면 더 좋았을 것 같아요.
             """,
                 plan.getGoal(),
                 textAnswer != null ? textAnswer : "텍스트 답변 없음"
@@ -383,26 +386,30 @@ public class TutorService {
             aiResponse = chatModel.call(prompt);
         }
 
+        // ✅ 점수 파싱
         int score = parseScore(aiResponse);
+
+        // ✅ 피드백에서 점수 부분 제거
+        String cleanedFeedback = removeDuplicateScoreFromFeedback(aiResponse);
 
         studyMapper.saveLog(StudyLogEntity.builder()
                 .planId(planId)
                 .dayCount(0)
                 .testScore(score)
-                .aiFeedback(aiResponse)
+                .aiFeedback(cleanedFeedback)
                 .isCompleted(score >= 60)
                 .pointChange(score >= 60 ? 50 : 10)
                 .build());
 
-        String audioUrl = requestTts(aiResponse, plan.getPersona());
+        String audioUrl = requestTts(cleanedFeedback, plan.getPersona());
 
         return new TutorDTO.TestFeedbackResponse(
                 score,
-                aiResponse,
-                "요약",
+                cleanedFeedback,  // ✅ 정제된 피드백
+                "테스트 완료",
                 audioUrl,
                 null,
-                score >= 60 ? "잘했어요!" : "조금 더 노력해봐요!",
+                score >= 60 ? "합격! 잘했어요!" : "조금 더 노력해봐요!",
                 score >= 60
         );
     }
@@ -520,14 +527,57 @@ public class TutorService {
         return s.toString();
     }
 
+    /**
+     * ✅ 개선된 점수 파싱 메서드
+     * AI 응답에서 점수를 추출합니다.
+     */
     private int parseScore(String text) {
-        Matcher m = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
-        if (m.find()) return Integer.parseInt(m.group(1));
+        if (text == null || text.isEmpty()) return 0;
 
-        m = Pattern.compile("([0-9]{1,3})점").matcher(text);
-        if (m.find()) return Integer.parseInt(m.group(1));
+        // "점수: 85" 형식 파싱 (우선순위 1)
+        Matcher m1 = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
+        if (m1.find()) {
+            int score = Integer.parseInt(m1.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
 
-        return 50;
+        // "85점" 형식 파싱 (우선순위 2)
+        Matcher m2 = Pattern.compile("([0-9]{1,3})점").matcher(text);
+        if (m2.find()) {
+            int score = Integer.parseInt(m2.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
+
+        // "score: 85" 형식 파싱 (우선순위 3)
+        Matcher m3 = Pattern.compile("score[:\\s]*([0-9]{1,3})", Pattern.CASE_INSENSITIVE).matcher(text);
+        if (m3.find()) {
+            int score = Integer.parseInt(m3.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
+
+        log.warn("점수를 파싱할 수 없습니다. 응답: {}", text);
+        return 50; // 기본값
+    }
+
+    /**
+     * ✅ 새로 추가: 피드백에서 점수 관련 텍스트 제거
+     */
+    private String removeDuplicateScoreFromFeedback(String feedback) {
+        if (feedback == null || feedback.isEmpty()) return "";
+
+        // "점수: XX" 부분 제거
+        String cleaned = feedback.replaceAll("점수[:\\s]*[0-9]{1,3}점?\\s*", "");
+
+        // "score: XX" 부분 제거
+        cleaned = cleaned.replaceAll("(?i)score[:\\s]*[0-9]{1,3}\\s*", "");
+
+        // "XX점" 단독 표기 제거 (문장 시작이나 줄바꿈 뒤에 오는 경우)
+        cleaned = cleaned.replaceAll("(^|\\n)\\s*[0-9]{1,3}점\\s*", "$1");
+
+        // "피드백:" 레이블만 남기고 정리
+        cleaned = cleaned.replaceAll("피드백[:\\s]*", "").trim();
+
+        return cleaned;
     }
 
     private String getFileExtension(String filename) {

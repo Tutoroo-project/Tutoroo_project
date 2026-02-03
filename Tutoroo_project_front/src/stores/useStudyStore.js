@@ -39,7 +39,7 @@ const useStudyStore = create((set, get) => ({
   planId: null,
   studyGoal: "",     
   selectedTutorId: "kangaroo",
-  customOption: null, // ✅ 추가
+  customOption: null,
   
   todayTopic: "", 
   isStudyCompletedToday: false, 
@@ -170,7 +170,6 @@ const useStudyStore = create((set, get) => ({
         needsTts: isSpeakerOn 
       });
 
-      // ✅ customOption 저장
       set({ 
         studyDay: effectiveDayCount,
         selectedTutorId: tutorInfo.id.toLowerCase(),
@@ -300,13 +299,19 @@ const useStudyStore = create((set, get) => ({
             isChatLoading: false
         });
 
+        // ✅ API 응답 필드명에 맞게 수정 (aiFeedback)
+        const score = result.score ?? 0;
+        const feedback = result.aiFeedback || "피드백을 불러올 수 없습니다.";
+        const passed = result.isPassed ? "✅ 합격" : "❌ 불합격";
+
         set((state) => ({
             messages: [...state.messages, {
                 type: 'USER',
-                content: answer
+                content: answer,
+                hasImage: !!imageFile
             }, {
                 type: 'AI',
-                content: `점수: ${result.score}점\n\n${result.feedback}`,
+                content: `📊 점수: ${score}점 (${passed})\n\n${feedback}`,
                 audioUrl: result.audioUrl
             }]
         }));

@@ -233,7 +233,6 @@ function StudyPage() {
     );
   };
 
-  // ✅ 쉬는시간 여부 확인
   const isBreakTime = currentMode === 'BREAK';
 
   return (
@@ -297,7 +296,6 @@ function StudyPage() {
             </div>
           )}
 
-          {/* ✅ 쉬는시간 다음 세션 버튼 */}
           {isBreakTime && (
             <div css={s.breakButtonContainer}>
               <button 

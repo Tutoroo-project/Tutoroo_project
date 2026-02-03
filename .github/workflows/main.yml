@@ -91,3 +91,33 @@ jobs:
       - name: React Docker image push
         run: |
           docker push ${{env.DOCKER_USERNAME}}/react-app:latest
+
+      - name: GCP SSH REMOTE
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{env.GCP_VM_HOST}}
+          username: ${{env.GCP_VM_USERNAME}}
+          key: ${{env.GCP_VM_SSHKEY}}
+          script: |
+            cd /home/${{env.GCP_VM_USERNAME}}
+            sudo docker compose -f front-compose.yml pull
+            sudo docker compose -f back-compose.yml pull
+            sudo docker compose -f front-compose.yml down
+            sudo docker compose -f front-compose.yml up -d
+            sudo docker compose -f back-compose.yml down
+            sudo docker compose -f back-compose.yml up -d
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

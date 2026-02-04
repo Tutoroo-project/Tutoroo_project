@@ -94,7 +94,6 @@ export const placeholder = css`
   font-size: 16px;
 `;
 
-// ✅ 쉬는시간 버튼 컨테이너
 export const breakButtonContainer = css`
   display: flex;
   justify-content: center;
@@ -102,7 +101,6 @@ export const breakButtonContainer = css`
   padding: 20px 0;
 `;
 
-// ✅ 쉬는시간 건너뛰기 버튼
 export const skipBreakButton = css`
   padding: 14px 32px;
   border-radius: 24px;

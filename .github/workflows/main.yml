@@ -7,7 +7,7 @@ on:
     branches: [deploy-jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
 
 jobs:
-  build-deploy_jaewon:
+  build-deploy:
     runs-on: ubuntu-22.04
     steps:
       - name: "환경변수 세팅"
@@ -82,7 +82,7 @@ jobs:
           cd Tutoroo_project_back/tutoroo
           echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret-prod.yml
           chmod 777 ./mvnw
-          ./mvnw clean package -DskipTests -Dactive.profile=
+          ./mvnw clean package -DskipTests -Dactive.profile=${{env.ACTIVE_PROFILE}}
 
       - name: Springboot Docker image build
         run: |
@@ -118,7 +118,6 @@ jobs:
             sudo docker compose -f front-compose.yml up -d
             sudo docker compose -f back-compose.yml down
             sudo docker compose -f back-compose.yml up -d
-
 
 
 

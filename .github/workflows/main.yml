@@ -7,7 +7,7 @@ on:
     branches: [deploy-jaewon, deploy-junil, deploy-gyeonggu, deploy-seongyeop, deploy-sohyun]
 
 jobs:
-  build-deploy_jaewon:
+  build-deploy:
     runs-on: ubuntu-22.04
     steps:
       - name: "환경변수 세팅"

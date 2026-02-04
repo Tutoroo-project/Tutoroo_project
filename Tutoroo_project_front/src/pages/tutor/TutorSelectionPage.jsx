@@ -173,7 +173,6 @@ const TutorSelectionPage = () => {
         customRequirement: isCustomMode ? customInput : null
     };
 
-    // ✅ todayDayNo를 함께 전달
     startClassSession(tutorInfo, navigate, { 
       dayCount: displayDayNo 
     });

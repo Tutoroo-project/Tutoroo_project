@@ -14,17 +14,20 @@ public class CorsConfig {
 
     // [수정] application.yml에서 허용할 도메인 리스트를 주입받음
     // 값이 없으면 기본값으로 로컬호스트(5173) 설정
-    @Value("${app.cors.allowed-origins}")
-    private List<String> allowedOrigins;
+    @Value("${domain.name.http}")
+    private String allowedOriginsHttp;
+    @Value("${domain.name.https}")
+    private String allowedOriginsHttps;
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
+        List<String> allowedOrigins = List.of(allowedOriginsHttp, allowedOriginsHttps);
+
+        System.out.println(allowedOrigins);
         // 1. 허용할 프론트엔드 도메인 (설정 파일 값 사용)
         config.setAllowedOrigins(allowedOrigins);
-        
-        config.setAllowedOriginPatterns(allowedOrigins);
 
         // 2. 허용할 HTTP 메서드
         config.setAllowedMethods(List.of("*"));

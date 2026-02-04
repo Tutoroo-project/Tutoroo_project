@@ -90,36 +90,34 @@ function Pet() {
         setIsNoPet(false);
       } else {
         setPetStatus(null);
-
-        const defaultFox = {
-            type: 'FOX',
-            name: '아기 여우',
-            description: '새로운 모험을 함께할 사랑스러운 여우입니다.'
-        };
         try {
             const eggResponse = await getGraduationEggs();
             const pureEggs = eggResponse.candidates.filter(egg => egg.type !== "CUSTOM_EGG");
             
             if (pureEggs.length > 0) {
                 setIsNoPet("SELECT_EGG_GRADUATED"); 
-                
-                const otherEggs = pureEggs.filter(egg => egg.type !== 'FOX');
-                setEggList([defaultFox, ...otherEggs]); 
-                
+                setEggList(pureEggs);
                 setLoading(false);
-                return; 
+                return;
             }
         } catch (e) {
         }
-       const initResponse = await getAdoptablePets();
+        const initResponse = await getAdoptablePets();
         setIsNoPet("SELECT_EGG_NEW");
-        
-        const serverPets = initResponse.availablePets || [];
+
+        // 1. 무조건 보여줄 '기본 여우' 데이터를 직접 만듭니다.
+        const defaultFox = {
+            type: 'FOX',
+            name: '아기 여우',
+            description: '새로운 모험을 함께할 사랑스러운 여우입니다.',
+            isNew: true
+      }
+      const serverPets = initResponse.availablePets || [];
+
         const otherPets = serverPets.filter(pet => pet.type !== 'FOX');
 
-        setEggList([defaultFox, ...otherPets]); // 여우 + 나머지
-      }
-
+        setEggList([defaultFox, ...otherPets]);
+    }
     } catch (error) {
       console.error("데이터 로딩 실패: ", error);
     } finally {
@@ -141,11 +139,12 @@ function Pet() {
         return;
     }
 
-    try {
-      if (isNoPet === "SELECT_EGG_GRADUATED") {
-        await hatchEgg(pet.type, inputName); 
-      } else {
+   try {
+      // ▼▼▼ [여기 수정!] pet.isNew 체크 로직 추가 ▼▼▼
+      if (pet.isNew || isNoPet === "SELECT_EGG_NEW") {
         await adoptPet(pet.type, inputName); 
+      } else if (isNoPet === "SELECT_EGG_GRADUATED") {
+        await hatchEgg(pet.type, inputName); 
       }
       
       alert("알을 따뜻하게 품기 시작했습니다! 🥚");
@@ -154,7 +153,7 @@ function Pet() {
       console.error(error);
       alert("알 선택 중 문제가 발생했습니다.");
     }
-  };
+};
 
   const handleInteract = async (actionType) => {
     try {
@@ -200,6 +199,7 @@ function Pet() {
       <div css={s.wrapper}>
         <div css={s.contentBox}>
           
+          {/* 1. 게임 화면 영역 */}
           <div css={s.mainContainer}>
             {loading && <div>로딩 중...</div>}
 
@@ -287,11 +287,14 @@ function Pet() {
             )}
           </div>
 
+          {/* 2. 버튼 영역 (게임화면 아래에 위치) */}
           <div css={s.btnArea}>            
+            {/* 상점 버튼 */}
             <button css={s.btn} style={{width: '200px', height: '50px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
                 👜 상점 가기
             </button>
             
+            {/* 일기장 버튼 (위아래 배치) */}
             <button css={s.diaryBtn} onClick={handleOpenDiary} style={{width: '200px', height: '50px', border: 'none'}}>
               📖 비밀 일기장
             </button>
@@ -322,8 +325,8 @@ function Pet() {
             </div>
           )}
 
-        </div>
-      </div> 
+        </div> {/* contentBox 끝 */}
+      </div> {/* wrapper 끝 */}
     </>
   );
 }

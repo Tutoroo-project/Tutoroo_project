@@ -30,14 +30,37 @@ function Pet() {
   const [frameIndex, setFrameIndex ]  = useState(0); 
 
   const getRenderInfo = () => {
-    if (!petStatus || petStatus.stage <= 1) {
-      return { src: PET_IMAGES.Egg.DEFAULT, sequence: ANIMATIONS.ROW1 };
-    }
 
-    const type = petStatus.petType || "Fox";
+    const type = petStatus?.petType || "FOX"; 
+ 
+    if (!petStatus || petStatus.stage <= 1) {
+      let eggImage;
+        
+      switch (type) {
+          case 'RABBIT': 
+              eggImage = PET_IMAGES.RabitEgg.BASIC; 
+              break;
+          case 'TIGER': 
+              eggImage = PET_IMAGES.TigerEgg.BASIC; 
+              break;
+          case 'TURTLE': 
+              eggImage = PET_IMAGES.TurtleEgg.BASIC; 
+              break;
+          case 'QUOKKA':
+              eggImage = PET_IMAGES.quokkaEgg.BASIC; 
+              break;
+          case 'FOX':
+          default: 
+              eggImage = PET_IMAGES.FoxEgg.BASIC; 
+              break;
+      }
+      
+      return { src: eggImage, sequence: ANIMATIONS.ROW1 };
+    }
+  
     const images = PET_IMAGES[type] || PET_IMAGES.Fox;
 
-    if (actionStatus === "EATING") return { src: images.PART2, sequence: ANIMATIONS.ROW1 , isEgg: true};
+    if (actionStatus === "EATING") return { src: PET_IMAGES.FoxEgg.PART2, sequence: ANIMATIONS.ROW4 , isEgg: true};
     if (actionStatus === "CLEANING") return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
     if (petStatus.isSleeping) return { src: images.PART1, sequence: ANIMATIONS.ROW1 };
     if (petStatus.fullness < 30) return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
@@ -67,22 +90,36 @@ function Pet() {
         setIsNoPet(false);
       } else {
         setPetStatus(null);
+
+        const defaultFox = {
+            type: 'FOX',
+            name: '아기 여우',
+            description: '새로운 모험을 함께할 사랑스러운 여우입니다.'
+        };
         try {
             const eggResponse = await getGraduationEggs();
             const pureEggs = eggResponse.candidates.filter(egg => egg.type !== "CUSTOM_EGG");
             
             if (pureEggs.length > 0) {
                 setIsNoPet("SELECT_EGG_GRADUATED"); 
-                setEggList(pureEggs);
+                
+                const otherEggs = pureEggs.filter(egg => egg.type !== 'FOX');
+                setEggList([defaultFox, ...otherEggs]); 
+                
                 setLoading(false);
-                return;
+                return; 
             }
         } catch (e) {
         }
-        const initResponse = await getAdoptablePets();
+       const initResponse = await getAdoptablePets();
         setIsNoPet("SELECT_EGG_NEW");
-        setEggList(initResponse.availablePets || []);
+        
+        const serverPets = initResponse.availablePets || [];
+        const otherPets = serverPets.filter(pet => pet.type !== 'FOX');
+
+        setEggList([defaultFox, ...otherPets]); // 여우 + 나머지
       }
+
     } catch (error) {
       console.error("데이터 로딩 실패: ", error);
     } finally {
@@ -106,7 +143,6 @@ function Pet() {
 
     try {
       if (isNoPet === "SELECT_EGG_GRADUATED") {
-        // [중요] 여기에 petName이 꼭 들어가야 합니다!
         await hatchEgg(pet.type, inputName); 
       } else {
         await adoptPet(pet.type, inputName); 
@@ -164,7 +200,6 @@ function Pet() {
       <div css={s.wrapper}>
         <div css={s.contentBox}>
           
-          {/* 1. 게임 화면 영역 */}
           <div css={s.mainContainer}>
             {loading && <div>로딩 중...</div>}
 
@@ -184,11 +219,19 @@ function Pet() {
                         css={s.adoptionCard} 
                         onClick={() => handleEggSelect(pet)}
                     >
-                      <img
-                        src={PET_IMAGES.Egg.DEFAULT} 
-                        alt={pet.name}
-                        style={{ width: "100px", height: "100px", objectFit: "contain", marginBottom: "15px" }}
+                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
+                      <SpriteChar
+                        src={
+                          pet.type === 'FOX' ? PET_IMAGES.FoxEgg.BASIC :
+                          pet.type === 'RABBIT' ? PET_IMAGES.RabitEgg.BASIC :
+                          pet.type === 'TIGER' ? PET_IMAGES.TigerEgg.BASIC :
+                          pet.type === 'TURTLE' ? PET_IMAGES.TurtleEgg.BASIC :
+                          PET_IMAGES.FoxEgg.BASIC
+                        }
+                        index={0}  // 
+                        size={100} // 
                       />
+                    </div>
                       <h3 style={{ margin: "0 0 10px 0", color: "#e67025" }}>{pet.name}</h3>
                       <p style={{ fontSize: "13px", color: "#666" }}>{pet.description}</p>
                     </div>
@@ -244,14 +287,11 @@ function Pet() {
             )}
           </div>
 
-          {/* 2. 버튼 영역 (게임화면 아래에 위치) */}
           <div css={s.btnArea}>            
-            {/* 상점 버튼 */}
             <button css={s.btn} style={{width: '200px', height: '50px', display:'flex', alignItems:'center', justifyContent:'center', gap:'8px'}}>
                 👜 상점 가기
             </button>
             
-            {/* 일기장 버튼 (위아래 배치) */}
             <button css={s.diaryBtn} onClick={handleOpenDiary} style={{width: '200px', height: '50px', border: 'none'}}>
               📖 비밀 일기장
             </button>
@@ -282,8 +322,8 @@ function Pet() {
             </div>
           )}
 
-        </div> {/* contentBox 끝 */}
-      </div> {/* wrapper 끝 */}
+        </div>
+      </div> 
     </>
   );
 }

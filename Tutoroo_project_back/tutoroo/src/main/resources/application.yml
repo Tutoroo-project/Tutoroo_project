@@ -37,7 +37,7 @@ domain:
 app:
   cors:
     allowed-origins:
-      - "https://tutoroo-study.shop"
+      - "http://tutoroo-study.shop"
 ---
 
 ---
@@ -53,7 +53,7 @@ domain:
 app:
   cors:
     allowed-origins:
-      - "https://gettutoroo.store"
+      - "http://gettutoroo.store"
 ---
 
 ---
@@ -69,7 +69,7 @@ domain:
 app:
   cors:
     allowed-origins:
-      - "https://bndadtutoroo.com"
+      - "http://bndadtutoroo.com"
 ---
 
 ---
@@ -85,7 +85,7 @@ domain:
 app:
   cors:
     allowed-origins:
-      - "https://bnmamatutoroo.com"
+      - "http://bnmamatutoroo.com"
 ---
 server:
   port: 8080

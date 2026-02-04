@@ -14,7 +14,7 @@ public class MailConfig {
     @Value("${spring.mail.host:test}")
     private String host;
 
-    @Value("${spring.mail.port:test}")
+    @Value("${spring.mail.port:0}")
     private int port;
 
     @Value("${spring.mail.username:test}")
@@ -23,10 +23,10 @@ public class MailConfig {
     @Value("${spring.mail.password:test}")
     private String password;
 
-    @Value("${spring.mail.properties.mail.smtp.auth:test}")
+    @Value("${spring.mail.properties.mail.smtp.auth:true}")
     private boolean auth;
 
-    @Value("${spring.mail.properties.mail.smtp.starttls.enabled:test}")
+    @Value("${spring.mail.properties.mail.smtp.starttls.enabled:true}")
     private boolean starttlsEnable;
 
     @Bean

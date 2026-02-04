@@ -45,8 +45,19 @@
         WHERE l.user_id = #{userId}
           AND q.topic = #{topic}
           AND l.is_correct = false
-        ORDER BY RAND()
-            LIMIT 3
+    </select>
+
+    <select id="findWrongLogDetailsByDate" resultType="com.tutoroo.mapper.PracticeMapper$WrongPracticeDetail">
+        SELECT
+            q.question_json AS questionJson,
+            l.user_answer AS userAnswer,
+            l.ai_feedback AS aiFeedback
+        FROM practice_logs l
+                 JOIN practice_questions q ON l.question_id = q.id
+        WHERE l.user_id = #{userId}
+          AND DATE(l.solved_at) = #{date}
+          AND l.is_correct = false
+        ORDER BY l.solved_at ASC
     </select>
 
 </mapper>

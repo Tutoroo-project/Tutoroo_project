@@ -20,7 +20,7 @@ function Router() {
   return (
     <Routes>
       <Route path="/" element={<DashboardPage />} />
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/auth/login" element={<LoginPage />} />
       <Route path="/mypage/verify" element={<PasswordVerifyPage />} />
       <Route path="mypage/changeinfo" element={<ChangeInfoPage />} />
       <Route path="mypage/changepassword" element={<ChangePasswordPage />} />
@@ -32,7 +32,7 @@ function Router() {
       <Route path="/level-test/result" element={<LevelTestResultPage />} />
       <Route path="/tutor" element={<TutorSelectionPage />} />
       <Route path="/study" element={<StudyPage />} />
-      <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
+      <Route path="/auth/oauth2/redirect" element={<OAuth2RedirectPage />} />
       <Route path="/practice/infinite" element={<InfiniteStudyPage />} />
       <Route path="/pet" element={<Pet />} />
     </Routes>

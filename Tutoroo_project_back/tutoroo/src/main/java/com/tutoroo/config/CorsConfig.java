@@ -14,7 +14,7 @@ public class CorsConfig {
 
     // [수정] application.yml에서 허용할 도메인 리스트를 주입받음
     // 값이 없으면 기본값으로 로컬호스트(5173) 설정
-    @Value("${app.cors.allowed-origins:http://localhost:5173}")
+    @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
     @Bean
@@ -25,7 +25,7 @@ public class CorsConfig {
         config.setAllowedOrigins(allowedOrigins);
 
         // 2. 허용할 HTTP 메서드
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        config.setAllowedMethods(List.of("*"));
 
         // 3. 허용할 헤더
         config.setAllowedHeaders(List.of("*"));

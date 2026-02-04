@@ -14,7 +14,7 @@ public class CorsConfig {
 
     // [수정] application.yml에서 허용할 도메인 리스트를 주입받음
     // 값이 없으면 기본값으로 로컬호스트(5173) 설정
-    @Value("${app.cors.allowed-origins[0]}")
+    @Value("${app.cors.allowed-origins}")
     private List<String> allowedOrigins;
 
     @Bean

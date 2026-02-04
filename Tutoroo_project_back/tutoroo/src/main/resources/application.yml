@@ -37,7 +37,7 @@ domain:
 app:
   cors:
     allowed-origins:
-      - "http://tutoroo-study.shop"
+      - "https://34.11.134.147:443"
 ---
 
 ---

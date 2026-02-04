@@ -82,7 +82,7 @@ jobs:
           cd Tutoroo_project_back/tutoroo
           echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret-prod.yml
           chmod 777 ./mvnw
-          ./mvnw clean package -DskipTests -Dactive.profile=
+          ./mvnw clean package -DskipTests -Dactive.profile=${{env.ACTIVE_PROFILE}}
 
       - name: Springboot Docker image build
         run: |

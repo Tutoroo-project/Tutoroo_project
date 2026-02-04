@@ -17,7 +17,7 @@ export const SESSION_MODES = {
   BREAK: { label: "쉬는 시간", defaultTime: 1 * 60 },
   TEST: { label: "테스트", defaultTime: 15 * 60 },
   GRADING: { label: "채점 중", defaultTime: 10 },
-  EXPLANATION: { label: "해설 강의", defaultTime: 10 * 60 },
+  EXPLANATION: { label: "해설 강의", defaultTime: 5 * 60 },
   AI_FEEDBACK: { label: "AI 피드백", defaultTime: 5 * 60 },
   STUDENT_FEEDBACK: { label: "수업 평가", defaultTime: 3 * 60 },
   REVIEW: { label: "복습 자료", defaultTime: 0 },
@@ -38,7 +38,8 @@ const useStudyStore = create((set, get) => ({
   studyDay: 1,      
   planId: null,
   studyGoal: "",     
-  selectedTutorId: "kangaroo", 
+  selectedTutorId: "kangaroo",
+  customOption: null,
   
   todayTopic: "", 
   isStudyCompletedToday: false, 
@@ -59,8 +60,6 @@ const useStudyStore = create((set, get) => ({
   userTestAnswer: "",
   testResult: null,
 
-  
-  // [INFINITE] 무한 실습 모드 상태/액션 추가
   isInfinitePractice: false,
   setInfinitePractice: (flag) => set({ isInfinitePractice: !!flag }),
 
@@ -86,6 +85,7 @@ const useStudyStore = create((set, get) => ({
             studentRating: 0,
             studentFeedbackText: "",
             isInfinitePractice: false,
+            customOption: null,
         });
     } else {
         set({ studyGoal: goal });
@@ -138,17 +138,17 @@ const useStudyStore = create((set, get) => ({
      }
   },
 
-  // 5. 수업 시작 (TutorSelectionPage에서 호출)
   startClassSession: async (tutorInfo, navigate, options = {}) => {
     const isInfinite = !!options?.isInfinite;
     const navigateTo = options?.navigateTo || "/study";
+    const dayCount = options?.dayCount;
 
     if (!isInfinite && get().isStudyCompletedToday) {
         alert("오늘의 학습은 이미 완료되었습니다. 내일 만나요!");
         return;
     }
 
-    set({ isLoading: true, messages: [], isInfinitePractice: isInfinite, });
+    set({ isLoading: true, messages: [], isInfinitePractice: isInfinite });
     
     const { planId, studyDay, isSpeakerOn } = get();
 
@@ -158,10 +158,12 @@ const useStudyStore = create((set, get) => ({
         return;
     }
 
+    const effectiveDayCount = dayCount !== undefined ? dayCount : studyDay;
+
     try {
       const res = await studyApi.startClass({
         planId,
-        dayCount: studyDay,
+        dayCount: effectiveDayCount,
         personaName: tutorInfo.id.toUpperCase(),
         dailyMood: "NORMAL",
         customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null,
@@ -169,7 +171,9 @@ const useStudyStore = create((set, get) => ({
       });
 
       set({ 
+        studyDay: effectiveDayCount,
         selectedTutorId: tutorInfo.id.toLowerCase(),
+        customOption: tutorInfo.isCustom ? tutorInfo.customRequirement : null,
         messages: [{ 
             type: 'AI', 
             content: res.aiMessage, 
@@ -295,13 +299,18 @@ const useStudyStore = create((set, get) => ({
             isChatLoading: false
         });
 
+        const score = result.score ?? 0;
+        const feedback = result.aiFeedback || "피드백을 불러올 수 없습니다.";
+        const passed = result.isPassed ? " 합격" : " 불합격";
+
         set((state) => ({
             messages: [...state.messages, {
                 type: 'USER',
-                content: answer
+                content: answer,
+                hasImage: !!imageFile
             }, {
                 type: 'AI',
-                content: `점수: ${result.score}점\n\n${result.feedback}`,
+                content: ` 점수: ${score}점 (${passed})\n\n${feedback}`,
                 audioUrl: result.audioUrl
             }]
         }));
@@ -353,7 +362,7 @@ const useStudyStore = create((set, get) => ({
   },
 
   nextSessionStep: async () => {
-    const { currentStepIndex, sessionSchedule, planId, todayTopic, testResult } = get();
+    const { currentStepIndex, sessionSchedule, planId, todayTopic, testResult, studyDay } = get();
     const nextIndex = currentStepIndex + 1;
 
     if (nextIndex < SESSION_SEQUENCE.length) {
@@ -380,9 +389,9 @@ const useStudyStore = create((set, get) => ({
         try {
           set({ isChatLoading: true });
 
-          // ✅ 1. 학습 로그 저장 (DB에 기록)
           const logData = {
             planId: planId,
+            dayCount: studyDay,  // ✅ dayCount 추가
             score: testResult?.score || 0,
             contentSummary: todayTopic || "오늘의 학습",
             isCompleted: true
@@ -391,7 +400,6 @@ const useStudyStore = create((set, get) => ({
           await studyApi.saveStudyLog(logData);
           console.log("✅ 학습 로그 저장 완료:", logData);
 
-          // ✅ 2. AI 피드백 생성
           const feedbackText = await studyApi.generateAiFeedback(planId);
           
           set({ isStudyCompletedToday: true });
@@ -432,9 +440,7 @@ const useStudyStore = create((set, get) => ({
     }
   },
 
-  // [수정] 이미지 지원 추가
   sendMessage: async (text, imageFile = null) => {
-      // 사용자 메시지에 이미지 첨부 표시
       const userMessage = {
           type: 'USER',
           content: text,
@@ -481,6 +487,5 @@ const useStudyStore = create((set, get) => ({
       }
   },
 }));
-
 
 export default useStudyStore;

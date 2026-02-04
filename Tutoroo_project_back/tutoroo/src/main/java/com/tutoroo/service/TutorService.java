@@ -11,6 +11,7 @@ import com.tutoroo.exception.TutorooException;
 import com.tutoroo.mapper.ChatMapper;
 import com.tutoroo.mapper.CommonMapper;
 import com.tutoroo.mapper.StudyMapper;
+import com.tutoroo.mapper.UserMapper;
 import com.tutoroo.util.FileStore;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -53,6 +54,7 @@ public class TutorService {
     private final StudyMapper studyMapper;
     private final CommonMapper commonMapper;
     private final ChatMapper chatMapper;
+    private final UserMapper userMapper;
     private final OpenAiChatModel chatModel;
     private final OpenAiAudioSpeechModel speechModel;
     private final OpenAiAudioTranscriptionModel transcriptionModel;
@@ -61,44 +63,53 @@ public class TutorService {
     private final FileStore fileStore;
     private final RedisTemplate<String, String> redisTemplate;
 
-    // =================================================================================
-    // 1. 수업 시작 (로드맵 정밀 분석 & 어제 내용 복습 연계)
-    // =================================================================================
     @Transactional
     public TutorDTO.ClassStartResponse startClass(Long userId, TutorDTO.ClassStartRequest request) {
         StudyPlanEntity plan = studyMapper.findById(request.planId());
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
         updatePersonaIfChanged(plan, request.personaName());
+        if (request.customOption() != null) {
+            plan.setCustomOption(request.customOption());
+            studyMapper.updatePlan(plan);
+        }
 
         String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount());
         String yesterdayTopic = (request.dayCount() > 1) ? getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount() - 1) : "기초 오리엔테이션";
 
         String userPrompt = String.format("""
                 [수업 컨텍스트]
-                - 과목: %s (현재 레벨: %s)
-                - **오늘의 핵심 주제**: %s
-                - **어제 배운 내용**: %s
+                - 전체 과목: %s (현재 레벨: %s)
+                - 🎯 **오늘 반드시 가르쳐야 할 주제**: %s
+                - 어제 배운 내용: %s
                 - 학생 기분: %s
                 - 학생 요청: "%s"
                 
+                [⚠️ 절대 규칙]
+                **오늘은 반드시 '%s'에 대해서만 가르쳐야 합니다.**
+                다른 주제는 절대 다루지 마세요. '%s'의 개념, 사용법, 예제만 설명하세요.
+                
                 [지시사항: 세계 최고의 강사처럼 오프닝]
-                1. **브릿지(Bridge)**: 어제 배운 내용(%s)을 짧게 언급하며 오늘 내용(%s)과의 연관성을 설명해. (예: "어제 변수를 배웠죠? 오늘은 그 변수를 계산하는 연산자입니다.")
-                2. **동기 부여**: 오늘 배울 내용이 왜 중요한지 실무적/학문적 가치를 한 문장으로 강조해.
+                1. **브릿지(Bridge)**: 어제 배운 내용(%s)을 짧게 언급하며 오늘 내용(%s)과의 연관성을 설명해.
+                   예: "어제 조건문을 배웠죠? 오늘은 반복문을 배웁니다. 조건문이 '한 번 판단'이라면, 반복문은 '여러 번 반복'입니다."
+                2. **동기 부여**: '%s'가 왜 중요한지 실무적 가치를 한 문장으로 강조해.
                 3. **스케줄링**: 학생 기분에 맞춰 학습 밀도(CLASS 시간)를 조절해. (좋음: 3000초, 나쁨: 1800초+휴식)
                 
                 [응답 형식]
-                주제 | 오프닝 멘트 | {"CLASS": 3000, "BREAK": 600}
+                주제: %s | 오프닝 멘트 | {"CLASS": 3000, "BREAK": 600}
                 """,
                 plan.getGoal(), plan.getCurrentLevel(),
                 todaysTopic, yesterdayTopic,
                 request.dailyMood(),
                 request.customOption() != null ? request.customOption() : "없음",
-                extractTopicKeyword(yesterdayTopic), extractTopicKeyword(todaysTopic)
+                todaysTopic,  // 주제 반복 강조
+                todaysTopic,
+                extractTopicKeyword(yesterdayTopic), extractTopicKeyword(todaysTopic),
+                todaysTopic,
+                todaysTopic
         );
 
-        String systemPrompt = buildBaseSystemPrompt(plan, request.customOption()) +
-                "\n너는 체계적이고 논리적인 '1타 강사'야. 흐름이 끊기지 않게 수업을 연결해.";
+        String systemPrompt = buildBaseSystemPrompt(plan, request.customOption(), todaysTopic);
 
         String response = chatModel.call(new Prompt(List.of(
                 new SystemMessage(systemPrompt),
@@ -115,24 +126,34 @@ public class TutorService {
         );
     }
 
-    // =================================================================================
-    // 2. 세션 관리 (상황별 코칭)
-    // =================================================================================
     @Transactional
     public TutorDTO.SessionStartResponse startSession(Long userId, TutorDTO.SessionStartRequest request) {
         String mode = request.sessionMode();
         String personaName = request.personaName();
 
+        StudyPlanEntity plan = studyMapper.findById(request.planId());
+        String customOption = plan != null ? plan.getCustomOption() : null;
+
+        // ✅ 오늘의 주제 가져오기
+        String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), request.dayCount());
+
         String situation = switch (mode) {
             case "BREAK" -> "상황: 휴식 시간. 뇌과학적으로 휴식이 왜 기억 저장에 도움이 되는지 짧게 언급하며 쉬라고 해.";
-            case "TEST" -> "상황: 테스트 시작. '틀려도 괜찮아, 모르는 걸 찾는 과정이야'라고 부담을 덜어주되 긴장감은 줘.";
+            case "TEST" -> String.format("상황: 테스트 시작. '틀려도 괜찮아, 모르는 걸 찾는 과정이야'라고 부담을 덜어주되 긴장감은 줘. 오늘 배운 '%s'에 대한 테스트임을 알려줘.", todaysTopic);
             case "GRADING" -> "상황: 채점 중. AI가 꼼꼼하게 분석 중이라는 신뢰감을 주는 멘트를 해.";
-            case "AI_FEEDBACK" -> "상황: 수업 종료. 오늘 배운 키워드 3가지를 해시태그처럼 말해주고, 내일 내용을 예고해줘.";
-            default -> "상황: 수업 집중. 딴짓하지 말고 화면을 보라고 주의를 환기해.";
+            case "AI_FEEDBACK" -> String.format("상황: 수업 종료. 오늘 배운 '%s'의 키워드 3가지를 해시태그처럼 말해주고, 내일 내용을 예고해줘.", todaysTopic);
+            default -> String.format("상황: 수업 집중. 딴짓하지 말고 화면을 보라고 주의를 환기해. 오늘은 '%s'를 배우는 시간이야.", todaysTopic);
         };
 
         String basePrompt = commonMapper.findPromptContentByKey("TEACHER_" + personaName);
         if (basePrompt == null) basePrompt = "너는 유능한 AI 튜터야.";
+
+        if (StringUtils.hasText(customOption)) {
+            basePrompt += "\n[커스텀 요청]: " + customOption;
+        }
+
+        // ✅ 오늘의 주제 강조 추가
+        basePrompt += String.format("\n[⚠️ 오늘의 주제]: 반드시 '%s'에 대해서만 얘기해.", todaysTopic);
 
         String aiMessage = chatModel.call(new Prompt(List.of(
                 new SystemMessage(basePrompt),
@@ -145,9 +166,6 @@ public class TutorService {
         return new TutorDTO.SessionStartResponse(aiMessage, audioUrl, imageUrl);
     }
 
-    // =================================================================================
-    // 3. 채팅 (영구 기억 + 적응형 티칭 + 소크라테스식 문답) - 이미지 지원 추가 (M6 버전)
-    // =================================================================================
     @Transactional
     public TutorDTO.FeedbackChatResponse adjustCurriculum(Long userId, Long planId, String message, boolean needsTts, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -156,6 +174,11 @@ public class TutorService {
         chatMapper.saveMessage(planId, "USER", message);
 
         List<ChatMapper.ChatMessage> history = chatMapper.findRecentMessages(planId, 50);
+
+        // ✅ 현재 학습 중인 주제 가져오기
+        StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(planId);
+        int currentDay = (lastLog == null) ? 1 : lastLog.getDayCount() + 1;
+        String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), currentDay);
 
         String pedagogyStrategy = plan.getCurrentLevel().equalsIgnoreCase("BEGINNER")
                 ? "쉬운 비유와 실생활 예시를 들어 설명해. 전문 용어는 최소화해."
@@ -168,18 +191,41 @@ public class TutorService {
             %s
             
             [현재 수업 정보]
-            - 과목: %s
+            - 전체 과목: %s
+            - 🎯 **오늘 반드시 가르쳐야 할 주제**: %s
             - 학생 레벨: %s (목표: %s)
             - **교수법 전략**: %s
+            %s
+            
+            [⚠️ 절대 규칙: 주제 엄수]
+            **반드시 오늘의 주제('%s')에 관한 내용만 가르쳐야 합니다.**
+            - 주제와 관련 없는 내용은 절대 가르치지 마세요.
+            - 학생이 다른 주제로 질문하면 "오늘은 '%s'를 배우는 시간입니다. 이 주제에 집중해주세요."라고 정중히 거절하세요.
+            - 모든 설명, 예시, 코드는 반드시 '%s'에 관련된 것이어야 합니다.
             
             [절대 규칙: World-Class Tutoring System]
-            1. **문맥 완벽 유지**: 위 [대화 내역]을 분석해. 학생이 이전에 했던 질문이나 실수를 기억해서 "아까 말씀드린 것처럼~" 하고 연결해.
-            2. **소크라테스식 검증**: 단순히 정답만 알려주지 마. 설명을 마친 후엔 반드시 **"그럼 이 경우에는 어떻게 될까요?"**라고 역질문을 던져 이해도를 체크해.
-            3. **코드/예시 필수**: 코딩 질문이면 반드시 코드를, 이론 질문이면 반드시 예시를 들어.
-            4. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
-            5. **이미지 분석**: 학생이 이미지를 첨부했다면, 이미지 파일명과 컨텍스트를 참고하여 답변해줘.
+            1. **주제 집중**: '%s'에 대해서만 가르쳐. 다른 주제는 절대 안 됨.
+            2. **문맥 완벽 유지**: 위 [대화 내역]을 분석해. 학생이 이전에 했던 질문이나 실수를 기억해서 "아까 말씀드린 것처럼~" 하고 연결해.
+            3. **소크라테스식 검증**: 단순히 정답만 알려주지 마. 설명을 마친 후엔 반드시 **"그럼 이 경우에는 어떻게 될까요?"**라고 역질문을 던져 이해도를 체크해.
+            4. **코드/예시 필수**: '%s'와 관련된 코드나 예시를 반드시 들어.
+            5. **잡담 차단**: 학생이 수업과 무관한 얘기를 하면 정중히 수업으로 복귀시켜.
+            6. **이미지 분석**: 학생이 이미지를 첨부했다면, 이미지 파일명과 컨텍스트를 참고하여 답변해줘.
             """,
-                basePrompt, plan.getGoal(), plan.getCurrentLevel(), plan.getTargetLevel(), pedagogyStrategy);
+                basePrompt,
+                plan.getGoal(),
+                todaysTopic,  // ✅ 주제 추가
+                plan.getCurrentLevel(),
+                plan.getTargetLevel(),
+                pedagogyStrategy,
+                StringUtils.hasText(plan.getCustomOption())
+                        ? "\n- **[커스텀 요청]**: " + plan.getCustomOption()
+                        : "",
+                todaysTopic,  // ✅ 주제 반복 강조
+                todaysTopic,
+                todaysTopic,
+                todaysTopic,
+                todaysTopic
+        );
 
         List<Message> messages = new ArrayList<>();
         messages.add(new SystemMessage(teacherPrompt));
@@ -192,16 +238,13 @@ public class TutorService {
             }
         }
 
-        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
         if (image != null && !image.isEmpty()) {
             try {
-                // 이미지를 파일로 저장
                 String imageUrl = fileStore.storeFile(image.getBytes(),
                         getFileExtension(image.getOriginalFilename()));
 
                 log.info("📷 이미지 저장 완료: {}", imageUrl);
 
-                // 이미지 URL과 함께 메시지 구성
                 String messageWithImage = message + "\n\n[학생이 이미지를 첨부했습니다]\n" +
                         "이미지 파일: " + imageUrl + "\n" +
                         "학생의 이미지와 질문을 바탕으로 답변해주세요. " +
@@ -221,7 +264,6 @@ public class TutorService {
                 throw new TutorooException("이미지 처리 중 오류가 발생했습니다.", ErrorCode.AI_PROCESSING_ERROR);
             }
         } else {
-            // 이미지 없는 일반 메시지
             messages.add(new UserMessage(message));
             String aiResponse = chatModel.call(new Prompt(messages)).getResult().getOutput().getText();
 
@@ -232,9 +274,6 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 4. 데일리 테스트 생성 (로드맵 내용 정밀 타격)
-    // =================================================================================
     @Transactional(readOnly = true)
     public TutorDTO.DailyTestResponse generateTest(Long userId, Long planId, int dayCount) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -244,11 +283,11 @@ public class TutorService {
 
         String prompt = String.format("""
                 [데일리 테스트 출제]
-                - 과목: %s
-                - 오늘 학습한 내용: %s
+                - 전체 과목: %s
+                - 🎯 오늘 학습한 주제: %s
                 - 난이도: %s 수준
                 
-                오늘 배운 '%s'의 핵심 개념을 확인하는 4지선다 퀴즈 1개를 JSON으로 출제해.
+                **반드시 '%s'의 핵심 개념을 확인하는** 4지선다 퀴즈 1개를 JSON으로 출제해.
                 단순 암기보다는 '이해했는지'를 묻는 함정 문제를 선호해.
                 
                 형식:
@@ -274,9 +313,6 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 5. 실전 시험 및 채점 (전문가적 피드백)
-    // =================================================================================
     @Transactional(readOnly = true)
     public TutorDTO.ExamGenerateResponse generateExam(Long userId, Long planId) {
         StudyPlanEntity plan = studyMapper.findById(planId);
@@ -334,33 +370,41 @@ public class TutorService {
         }
     }
 
-    // =================================================================================
-    // 6. 테스트 제출 및 채점 - 이미지 지원 추가 (M6 버전)
-    // =================================================================================
     @Transactional
     public TutorDTO.TestFeedbackResponse submitTest(Long userId, Long planId, String textAnswer, MultipartFile image) {
         StudyPlanEntity plan = studyMapper.findById(planId);
         if (plan == null) throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
 
+        // ✅ 오늘의 주제 가져오기
+        StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(planId);
+        int currentDay = (lastLog == null) ? 1 : lastLog.getDayCount() + 1;
+        String todaysTopic = getTopicFromRoadmap(plan.getRoadmapJson(), currentDay);
+
         String prompt = String.format("""
             [답안 채점]
             과목: %s
+            오늘의 주제: %s
             학생 답안(텍스트): %s
             
             학생의 답변을 분석하고 100점 만점으로 채점해줘.
-            점수와 함께 구체적인 피드백을 제공해줘.
+            **반드시 '%s'에 대한 이해도를 평가해야 함.**
             
-            응답 형식:
-            점수: [0-100]
-            피드백: [상세한 설명]
+            **반드시 다음 형식으로만 답변해:**
+            점수: [0-100 사이의 숫자]
+            피드백: [구체적인 설명과 조언]
+            
+            예시:
+            점수: 85
+            피드백: 핵심 개념은 잘 이해하셨네요! 다만 구체적인 예시를 들면 더 좋았을 것 같아요.
             """,
                 plan.getGoal(),
-                textAnswer != null ? textAnswer : "텍스트 답변 없음"
+                todaysTopic,
+                textAnswer != null ? textAnswer : "텍스트 답변 없음",
+                todaysTopic
         );
 
         String aiResponse;
 
-        // M6 버전: 이미지를 서버에 저장하고 URL을 텍스트로 전달
         if (image != null && !image.isEmpty()) {
             try {
                 String imageUrl = fileStore.storeFile(image.getBytes(),
@@ -384,32 +428,38 @@ public class TutorService {
         }
 
         int score = parseScore(aiResponse);
+        String cleanedFeedback = removeDuplicateScoreFromFeedback(aiResponse);
+        int pointChange = score >= 60 ? 50 : 10;
 
-        studyMapper.saveLog(StudyLogEntity.builder()
+        int newDayCount = (lastLog == null) ? 1 : lastLog.getDayCount() + 1;
+
+        StudyLogEntity logEntity = StudyLogEntity.builder()
                 .planId(planId)
-                .dayCount(0)
+                .dayCount(newDayCount)
                 .testScore(score)
-                .aiFeedback(aiResponse)
+                .aiFeedback(cleanedFeedback)
                 .isCompleted(score >= 60)
-                .pointChange(score >= 60 ? 50 : 10)
-                .build());
+                .pointChange(pointChange)
+                .contentSummary(todaysTopic)  // ✅ 주제 저장
+                .build();
 
-        String audioUrl = requestTts(aiResponse, plan.getPersona());
+        studyMapper.saveLog(logEntity);
+        userMapper.earnPoints(userId, pointChange);
+
+        log.info("✅ 테스트 제출 완료 - 사용자 {}에게 {}P 지급 (점수: {})", userId, pointChange, score);
+
+        String audioUrl = requestTts(cleanedFeedback, plan.getPersona());
 
         return new TutorDTO.TestFeedbackResponse(
                 score,
-                aiResponse,
-                "요약",
+                cleanedFeedback,
+                "테스트 완료",
                 audioUrl,
                 null,
-                score >= 60 ? "잘했어요!" : "조금 더 노력해봐요!",
+                score >= 60 ? "합격! 잘했어요!" : "조금 더 노력해봐요!",
                 score >= 60
         );
     }
-
-    // =================================================================================
-    // 7. 유틸리티 및 헬퍼 메서드
-    // =================================================================================
 
     private String getTopicFromRoadmap(String json, int dayCount) {
         if (!StringUtils.hasText(json)) return "심화 학습";
@@ -423,7 +473,7 @@ public class TutorService {
                         for (JsonNode dayPlan : week) {
                             String dayStr = dayPlan.path("day").asText();
                             if (extractNumber(dayStr) == dayCount) {
-                                return dayPlan.path("topic").asText() + " (" + dayPlan.path("method").asText() + ")";
+                                return dayPlan.path("topic").asText();  // ✅ method 제거, topic만 반환
                             }
                         }
                     }
@@ -451,13 +501,23 @@ public class TutorService {
         }
     }
 
-    private String buildBaseSystemPrompt(StudyPlanEntity plan, String customOption) {
+    private String buildBaseSystemPrompt(StudyPlanEntity plan, String customOption, String todaysTopic) {
         String base = commonMapper.findPromptContentByKey("TEACHER_" + plan.getPersona());
         if (base == null) base = "너는 열정적인 AI 선생님이야.";
+
         StringBuilder sb = new StringBuilder(base);
+
         if (StringUtils.hasText(plan.getCustomTutorName())) {
             sb.append("\n이름은 '").append(plan.getCustomTutorName()).append("'로 연기해.");
         }
+
+        if (StringUtils.hasText(customOption)) {
+            sb.append("\n[커스텀 요청]: ").append(customOption);
+        }
+
+        // ✅ 오늘의 주제 강조
+        sb.append(String.format("\n\n[⚠️ 절대 규칙] 반드시 '%s'에 대해서만 가르쳐야 함. 다른 주제는 절대 금지.", todaysTopic));
+
         return sb.toString();
     }
 
@@ -516,16 +576,39 @@ public class TutorService {
     }
 
     private int parseScore(String text) {
-        // "점수: 85" 형식 찾기
-        Matcher m = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
-        if (m.find()) return Integer.parseInt(m.group(1));
+        if (text == null || text.isEmpty()) return 0;
 
-        // "85점" 형식 찾기
-        m = Pattern.compile("([0-9]{1,3})점").matcher(text);
-        if (m.find()) return Integer.parseInt(m.group(1));
+        Matcher m1 = Pattern.compile("점수[:\\s]*([0-9]{1,3})").matcher(text);
+        if (m1.find()) {
+            int score = Integer.parseInt(m1.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
 
-        // 기본값
+        Matcher m2 = Pattern.compile("([0-9]{1,3})점").matcher(text);
+        if (m2.find()) {
+            int score = Integer.parseInt(m2.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
+
+        Matcher m3 = Pattern.compile("score[:\\s]*([0-9]{1,3})", Pattern.CASE_INSENSITIVE).matcher(text);
+        if (m3.find()) {
+            int score = Integer.parseInt(m3.group(1));
+            return Math.min(100, Math.max(0, score));
+        }
+
+        log.warn("점수를 파싱할 수 없습니다. 응답: {}", text);
         return 50;
+    }
+
+    private String removeDuplicateScoreFromFeedback(String feedback) {
+        if (feedback == null || feedback.isEmpty()) return "";
+
+        String cleaned = feedback.replaceAll("점수[:\\s]*[0-9]{1,3}점?\\s*", "");
+        cleaned = cleaned.replaceAll("(?i)score[:\\s]*[0-9]{1,3}\\s*", "");
+        cleaned = cleaned.replaceAll("(^|\\n)\\s*[0-9]{1,3}점\\s*", "$1");
+        cleaned = cleaned.replaceAll("피드백[:\\s]*", "").trim();
+
+        return cleaned;
     }
 
     private String getFileExtension(String filename) {

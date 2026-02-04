@@ -118,13 +118,11 @@ export const caretOpen = css`
   transform: rotate(180deg);
 `;
 
-//  오늘 완료 스타일(회색이지만 클릭은 가능)
 export const completedBtn = css`
   background: #cccccc !important;
   color: #888 !important;
 `;
 
-//  드롭다운 박스
 export const studyMenu = css`
   position: absolute;
   right: 0;
@@ -385,7 +383,6 @@ export const doneBadge = css`
   font-weight: 900;
 `;
 
-
 export const dayBadge = css`
   width: fit-content;
   padding: 2px 8px;
@@ -529,4 +526,3 @@ export const feedbackBtn = css`
     cursor: not-allowed;
   }
 `;
-

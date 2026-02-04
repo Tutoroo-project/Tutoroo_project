@@ -94,6 +94,41 @@ export const placeholder = css`
   font-size: 16px;
 `;
 
+export const breakButtonContainer = css`
+  display: flex;
+  justify-content: center;
+  margin-top: 20px;
+  padding: 20px 0;
+`;
+
+export const skipBreakButton = css`
+  padding: 14px 32px;
+  border-radius: 24px;
+  border: 2px solid ${theme.colors.primary};
+  background: linear-gradient(135deg, #fff 0%, #fffbf5 100%);
+  color: ${theme.colors.primary};
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(255, 138, 61, 0.2);
+  
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  &:hover {
+    background: ${theme.colors.primary};
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(255, 138, 61, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
+
 export const bottomArea = css`
   position: fixed;
   bottom: 0;

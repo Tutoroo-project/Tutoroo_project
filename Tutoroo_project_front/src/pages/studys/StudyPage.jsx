@@ -43,7 +43,7 @@ function StudyPage() {
     submitTest,
     studentRating,
     studentFeedbackText,
-    submitStudentFeedback
+    nextSessionStep
   } = useStudyStore();
 
   const [inputText, setInputText] = useState("");
@@ -102,7 +102,6 @@ function StudyPage() {
     }
   }, [messages, isSpeakerOn]);
 
-  // 이미지 파일 선택 시 미리보기 생성
   useEffect(() => {
     if (chatImageFile) {
       const reader = new FileReader();
@@ -234,6 +233,8 @@ function StudyPage() {
     );
   };
 
+  const isBreakTime = currentMode === 'BREAK';
+
   return (
     <>
       <Header />
@@ -292,6 +293,17 @@ function StudyPage() {
               <div css={s.bubble(false)}>
                 {isRecording ? <span css={s.recordingPulse}>🎤 듣고 있어요...</span> : <span className="dot-flashing">...</span>}
               </div>
+            </div>
+          )}
+
+          {isBreakTime && (
+            <div css={s.breakButtonContainer}>
+              <button 
+                css={s.skipBreakButton}
+                onClick={() => nextSessionStep()}
+              >
+                 쉬는시간 건너뛰기
+              </button>
             </div>
           )}
         </main>
@@ -397,7 +409,7 @@ function StudyPage() {
                         />
                         {currentMode === 'REVIEW' && (
                             <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>
-                                📄 자료 다운
+                                 자료 다운
                             </button>
                         )}
                     </div>

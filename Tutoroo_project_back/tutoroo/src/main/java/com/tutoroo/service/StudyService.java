@@ -190,18 +190,22 @@ public class StudyService {
             throw new TutorooException(ErrorCode.STUDY_PLAN_NOT_FOUND);
         }
 
-        // [동시성 제어] 따닥 방지
+        // [동시성 제어] 따닥 방지 - dayCount 포함 체크
         List<StudyLogEntity> todayLogs = studyMapper.findLogsByUserIdAndDate(userId, LocalDate.now());
         boolean alreadyStudiedToday = todayLogs.stream()
-                .anyMatch(log -> log.getPlanId().equals(plan.getId()));
+                .anyMatch(log -> log.getPlanId().equals(plan.getId())
+                        && log.getDayCount().equals(request.dayCount()));
 
         if (alreadyStudiedToday) {
-            log.warn("⛔ 중복 학습 로그 저장 차단: PlanID {}", plan.getId());
+            log.warn("⛔ 중복 학습 로그 저장 차단: PlanID {}, DayCount {}", plan.getId(), request.dayCount());
             return;
         }
 
         StudyLogEntity lastLog = studyMapper.findLatestLogByPlanId(plan.getId());
         int newDayCount = (lastLog == null) ? 1 : lastLog.getDayCount() + 1;
+
+        // ✅ 포인트 계산: 60점 이상 합격(50P), 미만 불합격(10P)
+        int pointChange = request.score() >= 60 ? 50 : 10;
 
         StudyLogEntity logEntity = StudyLogEntity.builder()
                 .planId(plan.getId())
@@ -211,7 +215,7 @@ public class StudyService {
                 .contentSummary(request.contentSummary())
                 .dailySummary("오늘의 학습: " + request.contentSummary())
                 .isCompleted(request.isCompleted())
-                .pointChange(request.score() > 0 ? request.score() : 10)
+                .pointChange(pointChange)
                 .build();
 
         studyMapper.saveLog(logEntity);
@@ -226,7 +230,8 @@ public class StudyService {
         }
         updateProgress(plan.getId(), calculateProgress(plan, newDayCount));
 
-        log.info("📝 학습 로그 저장 완료: User={}, Plan={}, Day={}", userId, plan.getId(), newDayCount);
+        log.info("📝 학습 로그 저장 및 포인트 지급 완료: User={}, Plan={}, Day={}, Points={}P",
+                userId, plan.getId(), newDayCount, pointChange);
     }
 
     @Transactional

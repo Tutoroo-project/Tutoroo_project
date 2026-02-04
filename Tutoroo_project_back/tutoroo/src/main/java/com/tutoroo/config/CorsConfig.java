@@ -23,6 +23,8 @@ public class CorsConfig {
 
         // 1. 허용할 프론트엔드 도메인 (설정 파일 값 사용)
         config.setAllowedOrigins(allowedOrigins);
+        
+        config.setAllowedOriginPatterns(allowedOrigins);
 
         // 2. 허용할 HTTP 메서드
         config.setAllowedMethods(List.of("*"));

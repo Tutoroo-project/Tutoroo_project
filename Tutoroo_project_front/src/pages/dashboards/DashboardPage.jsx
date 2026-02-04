@@ -583,7 +583,7 @@ function DashboardPage() {
                         setIsStudyMenuOpen(false);
                         startRegularClass();
                       }}
-                      disabled={isTodayDone}   //  오늘 완료면 정규수업만 막고
+                      disabled={isTodayDone}
                     >
                       정규 수업
                     </button>
@@ -593,7 +593,7 @@ function DashboardPage() {
                       css={s.studyMenuItem}
                       onClick={() => {
                         setIsStudyMenuOpen(false);
-                        goInfinitePractice();   // 실습은 계속 가능
+                        goInfinitePractice();
                       }}
                     >
                       무한 반복 실습

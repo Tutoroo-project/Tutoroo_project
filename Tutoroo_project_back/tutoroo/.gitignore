@@ -1,6 +1,7 @@
 application-secret-**
 application-secret-dev.yml
 application-secret-prod.yml
+application-secret-prod-base64.yml
 application-secret.yml
 backend_src_all_code.txt
 CodeExtractor.class

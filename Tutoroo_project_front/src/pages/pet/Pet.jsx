@@ -30,14 +30,37 @@ function Pet() {
   const [frameIndex, setFrameIndex ]  = useState(0); 
 
   const getRenderInfo = () => {
-    if (!petStatus || petStatus.stage <= 1) {
-      return { src: PET_IMAGES.Egg.DEFAULT, sequence: ANIMATIONS.ROW1 };
-    }
 
-    const type = petStatus.petType || "Fox";
+    const type = petStatus?.petType || "FOX"; 
+ 
+    if (!petStatus || petStatus.stage <= 1) {
+      let eggImage;
+        
+      switch (type) {
+          case 'RABBIT': 
+              eggImage = PET_IMAGES.RabitEgg.BASIC; 
+              break;
+          case 'TIGER': 
+              eggImage = PET_IMAGES.TigerEgg.BASIC; 
+              break;
+          case 'TURTLE': 
+              eggImage = PET_IMAGES.TurtleEgg.BASIC; 
+              break;
+          case 'QUOKKA':
+              eggImage = PET_IMAGES.quokkaEgg.BASIC; 
+              break;
+          case 'FOX':
+          default: 
+              eggImage = PET_IMAGES.FoxEgg.BASIC; 
+              break;
+      }
+      
+      return { src: eggImage, sequence: ANIMATIONS.ROW1 };
+    }
+  
     const images = PET_IMAGES[type] || PET_IMAGES.Fox;
 
-    if (actionStatus === "EATING") return { src: images.PART2, sequence: ANIMATIONS.ROW1 , isEgg: true};
+    if (actionStatus === "EATING") return { src: PET_IMAGES.FoxEgg.PART2, sequence: ANIMATIONS.ROW4 , isEgg: true};
     if (actionStatus === "CLEANING") return { src: images.PART2, sequence: ANIMATIONS.ROW2 };
     if (petStatus.isSleeping) return { src: images.PART1, sequence: ANIMATIONS.ROW1 };
     if (petStatus.fullness < 30) return { src: images.PART2, sequence: ANIMATIONS.ROW3 };
@@ -81,8 +104,20 @@ function Pet() {
         }
         const initResponse = await getAdoptablePets();
         setIsNoPet("SELECT_EGG_NEW");
-        setEggList(initResponse.availablePets || []);
+
+        // 1. 무조건 보여줄 '기본 여우' 데이터를 직접 만듭니다.
+        const defaultFox = {
+            type: 'FOX',
+            name: '아기 여우',
+            description: '새로운 모험을 함께할 사랑스러운 여우입니다.',
+            isNew: true
       }
+      const serverPets = initResponse.availablePets || [];
+
+        const otherPets = serverPets.filter(pet => pet.type !== 'FOX');
+
+        setEggList([defaultFox, ...otherPets]);
+    }
     } catch (error) {
       console.error("데이터 로딩 실패: ", error);
     } finally {
@@ -104,12 +139,12 @@ function Pet() {
         return;
     }
 
-    try {
-      if (isNoPet === "SELECT_EGG_GRADUATED") {
-        // [중요] 여기에 petName이 꼭 들어가야 합니다!
-        await hatchEgg(pet.type, inputName); 
-      } else {
+   try {
+      // ▼▼▼ [여기 수정!] pet.isNew 체크 로직 추가 ▼▼▼
+      if (pet.isNew || isNoPet === "SELECT_EGG_NEW") {
         await adoptPet(pet.type, inputName); 
+      } else if (isNoPet === "SELECT_EGG_GRADUATED") {
+        await hatchEgg(pet.type, inputName); 
       }
       
       alert("알을 따뜻하게 품기 시작했습니다! 🥚");
@@ -118,7 +153,7 @@ function Pet() {
       console.error(error);
       alert("알 선택 중 문제가 발생했습니다.");
     }
-  };
+};
 
   const handleInteract = async (actionType) => {
     try {
@@ -184,11 +219,19 @@ function Pet() {
                         css={s.adoptionCard} 
                         onClick={() => handleEggSelect(pet)}
                     >
-                      <img
-                        src={PET_IMAGES.Egg.DEFAULT} 
-                        alt={pet.name}
-                        style={{ width: "100px", height: "100px", objectFit: "contain", marginBottom: "15px" }}
+                      <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '15px' }}>
+                      <SpriteChar
+                        src={
+                          pet.type === 'FOX' ? PET_IMAGES.FoxEgg.BASIC :
+                          pet.type === 'RABBIT' ? PET_IMAGES.RabitEgg.BASIC :
+                          pet.type === 'TIGER' ? PET_IMAGES.TigerEgg.BASIC :
+                          pet.type === 'TURTLE' ? PET_IMAGES.TurtleEgg.BASIC :
+                          PET_IMAGES.FoxEgg.BASIC
+                        }
+                        index={0}  // 
+                        size={100} // 
                       />
+                    </div>
                       <h3 style={{ margin: "0 0 10px 0", color: "#e67025" }}>{pet.name}</h3>
                       <p style={{ fontSize: "13px", color: "#666" }}>{pet.description}</p>
                     </div>

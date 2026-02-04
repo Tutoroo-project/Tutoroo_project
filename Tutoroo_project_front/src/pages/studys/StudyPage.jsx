@@ -302,7 +302,7 @@ function StudyPage() {
                 css={s.skipBreakButton}
                 onClick={() => nextSessionStep()}
               >
-                💨 쉬는시간 건너뛰기
+                 쉬는시간 건너뛰기
               </button>
             </div>
           )}
@@ -409,7 +409,7 @@ function StudyPage() {
                         />
                         {currentMode === 'REVIEW' && (
                             <button css={s.textBtn} onClick={handleDownloadPdf} disabled={isChatLoading}>
-                                📄 자료 다운
+                                 자료 다운
                             </button>
                         )}
                     </div>

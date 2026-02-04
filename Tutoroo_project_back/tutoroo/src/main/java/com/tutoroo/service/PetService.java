@@ -128,7 +128,8 @@ public class PetService {
 
         switch (actionType) {
             case "FEED" -> {
-                if (user.getPointBalance() < COST_FEED) throw new TutorooException(ErrorCode.INSUFFICIENT_POINTS);
+                int currentPoints = (user.getPointBalance() == null) ? 0 : user.getPointBalance();
+                if (currentPoints < COST_FEED) throw new TutorooException(ErrorCode.INSUFFICIENT_POINTS);
                 userMapper.spendPoints(userId, COST_FEED);
                 pet.setFullness(Math.min(100, pet.getFullness() + 30));
                 pet.setExp(pet.getExp() + EXP_FEED);
@@ -175,13 +176,20 @@ public class PetService {
         PetInfoEntity pet = petMapper.findByUserId(userId);
         if (pet == null) return; // 펫이 없으면 패스
 
-        // 경험치 증가
-        pet.setExp(pet.getExp() + amount);
+        int currentExp = pet.getExp() + amount;
+        pet.setExp(currentExp);
 
-        // 레벨업 체크
-        checkLevelUp(pet);
+        // 2. 레벨업 체크 (다음 단계 경험치 조회)
+        Integer requiredExp = petMapper.findRequiredExpForNextStage(pet.getStage());
 
-        // DB 저장
+        // 만약 경험치가 꽉 찼다면? -> 레벨업!
+        if (requiredExp != null && currentExp >= requiredExp) {
+            pet.setStage(pet.getStage() + 1); // 레벨 +1
+            pet.setExp(currentExp - requiredExp); // 남은 경험치 이월
+            // (선택) 레벨업 축하 알림 메시지 등을 여기서 보낼 수도 있음
+        }
+
+        // 3. 변경사항 저장
         petMapper.updatePet(pet);
     }
 
@@ -358,6 +366,10 @@ public class PetService {
 
     private void updatePetStats(PetInfoEntity pet) {
         LocalDateTime now = LocalDateTime.now();
+
+        if (pet.getLastFedAt() == null) pet.setLastFedAt(now);
+        if (pet.getLastPlayedAt() == null) pet.setLastPlayedAt(now);
+
         long hFed = Duration.between(pet.getLastFedAt(), now).toHours();
         if(hFed > 0) pet.setFullness(Math.max(0, pet.getFullness() - (int)hFed * FULLNESS_DECAY_PER_HOUR));
         long hPlay = Duration.between(pet.getLastPlayedAt(), now).toHours();
@@ -400,4 +412,6 @@ public class PetService {
                         .build())
                 .toList();
     }
+
+
 }

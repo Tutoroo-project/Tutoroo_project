@@ -23,6 +23,7 @@ jobs:
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_JAEWON}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_JAEWON}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_JAEWON}}" >> $GITHUB_ENV
+            echo "ACTIVE_PROFILE=jaewon" >> $GITHUB_ENV
 
           elif [ ${{github.ref}} == 'refs/heads/deploy-gyeonggu' ]; then
           
@@ -35,6 +36,7 @@ jobs:
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_GYEONGGU}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_GYEONGGU}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_GYEONGGU}}" >> $GITHUB_ENV
+            echo "ACTIVE_PROFILE=gyeonggu" >> $GITHUB_ENV
 
           elif [ ${{github.ref}} == 'refs/heads/deploy-seongyeop' ]; then
           
@@ -47,6 +49,7 @@ jobs:
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SEONGYEOP}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SEONGYEOP}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "ACTIVE_PROFILE=seongyeop" >> $GITHUB_ENV
 
           elif [ ${{github.ref}} == 'refs/heads/deploy-sohyun' ]; then
           
@@ -59,6 +62,7 @@ jobs:
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SOHYUN}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SOHYUN}}" >> $GITHUB_ENV
             echo "REACT_ENV=${{secrets.REACT_ENV_SOHYUN}}" >> $GITHUB_ENV
+            echo "ACTIVE_PROFILE=sohyun" >> $GITHUB_ENV
               
           fi
           
@@ -78,7 +82,7 @@ jobs:
           cd Tutoroo_project_back/tutoroo
           echo ${{env.APPLICATION_SECRET}} | base64 --decode > ./src/main/resources/application-secret-prod.yml
           chmod 777 ./mvnw
-          ./mvnw clean package -Dtestskip
+          ./mvnw clean package -DskipTests -Dactive.profile=
 
       - name: Springboot Docker image build
         run: |

@@ -1,6 +1,26 @@
 
 import foxEgg from "../assets/pets/fox_egg.png"; // 여우 알 상태
 import foxEgg1 from "../assets/pets/fox_egg1.png"; // 여우 알 감정1
+import foxEgg2 from "../assets/pets/fox_egg2.png"; // 여우 알 감정2
+import foxEgg3 from "../assets/pets/fox_egg3.png"; // 여우 알 감정3
+
+//----------------------------------------------------------------------
+
+import rabitEgg1 from "../assets/pets/rabit_egg1.png";
+
+//-------------------------------------------------------------------------
+
+import tigerEgg1 from "../assets/pets/tiger_egg1.png";
+
+//------------------------------------------------------------------------
+
+import turtleEgg1 from "../assets/pets/turtle_egg1.png";
+
+//--------------------------------------------------------------------------
+
+import quokkaEgg1 from "../assets/pets/quokka_egg1.png";
+
+
 
 
 import foxBaby from "../assets/pets/fox_baby.png"; // 여우 아기 상태
@@ -16,8 +36,27 @@ import foxPart3 from "../assets/pets/fox_baby3.png"; // 배고파요, 놀기, �
 
 export const PET_IMAGES = { //전체적으로 아기 상태로 설정
 
-    Egg: {
-        DEFAULT: foxEgg1
+    FoxEgg: {
+        BASIC: foxEgg1,
+        PART1: foxEgg2,
+        PART2: foxEgg3,
+
+    },
+
+    RabitEgg: {
+        BASIC: rabitEgg1,
+    },
+
+    TigerEgg: {
+        BASIC: tigerEgg1,
+    },
+
+    TurtleEgg: {
+        BASIC: turtleEgg1,
+    },
+
+    quokkaEgg: {
+        BASIC: quokkaEgg1,
     },
    
     Fox: {

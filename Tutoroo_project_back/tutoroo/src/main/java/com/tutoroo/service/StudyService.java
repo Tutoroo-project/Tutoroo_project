@@ -41,6 +41,8 @@ public class StudyService {
 
     private final UserMapper userMapper;
     private final StudyMapper studyMapper;
+
+    private final PetService petService;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final OpenAiChatModel chatModel;
@@ -217,7 +219,15 @@ public class StudyService {
                 .build();
 
         studyMapper.saveLog(logEntity);
-        userMapper.earnPoints(userId, pointChange);
+        userMapper.earnPoints(userId, logEntity.getPointChange());
+        try {
+
+            petService.gainExp(userId, 20);
+            log.info("🐶 펫 경험치 지급 완료! (User: {})", userId);
+        } catch (Exception e) {
+            // 펫이 없거나 오류가 나도 공부 기록은 저장되어야 하므로 로그만 남김
+            log.warn("펫 경험치 지급 실패: {}", e.getMessage());
+        }
         updateProgress(plan.getId(), calculateProgress(plan, newDayCount));
 
         log.info("📝 학습 로그 저장 및 포인트 지급 완료: User={}, Plan={}, Day={}, Points={}P",

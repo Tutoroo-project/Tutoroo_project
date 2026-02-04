@@ -17,7 +17,7 @@ export const SESSION_MODES = {
   BREAK: { label: "쉬는 시간", defaultTime: 1 * 60 },
   TEST: { label: "테스트", defaultTime: 15 * 60 },
   GRADING: { label: "채점 중", defaultTime: 10 },
-  EXPLANATION: { label: "해설 강의", defaultTime: 10 * 60 },
+  EXPLANATION: { label: "해설 강의", defaultTime: 5 * 60 },
   AI_FEEDBACK: { label: "AI 피드백", defaultTime: 5 * 60 },
   STUDENT_FEEDBACK: { label: "수업 평가", defaultTime: 3 * 60 },
   REVIEW: { label: "복습 자료", defaultTime: 0 },
@@ -299,10 +299,9 @@ const useStudyStore = create((set, get) => ({
             isChatLoading: false
         });
 
-        // ✅ API 응답 필드명에 맞게 수정 (aiFeedback)
         const score = result.score ?? 0;
         const feedback = result.aiFeedback || "피드백을 불러올 수 없습니다.";
-        const passed = result.isPassed ? "✅ 합격" : "❌ 불합격";
+        const passed = result.isPassed ? " 합격" : " 불합격";
 
         set((state) => ({
             messages: [...state.messages, {
@@ -311,7 +310,7 @@ const useStudyStore = create((set, get) => ({
                 hasImage: !!imageFile
             }, {
                 type: 'AI',
-                content: `📊 점수: ${score}점 (${passed})\n\n${feedback}`,
+                content: ` 점수: ${score}점 (${passed})\n\n${feedback}`,
                 audioUrl: result.audioUrl
             }]
         }));

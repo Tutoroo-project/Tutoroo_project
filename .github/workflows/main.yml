@@ -16,7 +16,9 @@ jobs:
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_JAEWON}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_JAEWON}}" >> $GITHUB_ENV
-            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_JAEWON}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY<<EOF" >>$GITHUB_ENV
+            echo "${{ secrets.GCP_VM_SSHKEY_JAEWON }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
             echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_JAEWON}}" >> $GITHUB_ENV
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_JAEWON}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_JAEWON}}" >> $GITHUB_ENV
@@ -26,7 +28,9 @@ jobs:
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_GYEONGGU}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_GYEONGGU}}" >> $GITHUB_ENV
-            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_GYEONGGU}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY<<EOF" >>$GITHUB_ENV
+            echo "${{ secrets.GCP_VM_SSHKEY_GYEONGGU }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
             echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_GYEONGGU}}" >> $GITHUB_ENV
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_GYEONGGU}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_GYEONGGU}}" >> $GITHUB_ENV
@@ -36,7 +40,9 @@ jobs:
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SEONGYEOP}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SEONGYEOP}}" >> $GITHUB_ENV
-            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_SEONGYEOP}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY<<EOF" >>$GITHUB_ENV
+            echo "${{ secrets.GCP_VM_SSHKEY_SEONGYEOP }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
             echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_SEONGYEOP}}" >> $GITHUB_ENV
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SEONGYEOP}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SEONGYEOP}}" >> $GITHUB_ENV
@@ -46,7 +52,9 @@ jobs:
           
             echo "GCP_VM_HOST=${{secrets.GCP_VM_HOST_SOHYUN}}" >> $GITHUB_ENV
             echo "GCP_VM_USERNAME=${{secrets.GCP_VM_USERNAME_SOHYUN}}" >> $GITHUB_ENV
-            echo "GCP_VM_SSHKEY=${{secrets.GCP_VM_SSHKEY_SOHYUN}}" >> $GITHUB_ENV
+            echo "GCP_VM_SSHKEY<<EOF" >>$GITHUB_ENV
+            echo "${{ secrets.GCP_VM_SSHKEY_SOHYUN }}" >> $GITHUB_ENV
+            echo "EOF" >> $GITHUB_ENV
             echo "DOCKER_USERNAME=${{secrets.DOCKER_USERNAME_SOHYUN}}" >> $GITHUB_ENV
             echo "DOCKER_PASSWORD=${{secrets.DOCKER_PASSWORD_SOHYUN}}" >> $GITHUB_ENV
             echo "APPLICATION_SECRET=${{secrets.APPLICATION_SECRET_SOHYUN}}" >> $GITHUB_ENV

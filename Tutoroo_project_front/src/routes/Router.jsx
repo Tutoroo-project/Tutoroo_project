@@ -32,7 +32,7 @@ function Router() {
       <Route path="/level-test/result" element={<LevelTestResultPage />} />
       <Route path="/tutor" element={<TutorSelectionPage />} />
       <Route path="/study" element={<StudyPage />} />
-      <Route path="/auth/oauth2/redirect" element={<OAuth2RedirectPage />} />
+      <Route path="/oauth2/redirect" element={<OAuth2RedirectPage />} />
       <Route path="/practice/infinite" element={<InfiniteStudyPage />} />
       <Route path="/pet" element={<Pet />} />
     </Routes>
